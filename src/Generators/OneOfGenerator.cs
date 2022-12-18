@@ -87,6 +87,7 @@ namespace UnionTypes.Generators
 
         private void WriteCreateMethods()
         {
+            // Create(T)
             for (int i = 1; i <= _nTypeArgs; i++)
             {
                 WriteLine($"public static {_oneOfType} Create(T{i} value)");
@@ -97,31 +98,6 @@ namespace UnionTypes.Generators
                 WriteLine();
             }
 
-            // Create(object)
-            //WriteLine($"public static {_oneOfType} Create(object value)");
-            //WriteBraceNested(() =>
-            //{
-            //    WriteLine("if (value is IOneOf oneOf)");
-            //    WriteLineNested("value = oneOf.GetValue();");
-            //    WriteLine();
-
-            //    WriteLine("switch (value)");
-            //    WriteBraceNested(() =>
-            //    {
-            //        for (int i = 1; i <= _nTypeArgs; i++)
-            //        {
-            //            WriteLine($"case T{i} _:");
-            //        }
-
-            //        WriteNested(() => WriteLine($"return new {_oneOfType}(value);"));
-            //        WriteLine();
-
-            //        WriteLine("default:");
-            //        WriteNested(() => WriteLine("throw new ArgumentException($\"The value is not one of the expected types\");"));
-            //    });
-            //});
-            //WriteLine();
-
             // Create<TOneOf>
             WriteLine($"public static {_oneOfType} Create<TValue>(TValue value)");
             WriteBraceNested(() =>
@@ -129,14 +105,28 @@ namespace UnionTypes.Generators
                 WriteLine("switch (value)");
                 WriteBraceNested(() =>
                 {
-                    WriteLine($"case {_oneOfType} thisOneOf: return thisOneOf;");
                     for (int i = 1; i <= _nTypeArgs; i++)
                     {
                         WriteLine($"case T{i} value{i}: return Create(value{i});");
                     }
-                    WriteLine($"case IOneOf otherOneOf: return Create(otherOneOf.GetValue());");
+                    WriteLine($"case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());");
                     WriteLine("default: throw new InvalidCastException();");
                 });
+            });
+            WriteLine();
+
+            // Convert<TOneOf>
+            WriteLine($"public static {_oneOfType} Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf");
+            WriteBraceNested(() =>
+            {
+                WriteLine($"if (oneOf is {_oneOfType} me) return me;");
+
+                for (int i = 1; i <= _nTypeArgs; i++)
+                {
+                    WriteLine($"if (oneOf.TryGet(out T{i} value{i})) return Create(value{i});");
+                }
+
+                WriteLine("throw new InvalidCastException();");
             });
         }
 
@@ -147,14 +137,14 @@ namespace UnionTypes.Generators
                 WriteLine($"public static implicit operator {_oneOfType}(T{i} value)");
                 WriteBraceNested(() =>
                 {
-                    WriteLine($"return new {_oneOfType}(value!);");
+                    WriteLine($"return Create<T{i}>(value);");
                 });
                 WriteLine();
 
                 WriteLine($"public static explicit operator T{i}({_oneOfType} oneOf)");
                 WriteBraceNested(() =>
                 {
-                    WriteLine($"return oneOf.TryGetValue(out T{i} value) ? value : throw new InvalidCastException();");
+                    WriteLine($"return oneOf.Get<T{i}>();");
                 });
 
                 if (i < _nTypeArgs)
@@ -164,52 +154,30 @@ namespace UnionTypes.Generators
 
         private void WriteIUnionImplementation()
         {
-            // IsType
-            WriteLine("public bool IsType<T>() => _value is T;");
-            WriteLine();
+            // Is<T>
+            WriteLine("public bool Is<T>() => _value is T;");
 
-            // TryGetValue
-            WriteLine("public bool TryGetValue<T>(out T value)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("if (_value is T)");
-                WriteBraceNested(() =>
-                {
-                    WriteLine("value = (T)_value;");
-                    WriteLine("return true;");
-                });
-                WriteLine("else");
-                WriteBraceNested(() =>
-                {
-                    WriteLine("value = default!;");
-                    WriteLine("return false;");
-                });
-            });
-            WriteLine();
+            // Get<T>
+            WriteLine("public T Get<T>() => _value is T t ? t : throw new InvalidCastException();");
 
-            // GetValue
-            WriteLine("public object GetValue()");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return _value;");
-            });
-        }
+            // TryGet<T>
+            WriteLine("public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }");
 
-        private void WriteEquality()
-        {
             // equals
             WriteLine("public bool Equals<TValue>(TValue value)");
             WriteBraceNested(() =>
             {
                 WriteLine($"if (value is {_oneOfType} thisOneOf)");
-                WriteLineNested("return object.Equals(this.GetValue(), thisOneOf.GetValue());");
+                WriteLineNested("return object.Equals(this.Get<object>(), thisOneOf.Get<object>());");
                 WriteLine("else if (value is IOneOf otherOneOf)");
-                WriteLineNested("return object.Equals(this.GetValue(), otherOneOf.GetValue());");
+                WriteLineNested("return object.Equals(this.Get<object>(), otherOneOf.Get<object>());");
                 WriteLine("else");
-                WriteLineNested("return object.Equals(this.GetValue(), value);");
+                WriteLineNested("return object.Equals(this.Get<object>(), value);");
             });
-            WriteLine();
+        }
 
+        private void WriteEquality()
+        {
             // equals
             WriteLine("public override bool Equals(object? obj)");
             WriteBraceNested(() =>
@@ -222,7 +190,7 @@ namespace UnionTypes.Generators
             WriteLine("public override int GetHashCode()");
             WriteBraceNested(() =>
             {
-                WriteLine("return GetValue()?.GetHashCode() ?? 0;");
+                WriteLine("return _value?.GetHashCode() ?? 0;");
             });
             WriteLine();
 
@@ -230,7 +198,7 @@ namespace UnionTypes.Generators
             WriteLine($"public bool Equals({_oneOfType}? other)");
             WriteBraceNested(() =>
             {
-                WriteLine("return object.Equals(GetValue(), other?.GetValue());");
+                WriteLine("return object.Equals(_value, other?._value);");
             });
             WriteLine();
 
@@ -238,13 +206,13 @@ namespace UnionTypes.Generators
             WriteLine($"public static bool operator ==({_oneOfType} oneOf, IOneOf? other)");
             WriteBraceNested(() =>
             {
-                WriteLine("return object.Equals(oneOf.GetValue(), other?.GetValue());");
+                WriteLine("return object.Equals(oneOf._value, other?.Get<object>());");
             });
             WriteLine();
             WriteLine($"public static bool operator !=({_oneOfType} oneOf, IOneOf? other)");
             WriteBraceNested(() =>
             {
-                WriteLine("return !object.Equals(oneOf.GetValue(), other?.GetValue());");
+                WriteLine("return !object.Equals(oneOf._value, other?.Get<object>());");
             });
             WriteLine();
 
@@ -253,13 +221,13 @@ namespace UnionTypes.Generators
                 WriteLine($"public static bool operator ==({_oneOfType} oneOf, T{i} other)");
                 WriteBraceNested(() =>
                 {
-                    WriteLine("return object.Equals(oneOf.GetValue(), other);");
+                    WriteLine("return object.Equals(oneOf._value, other);");
                 });
                 WriteLine();
                 WriteLine($"public static bool operator !=({_oneOfType} oneOf, T{i} other)");
                 WriteBraceNested(() =>
                 {
-                    WriteLine("return !object.Equals(oneOf.GetValue(), other);");
+                    WriteLine("return !object.Equals(oneOf._value, other);");
                 });
 
                 if (i < _nTypeArgs)
@@ -272,7 +240,7 @@ namespace UnionTypes.Generators
             WriteLine("public override string ToString()");
             WriteBraceNested(() =>
             {
-                WriteLine("return GetValue()?.ToString() ?? \"\";");
+                WriteLine("return _value?.ToString() ?? \"\";");
             });
         }
     }

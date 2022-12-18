@@ -4,9 +4,9 @@ namespace UnionTypes
 {
     public interface IOneOf
     {
-        bool IsType<T>();
-        bool TryGetValue<T>(out T value);
-        object GetValue();
+        bool Is<T>();
+        T Get<T>();
+        bool TryGet<T>(out T value);
         bool Equals<T>(T value);
     }
 }

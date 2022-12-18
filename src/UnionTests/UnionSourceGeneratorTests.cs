@@ -11,7 +11,7 @@ namespace UnionTests
     public class UnionSourceGeneratorTests
     {
         [TestMethod]
-        public void TestUnionNestedCases()
+        public void TestUnionCasesFromNestedRecords()
         {
             TestUnion(
                 """
@@ -20,23 +20,34 @@ namespace UnionTests
                 [Union]
                 public partial struct MyUnion
                 {
-                    public record struct OptionA(int x);
-                    public record struct OptionB(string y);
+                    public record struct A(int x);
+                    public record struct B(string y);
                 }
 
                 public class Test
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = new MyUnion.OptionA(10);
-                        MyUnion unionB = new MyUnion.OptionB("ten");
-                        var isA = unionA.IsOptionA;
-                        var isB = unionB.IsOptionB;
+                        MyUnion unionA = new MyUnion.A(10);
+                        MyUnion unionA2 = MyUnion.CreateA(new MyUnion.A(10));
+                        MyUnion unionA3 = MyUnion.CreateA(10);
+                        
+                        MyUnion unionB = new MyUnion.B("ten");
+                        MyUnion unionB2 = MyUnion.CreateB(new MyUnion.B("ten"));
+                        MyUnion unionB3 = MyUnion.CreateB("ten");
+                        
+                        bool isA = unionA.IsA;
+                        bool isA2 = unionA.Is<MyUnion.A>();
+
+                        bool tryA = unionA.TryGetA(out MyUnion.A maybeA);
+                        bool tryA2 = unionA.TryGetAValues(out int x);
+
+                        MyUnion.A a = unionA.GetA();
+                        MyUnion.A a2 = unionA.Get<MyUnion.A>();
+                        object boxedA = unionA.Get<object>();
+
                         var areEqual = unionA == unionB;
-                        var optA = unionA.ToOptionA();
-                        var optB = unionB.ToOptionB();
-                        isA = unionA.TryGetOptionA(out var maybeA);
-                        var boxedValue = unionB.GetValue();
+                        var areEqual2 = unionA == new MyUnion.A(20);
                     }
                 }
                 """,
@@ -44,17 +55,17 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionExternalCases()
+        public void TestUnionCasesFromTypesAttribute()
         {
             TestUnion(
                 """
                 using UnionTypes;
 
-                public record struct OptionA(int x);
-                public record struct OptionB(string y);
+                public record struct A(int x);
+                public record struct B(string y);
 
                 [Union]
-                [UnionTypes(typeof(OptionA), typeof(OptionB))]
+                [UnionTypes(typeof(A), typeof(B))]
                 public partial struct MyUnion
                 {
                 }
@@ -63,49 +74,40 @@ namespace UnionTests
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = new OptionA(10);
-                        MyUnion unionB = new OptionB("ten");
-                        var isA = unionA.IsOptionA;
-                        var isB = unionB.IsOptionB;
+                        MyUnion unionA = new A(10);
+                        MyUnion unionA2 = MyUnion.CreateA(new A(10));
+                        MyUnion unionA3 = MyUnion.CreateA(10);
+                        
+                        MyUnion unionB = new B("ten");
+                        MyUnion unionB2 = MyUnion.CreateB(new B("ten"));
+                        MyUnion unionB3 = MyUnion.CreateB("ten");
+                        
+                        bool isA = unionA.IsA;
+                        bool isA2 = unionA.Is<A>();
+                
+                        bool tryA = unionA.TryGetA(out A maybeA);
+                        bool tryA2 = unionA.TryGetAValues(out int x);
+                
+                        A a = unionA.GetA();
+                        A a2 = unionA.Get<A>();
+                        object boxedA = unionA.Get<object>();
+                
                         var areEqual = unionA == unionB;
-                        var optA = unionA.ToOptionA();
-                        var optB = unionB.ToOptionB();
-                        isA = unionA.TryGetOptionA(out var maybeA);
+                        var areEqual2 = unionA == new A(20);
                     }
                 }
                 """);
         }
 
         [TestMethod]
-        public void TestUnionExternalFromOtherType()
-        {
-            TestUnion(
-                """
-                using UnionTypes;
-
-                public static class OtherType
-                {
-                    public record struct OptionA(int x);
-                    public record struct OptionB(string y);
-                }
-
-                [Union]
-                [UnionTypes(typeof(OtherType.OptionA), typeof(OtherType.OptionB))]
-                public partial struct MyUnion
-                {
-                }
-                """);
-        }
-
-        [TestMethod]
-        public void TestUnionTagCases()
+        public void TestUnionCasesFromTagsAttribute()
         {
             TestUnion(
                 """
                 using UnionTypes;
 
                 [Union]
-                [UnionTags("OptionA", "OptionB")]
+                [UnionTags("A", "B")]
                 public partial struct MyUnion
                 {
                 }
@@ -114,10 +116,58 @@ namespace UnionTests
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = MyUnion.OptionA;
-                        MyUnion unionB = MyUnion.OptionB;
-                        var isA = unionA.IsOptionA;
-                        var isB = unionB.IsOptionB;
+                        MyUnion unionA = MyUnion.CreateA();
+                        MyUnion unionA2 = MyUnion.A;
+                        MyUnion unionB = MyUnion.CreateB();
+                        MyUnion unionB2 = MyUnion.B;
+
+                        var isA = unionA.IsA;
+                        var isB = unionB.IsB;
+
+                        var areEqual = unionA == unionB;
+                    }
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestUnionCasesFromPartialFactories()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct C(double Z);
+
+                [Union]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion CreateA(int X);
+                    public static partial MyUnion CreateB();
+                    public static partial MyUnion CreateC(C value);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(10);
+                        MyUnion unionB = MyUnion.CreateB();
+                        MyUnion unionB2 = MyUnion.B;
+                        MyUnion unionC = MyUnion.CreateC(new C(5.0));
+
+                        bool isA = unionA.IsA;
+                        bool tryA = unionA.TryGetA(out int x);                      
+                
+                        bool isB = unionB.IsB;
+
+                        bool isC = unionC.IsC;
+                        bool isC2 = unionC.Is<C>();
+                        bool tryC = unionC.TryGetC(out C c);
+                        bool tryC2 = unionC.TryGetCValues(out double z);
+                        C getC = unionC.GetC();
+                        C getC2 = unionC.Get<C>();
+
                         var areEqual = unionA == unionB;
                     }
                 }
@@ -136,8 +186,8 @@ namespace UnionTests
                     [Union]
                     public partial struct MyUnion
                     {
-                        public record struct OptionA(int x);
-                        public record struct OptionB(string y);
+                        public record struct A(int x);
+                        public record struct B(string y);
                     }
                 }
                 """,
@@ -145,7 +195,49 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionInternal()
+        public void TestUnionCasesFromTypesInsideOtherNamespace()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                namespace OtherNamespace
+                {
+                    public record struct A(int x);
+                    public record struct B(string y);
+                }
+
+                [Union]
+                [UnionTypes(typeof(OtherNamespace.A), typeof(OtherNamespace.B))]
+                public partial struct MyUnion
+                {
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestUnionCasesFromTypesInsideOtherType()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public static class OtherType
+                {
+                    public record struct A(int x);
+                    public record struct B(string y);
+                }
+
+                [Union]
+                [UnionTypes(typeof(OtherType.A), typeof(OtherType.B))]
+                public partial struct MyUnion
+                {
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestUnionWithInternalAccessibility()
         {
             TestUnion(
                 """
@@ -156,8 +248,8 @@ namespace UnionTests
                     [Union]
                     internal partial struct MyUnion
                     {
-                        public record struct OptionA(int x);
-                        public record struct OptionB(string y);
+                        public record struct A(int x);
+                        public record struct B(string y);
                     }
                 }
                 """,
@@ -165,7 +257,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionInternalCases()
+        public void TestUnionCasesFromNestedRecordsWithInternalAccessibility()
         {
             TestUnion(
                 """
@@ -176,12 +268,12 @@ namespace UnionTests
                     [Union]
                     internal partial struct MyUnion
                     {
-                        internal record struct OptionA(int x);
-                        internal record struct OptionB(string y);
+                        internal record struct A(int x);
+                        internal record struct B(string y);
                     }
                 }
                 """,
-                newText => newText.Contains("internal OptionA ToOptionA"));
+                newText => newText.Contains("internal A GetA"));
         }
 
         [TestMethod]

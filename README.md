@@ -57,12 +57,12 @@ OneOf<int, double> intOrDouble = intOrDouble.Create(intOrString);
 
 #### Test for specific type
 ```CSharp
-if (intOrString.IsType<int>()) { }
+if (intOrString.Is<int>()) { }
 ```
 
 #### Test for specific type and get value
 ```CSharp
-if (intOrString.TryGetValue<int>(out var value)) { }
+if (intOrString.TryGet<int>(out var value)) { }
 ```
 
 #### Convert to specific type
@@ -73,7 +73,7 @@ var value = (int)intOrString;
 ### Convert between compatible unions
 ``` CSharp
 OneOf<int, string> intOrString = 5;
-OneOf<int, string, double> intOrStringOrDouble = OneOf<int, string, double>.Create(intOrstring);
+OneOf<int, string, double> intOrStringOrDouble = OneOf<int, string, double>.Convert(intOrstring);
 ```
 ### Compare for equality between union and values
 ``` CSharp
@@ -130,21 +130,33 @@ public record struct C(double Z);
 public partial struct MyUnion { }
 ```
 
-#### Union type with tag-only cases
+#### Union type with tag-only cases from attribute
 ```CSharp
 [Union, UnionTags("A", "B", "C")]
 public partial struct MyUnion { }
 ```
 
+#### Union type with tag-only cases from partial factory methods
+```CSharp
+[Union]
+public partial struct MyUnion 
+{ 
+    public static partial MyUnion CreateA(int x);
+    public static partial MyUnion CreateB(int x, string y);
+    public static partial MyUnion CreateC();
+}
+```
+
 #### Union type with mix of nested, external and tag-only cases
 ```CSharp
+public record struct B(string Y);
+
 [Union, UnionTypes(typeof(B)), UnionTags("C")]
 public partial struct MyUnion
 {
     public record struct A(int X);
+    public static partial MyUnion CreateD(double z);
 }
-
-public record struct B(string Y);
 ```
 
 ### Using custom union types
@@ -158,9 +170,9 @@ public partial struct ABC
 }
 public record struct B(string Y);
 
-var a = ABC.Create(new ABC.A(10));
-ABC b = ABC.Create(new B("ten"));
-ABC c = ABC.C;
+var a = ABC.CreateA(new ABC.A(10));
+ABC b = ABC.CreateB(new B("ten"));
+ABC c = ABC.CreateC();
 ```
 
 #### Assigning values via implicit coercion
@@ -189,10 +201,10 @@ public record struct B(string Y);
 ABC abc = ...;
 var isA = abc.IsA;
 var isB = abc.IsB;
-var isC = abc.IsC;
+var isC = abc.Is<C>();
 ```
 
-#### Test for specific case and get value
+#### Test and get specific case type
 ```CSharp
 [Union, UnionTypes(typeof(B)), UnionTags("C")]
 public partial struct ABC
@@ -205,14 +217,14 @@ ABC abc = ...;
 
 var isA = abc.TryGetA(out ABC.A a);
 var isA2 = abc.TryGetAValues(out int x);
-var isA3 = abc.TryGetValue<ABC.A>(out a);
+var isA3 = abc.TryGet<ABC.A>(out a);
 
 var isB = abc.TryGetB(out B b);
 var isB2 = abc.TryGetBValues(out string y);
-var isB3 = abc.TryGetValue<B>(out b);
+var isB3 = abc.TryGet<B>(out b);
 ```
 
-#### Convert to specific case type and get value without failure
+#### Get specific case type with possible failure
 ```CSharp
 [Union, UnionTypes(typeof(B)), UnionTags("C")]
 public partial struct ABC
@@ -222,24 +234,12 @@ public partial struct ABC
 public record struct B(string Y);
 
 ABC abc = ...;
-ABC.A? a = abc.AsA();
-B? b = abc.AsB();
-```
+ABC.A a = abc.GetA();
+ABC.A a2 = abc.Get<ABC.A>();
+ABC.A a3 = (ABC.A)abc;
 
-#### Convert to specific case type with possible failure
-```CSharp
-[Union, UnionTypes(typeof(B)), UnionTags("C")]
-public partial struct ABC
-{
-    public record struct A(int X);
-}
-public record struct B(string Y);
-
-ABC abc = ...;
-ABC.A a = abc.ToA();
-ABC.A2 a = (ABC.A)abc;
-
-B b = abc.ToB();
+B b = abc.GetB();
+B b2 = abc.Get<B>();
 B b2 = (B)abc;
 ```
 
@@ -258,7 +258,7 @@ public partial struct ABC
 public partial struct AB { }
 
 ABC abc = ...;
-AB ab = AB.Create(abc);
+AB ab = AB.Convert(abc);
 ```
 
 #### Compare for equality between same union types

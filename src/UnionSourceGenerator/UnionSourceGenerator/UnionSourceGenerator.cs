@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CATypeKind = Microsoft.CodeAnalysis.TypeKind;
@@ -54,9 +55,10 @@ namespace UnionTypes.Generators
         public string GenerateUnionType(INamedTypeSymbol unionType)
         {
             // get all cases declared for union type
-            var cases = GetNestedCases(unionType)
-                .Concat(GetExternalCases(unionType))
-                .Concat(GetTagCases(unionType))
+            var cases = GetCasesFromNestedRecords(unionType)
+                .Concat(GetCasesFromPartialFactories(unionType))
+                .Concat(GetCasesFromTypesAttribute(unionType))
+                .Concat(GetCasesFromTagsAttribute(unionType))
                 .ToArray();
 
             string namespaceName = null!;
@@ -97,18 +99,18 @@ namespace UnionTypes.Generators
             return Array.Empty<string>();
         }
 
-        private IReadOnlyList<Case> GetNestedCases(INamedTypeSymbol unionType)
+        private IReadOnlyList<Case> GetCasesFromNestedRecords(INamedTypeSymbol unionType)
         {
             return unionType
                 .GetTypeMembers()
                 .OfType<INamedTypeSymbol>()
                 .Where(nt => nt.IsRecord
                     && (nt.DeclaredAccessibility == Accessibility.Public || nt.DeclaredAccessibility == Accessibility.Internal))
-                .Select(nt => GetCaseType(nt.Name, nt, isNested: true))
+                .Select(nt => CreateTypeCase(nt.Name, nt, isNested: true, isPartial: false))
                 .ToArray();
         }
 
-        private IReadOnlyList<Case> GetExternalCases(INamedTypeSymbol unionType)
+        private IReadOnlyList<Case> GetCasesFromTypesAttribute(INamedTypeSymbol unionType)
         {
             var unionTypesAttribute = unionType.GetAttributes().FirstOrDefault(ad => ad.AttributeClass?.Name == "UnionTypesAttribute");
             if (unionTypesAttribute != null
@@ -121,7 +123,7 @@ namespace UnionTypes.Generators
                 {
                     if (val.Kind == TypedConstantKind.Type && val.Value is INamedTypeSymbol nt)
                     {
-                        cases.Add(GetCaseType(nt.Name, nt, isNested: false));
+                        cases.Add(CreateTypeCase(nt.Name, nt, isNested: false, isPartial: false));
                     }
                 }
 
@@ -131,15 +133,15 @@ namespace UnionTypes.Generators
             return Array.Empty<Case>();
         }
 
-        private IReadOnlyList<Case> GetTagCases(INamedTypeSymbol unionType)
+        private IReadOnlyList<Case> GetCasesFromTagsAttribute(INamedTypeSymbol unionType)
         {
+            var cases = new List<Case>();
+
             var unionTagsAttribute = unionType.GetAttributes().FirstOrDefault(ad => ad.AttributeClass?.Name == "UnionTagsAttribute");
             if (unionTagsAttribute != null
                 && unionTagsAttribute.ConstructorArguments.Length > 0
                 && unionTagsAttribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
             {
-                var cases = new List<Case>();
-
                 foreach (var val in unionTagsAttribute.ConstructorArguments[0].Values)
                 {
                     if (val.Kind == TypedConstantKind.Primitive && val.Value is string tagName)
@@ -147,41 +149,76 @@ namespace UnionTypes.Generators
                         cases.Add(new Case(TypeKind.Tag, tagName));
                     }
                 }
-
-                return cases;
             }
 
-            return Array.Empty<Case>();
+            return cases;
         }
 
-        private Case GetCaseType(string caseName, INamedTypeSymbol caseSymbol, bool isNested)
+        private IReadOnlyList<Case> GetCasesFromPartialFactories(INamedTypeSymbol unionType)
+        {
+            var cases = new List<Case>();
+
+            // from partial CreateXXX methods
+            var tagCreateMethods = unionType.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(m => m.IsPartialDefinition && m.IsStatic && m.TypeParameters.Length == 0 && m.Name.StartsWith("Create"))
+                .ToList();
+
+            foreach (var method in tagCreateMethods)
+            {
+                var caseName = method.Name.Substring(6);  // everything after Create
+
+                if (method.Parameters.Length == 1 
+                    && method.Parameters[0].Type is INamedTypeSymbol nt
+                    && nt.Name == caseName)
+                {
+                    // this is an external type
+                    cases.Add(CreateTypeCase(caseName, nt, isNested: false, isPartial: true));
+                }
+                else
+                {
+                    // this is a tag with possible values
+                    cases.Add(CreateTagCase(caseName, method, isPartial: true));
+                }
+            }
+
+            return cases;
+        }
+
+        private Case CreateTypeCase(string caseName, INamedTypeSymbol caseSymbol, bool isNested, bool isPartial)
         {
             var typeName = isNested ? caseSymbol.Name : GetTypeFullName(caseSymbol);
+            var caseValues = Array.Empty<Value>();
 
             var primaryConstructor = caseSymbol.Constructors.FirstOrDefault(c => c.Parameters.Length > 0);
             if (primaryConstructor != null)
             {
-                var caseValues = primaryConstructor.Parameters.Select(p =>
+                caseValues = primaryConstructor.Parameters.Select(p =>
                     new Value(GetValueTypeKind(p.Type), p.Name, GetTypeFullName(p.Type)))
                     .ToArray();
+            }
 
-                return new Case(GetCaseTypeKind(caseSymbol), caseName, typeName, GetAccessibility(caseSymbol.DeclaredAccessibility), generate: false, values: caseValues);
-            }
-            else
-            {
-                return new Case(GetCaseTypeKind(caseSymbol), caseName, typeName, GetAccessibility(caseSymbol.DeclaredAccessibility), generate: false, values: null);
-            }
+            return new Case(
+                GetCaseTypeKind(caseSymbol),
+                caseName,
+                typeName,
+                GetAccessibility(caseSymbol.DeclaredAccessibility),
+                isPartial: isPartial,
+                generate: false,
+                values: caseValues);
+        }
+
+        private Case CreateTagCase(string caseName, IMethodSymbol caseMethod, bool isPartial)
+        {
+            var values = caseMethod.Parameters.Select(p => new Value(GetValueTypeKind(p.Type), p.Name, GetTypeFullName(p.Type))).ToArray();
+            return new Case(TypeKind.Tag, caseName, "", "public", isPartial: true, generate: false, values);
         }
 
         private static TypeKind GetCaseTypeKind(ITypeSymbol type)
         {
-            switch (type.TypeKind)
-            {
-                case CATypeKind.Struct:
-                    return TypeKind.RecordStruct;
-                default:
-                    return GetValueTypeKind(type);
-            }
+            if (type is INamedTypeSymbol nt && nt.IsRecord && nt.IsValueType)
+                return TypeKind.RecordStruct;
+            return GetValueTypeKind(type);
         }
 
         private static TypeKind GetValueTypeKind(ITypeSymbol type)
