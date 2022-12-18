@@ -52,7 +52,7 @@ Use them to declare unions of existing types only.
 #### Assigning values
 ```CSharp
 OneOf<int, string> intOrString = 5;
-OneOf<int, double> intOrDouble = intOrDouble.Create(intOrString);
+OneOf<int, double> intOrDouble = intOrDouble.Convert(intOrString);
 ```
 
 #### Test for specific type
