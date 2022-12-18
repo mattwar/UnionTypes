@@ -97,14 +97,14 @@ var areEqual = value1.Equals(value2);
 ### Union type attributes
 
 #### UnionAttribute
-    Use this on any type (partial struct) you want to be a union.
-    By default all public/internal nested record types are seen as discriminated union cases.
+Use this on any type (partial struct) you want to be a union.
+By default all public/internal nested record types are seen as discriminated union cases.
 
 #### UnionTypesAttribute
-    Use this attribute (in addition to Union attribute) to indicate other types to be include as discriminated union cases.
+Use this attribute (in addition to Union attribute) to indicate other types to be include as discriminated union cases.
 
 #### UnionTags
-    Use this attribute (in addition to Union attribiute) to declare names of individual cases that carry no state (equivalent to enum names)
+Use this attribute (in addition to Union attribiute) to declare names of individual cases that carry no state (equivalent to enum names)
 
 
 ### Examples
