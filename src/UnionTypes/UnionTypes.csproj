@@ -1,0 +1,57 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="OneOf - Copy.cs" />
+    <Compile Remove="Shape - Copy.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="OneOf.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>OneOf.tt</DependentUpon>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="OneOf.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>OneOf.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="OneOf.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>OneOf.tt</DependentUpon>
+    </Compile>
+    <Compile Update="ShapeGenerator.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>ShapeGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Update="StructShape.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>StructShape.tt</DependentUpon>
+    </Compile>
+    <Compile Update="StructShapeGenerator.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>StructShapeGenerator.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>
