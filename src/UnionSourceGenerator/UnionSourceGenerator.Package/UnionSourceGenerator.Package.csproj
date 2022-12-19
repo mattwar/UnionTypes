@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <PackageId>UnionSourceGenerator</PackageId>
-    <PackageVersion>1.0.15.0</PackageVersion>
+    <PackageVersion>1.0.18.0</PackageVersion>
     <Authors>mattwar</Authors>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Description>UnionSourceGenerator</Description>

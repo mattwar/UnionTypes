@@ -1,26 +1,26 @@
 ﻿
 using UnionTypes;
 
-MyUnion mu = new MyUnion.A(10);
-Console.WriteLine(mu);
-
-var obj = mu.Get<object>();
+var some = Option<int>.CreateSome(10);
+var none = Option<int>.None;
 
 
-Result<int> result = new Result<int>.Success(10);
-Console.WriteLine(result);
 
-if (result.TryGetSuccessValues(out var value))
-{
-    Console.WriteLine($"result value = {value}");
-}
 
 [Union]
-public partial struct MyUnion
+public partial struct TypesUnion
 {
     public record struct A(int X);
     public record struct B(string Y);
     public record struct C(double Z);
+}
+
+[Union]
+public partial struct TagsUnion
+{
+    public static partial TagsUnion CreateA(int X);
+    public static partial TagsUnion CreateB(string Y);
+    public static partial TagsUnion CreateC();
 }
 
 [Union]
@@ -31,9 +31,15 @@ public partial struct Result<T>
 }
 
 [Union]
-public partial struct ValuesUnion
+public partial struct Result2<T>
 {
-    public static partial ValuesUnion CreateA(int X);
-    public static partial ValuesUnion CreateB(string Y);
-    public static partial ValuesUnion CreateC();
+    public static partial Result2<T> CreateSuccess(T value);
+    public static partial Result2<T> CreateFailure(string reason);
+}
+
+[Union]
+public partial struct Option<T>
+{
+    public static partial Option<T> CreateSome(T value);
+    public static partial Option<T> CreateNone();
 }

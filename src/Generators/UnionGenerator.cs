@@ -84,7 +84,12 @@ namespace UnionTypes.Generators
         /// <summary>
         /// An interface
         /// </summary>
-        Interface
+        Interface,
+
+        /// <summary>
+        /// A type parameter
+        /// </summary>
+        TypeParameter
     }
 
     public class Case
@@ -386,7 +391,7 @@ namespace UnionTypes.Generators
                     WriteCreateOfT,
                     WriteConvert,
                     WriteIsProperites,
-                    WriteTryGetMethods,
+                    WriteTryGetCaseMethods,
                     WriteTryGetCaseValueMethods,
                     WriteGetMethods,
                     WriteOneOfMethods,
@@ -409,7 +414,7 @@ namespace UnionTypes.Generators
             {
                 for (int i = 0; i < _caseInfos.Count; i++)
                 {
-                    WriteLine($"{_caseInfos[i].Name},");
+                    WriteLine($"{_caseInfos[i].Name} = {i + 1},");
                 }
             });
         }
@@ -464,36 +469,36 @@ namespace UnionTypes.Generators
                         args.AddRange(_fields.Select(f => f == caseInfo.Field ? "value" : "default!"));
                         break;
                     case TypeKind.Tag:
-                        args.AddRange(_fields.Select(f => caseInfo.FieldToCaseValueMap.TryGetValue(f, out var cv) ? $"{cv.Name}" : "default!"));
+                        args.AddRange(_fields.Select(f => caseInfo.FieldToCaseValueMap.TryGetValue(f, out var cv) ? $"{LowerName(cv.Name)}" : "default!"));
                         break;
                 }
 
-                string argList = string.Join(", ", args);
+                string argsList = string.Join(", ", args);
                 var partiality = caseInfo.IsPartial ? "partial " : "";
 
                 if (caseInfo.Kind == TypeKind.Tag)
                 {
                     // create from values
-                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {v.Name}"));
-                    WriteLine($"public static {partiality}{_union.TypeName} Create{caseInfo.Name}({paramList}) => new {_union.TypeName}({argList});");
+                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
+                    WriteLine($"public static {partiality}{_union.TypeName} Create{caseInfo.Name}({paramList}) => new {_union.TypeName}({argsList});");
 
                     if (caseInfo.Values.Count == 0)
                     {
                         // also tag field
-                        WriteLine($"public static readonly {_union.TypeName} {caseInfo.Name} = new {_union.TypeName}({argList});");
+                        WriteLine($"public static readonly {_union.TypeName} {caseInfo.Name} = new {_union.TypeName}({argsList});");
                     }
                 }
                 else
                 {
                     // create from case type
-                    WriteLine($"{caseInfo.Accessibility} static {partiality}{_union.TypeName} Create{caseInfo.Name}({caseInfo.Type} value) => new {_union.TypeName}({argList});");
+                    WriteLine($"{caseInfo.Accessibility} static {partiality}{_union.TypeName} Create{caseInfo.Name}({caseInfo.Type} value) => new {_union.TypeName}({argsList});");
 
                     if (caseInfo.Kind == TypeKind.RecordStruct)
                     {
                         // create from values too
-                        var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {v.Name}"));
-                        var argsList = string.Join(", ", caseInfo.Values.Select(v => v.Name));
-                        WriteLine($"public static {_union.TypeName} Create{caseInfo.Name}({paramList}) => Create{caseInfo.Name}(new {caseInfo.Type}({argsList}));");
+                        var valuesParamList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
+                        var valuesArgsList = string.Join(", ", caseInfo.Values.Select(v => LowerName(v.Name)));
+                        WriteLine($"public static {_union.TypeName} Create{caseInfo.Name}({valuesParamList}) => Create{caseInfo.Name}(new {caseInfo.Type}({valuesArgsList}));");
                     }
                 }
             }
@@ -522,12 +527,10 @@ namespace UnionTypes.Generators
 
                 WriteLine("throw new InvalidCastException();");
             });
-            WriteLine();
         }
 
         private void WriteConvert()
         {
-            // Convert<TOneOf>
             WriteLine($"public static {_union.TypeName} Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf");
             WriteBraceNested(() =>
             {
@@ -578,7 +581,7 @@ namespace UnionTypes.Generators
             }
         }
 
-        private void WriteTryGetMethods()
+        private void WriteTryGetCaseMethods()
         {
             var first = true;
             foreach (var caseInfo in _caseInfos)
@@ -603,13 +606,13 @@ namespace UnionTypes.Generators
                         WriteLine();
                     first = false;
 
-                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {cv.Name}"));
+                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {LowerName(cv.Name)}"));
 
                     WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}({paramList})");
                     WriteBraceNested(() =>
                     {
-                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
-                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = default!"));
+                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
+                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = default!"));
                         WriteLine($"if (Is{caseInfo.Name}) {{ {assignments}; return true; }}");
                         WriteLine($"{defAssignments}; return false;");
                     });
@@ -629,13 +632,13 @@ namespace UnionTypes.Generators
                         WriteLine();
                     first = false;
 
-                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {cv.Name}"));
+                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {LowerName(cv.Name)}"));
 
                     WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}Values({paramList})");
                     WriteBraceNested(() =>
                     {
-                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
-                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = default!"));
+                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
+                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = default!"));
                         WriteLine($"if (Is{caseInfo.Name}) {{ {assignments}; return true; }}");
                         WriteLine($"{defAssignments}; return false;");
                     });
@@ -811,8 +814,12 @@ namespace UnionTypes.Generators
                         }
                     }
 
-                    WriteLine("case IOneOf oneOf:");
-                    WriteLineNested("return Equals(oneOf.Get<object>());");
+                    if (!_isAllTags)
+                    {
+                        // cannot match other unions if this one does not have any case types.
+                        WriteLine("case IOneOf oneOf:");
+                        WriteLineNested("return Equals(oneOf.Get<object>());");
+                    }
 
                     WriteLine("default:");
                     WriteLineNested("return false;");

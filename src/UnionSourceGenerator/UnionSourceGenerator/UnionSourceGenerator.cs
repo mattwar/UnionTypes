@@ -236,6 +236,8 @@ namespace UnionTypes.Generators
                 case CATypeKind.Dynamic:
                 case CATypeKind.Delegate:
                     return TypeKind.Class;
+                case CATypeKind.TypeParameter:
+                    return TypeKind.TypeParameter;
 
                 default:
                     if (type is INamedTypeSymbol nt && IsPrimitive(nt))
