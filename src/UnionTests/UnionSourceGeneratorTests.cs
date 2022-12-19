@@ -29,13 +29,13 @@ namespace UnionTests
                     public void TestMethod()
                     {
                         MyUnion unionA = new MyUnion.A(10);
-                        MyUnion unionA2 = MyUnion.CreateA(new MyUnion.A(10));
-                        MyUnion unionA3 = MyUnion.CreateA(10);
+                        MyUnion unionA2 = MyUnion.CreateA(10);
+                        MyUnion unionA3 = MyUnion.Create(new MyUnion.A(10));
                         
                         MyUnion unionB = new MyUnion.B("ten");
-                        MyUnion unionB2 = MyUnion.CreateB(new MyUnion.B("ten"));
+                        MyUnion unionB2 = MyUnion.Create(new MyUnion.A(10));
                         MyUnion unionB3 = MyUnion.CreateB("ten");
-                        
+                                        
                         bool isA = unionA.IsA;
                         bool isA2 = unionA.Is<MyUnion.A>();
 
@@ -75,12 +75,14 @@ namespace UnionTests
                     public void TestMethod()
                     {
                         MyUnion unionA = new A(10);
-                        MyUnion unionA2 = MyUnion.CreateA(new A(10));
-                        MyUnion unionA3 = MyUnion.CreateA(10);
+                        MyUnion unionA2 = MyUnion.A(new A(10));
+                        MyUnion unionA3 = MyUnion.A(10);
+                        MyUnion unionA4 = MyUnion.Create(new A(10));
                         
                         MyUnion unionB = new B("ten");
-                        MyUnion unionB2 = MyUnion.CreateB(new B("ten"));
-                        MyUnion unionB3 = MyUnion.CreateB("ten");
+                        MyUnion unionB2 = MyUnion.B(new B("ten"));
+                        MyUnion unionB3 = MyUnion.B("ten");
+                        MyUnion unionB4 = MyUnion.Create(new B("ten"));
                         
                         bool isA = unionA.IsA;
                         bool isA2 = unionA.Is<A>();
@@ -116,10 +118,8 @@ namespace UnionTests
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = MyUnion.CreateA();
-                        MyUnion unionA2 = MyUnion.A;
-                        MyUnion unionB = MyUnion.CreateB();
-                        MyUnion unionB2 = MyUnion.B;
+                        MyUnion unionA = MyUnion.A;
+                        MyUnion unionB = MyUnion.B;
 
                         var isA = unionA.IsA;
                         var isB = unionB.IsB;
@@ -142,19 +142,19 @@ namespace UnionTests
                 [Union]
                 public partial struct MyUnion
                 {
-                    public static partial MyUnion CreateA(int X);
-                    public static partial MyUnion CreateB();
-                    public static partial MyUnion CreateC(C value);
+                    public static partial MyUnion A(int X);
+                    public static partial MyUnion B();
+                    public static partial MyUnion C(C value);
                 }
 
                 public class Test
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = MyUnion.CreateA(10);
-                        MyUnion unionB = MyUnion.CreateB();
-                        MyUnion unionB2 = MyUnion.B;
-                        MyUnion unionC = MyUnion.CreateC(new C(5.0));
+                        MyUnion unionA = MyUnion.A(10);
+                        MyUnion unionB = MyUnion.B();
+                        MyUnion unionC = MyUnion.C(new C(5.0));
+                        MyUnion unionC2 = MyUnion.C(5.0);
 
                         bool isA = unionA.IsA;
                         bool tryA = unionA.TryGetA(out int x);                      
@@ -288,6 +288,22 @@ namespace UnionTests
                 {
                     public record struct Success(T value);
                     public record struct Failure(string reason);
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestUnionWithPartialFactoriesAndTypeParameters()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [Union]
+                public partial struct Result<T>
+                {
+                    public static partial Result<T> Success(T value);
+                    public static partial Result<T> Failure(string reason);
                 }
                 """);
         }

@@ -99,27 +99,31 @@ namespace UnionTypes.Generators
         public string Type { get; }
         public string Accessibilty { get; }
         public bool IsPartial { get; }
+        public string FactoryName { get; }
         public IReadOnlyList<Value> Values { get; }
         public bool Generate { get; }
 
-        public Case(TypeKind kind, string name, string type, string accessibility, bool isPartial, bool generate, IReadOnlyList<Value>? values)
+        public Case(
+            TypeKind kind, string name, string type, 
+            string accessibility, bool isPartial, string factoryName, bool generate, IReadOnlyList<Value>? values)
         {
             this.Kind = kind;
             this.Name = name;
             this.Type = type ?? name;
             this.Accessibilty = accessibility ?? "";
             this.IsPartial = isPartial;
+            this.FactoryName = factoryName;
             this.Generate = generate;
             this.Values = values ?? Array.Empty<Value>();
         }
 
         public Case(TypeKind kind, string name, string type, bool generate = true)
-            : this(kind, name, type, "public", isPartial: false, generate, null)
+            : this(kind, name, type, "public", isPartial: false, factoryName: null, generate, null)
         {
         }
 
         public Case(TypeKind kind, string name, string type, params Value[] values)
-            : this(kind, name, type, "public", isPartial: false, generate: true, values)
+            : this(kind, name, type, "public", isPartial: false, factoryName: null, generate: true, values)
         {
         }
 
@@ -213,6 +217,7 @@ namespace UnionTypes.Generators
             public string Type => this.Case.Type;
             public string Accessibility => this.Case.Accessibilty;
             public bool IsPartial => this.Case.IsPartial;
+            public string FactoryName => this.Case.FactoryName;
             public IReadOnlyList<Value> Values => this.Case.Values;
 
             public CaseInfo(Case @case)
@@ -387,7 +392,7 @@ namespace UnionTypes.Generators
                     WriteTagDeclaration,
                     WriteFields,
                     WriteConstructor,
-                    WriteCaseCreateMethods,
+                    WriteCaseFactoryMethods,
                     WriteCreateOfT,
                     WriteConvert,
                     WriteIsProperites,
@@ -448,7 +453,7 @@ namespace UnionTypes.Generators
             });
         }
 
-        private void WriteCaseCreateMethods()
+        private void WriteCaseFactoryMethods()
         {
             var args = new List<string>();
 
@@ -478,27 +483,37 @@ namespace UnionTypes.Generators
 
                 if (caseInfo.Kind == TypeKind.Tag)
                 {
-                    // create from values
-                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
-                    WriteLine($"public static {partiality}{_union.TypeName} Create{caseInfo.Name}({paramList}) => new {_union.TypeName}({argsList});");
+                    // factory for tag + values
 
-                    if (caseInfo.Values.Count == 0)
+                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
+                    if (caseInfo.FactoryName != null)
                     {
-                        // also tag field
+                        // this was a user specified factory method
+                        WriteLine($"public static {partiality}{_union.TypeName} {caseInfo.FactoryName}({paramList}) => new {_union.TypeName}({argsList});");
+                    }
+                    else if (caseInfo.Values.Count > 0)
+                    {
+                        // have values so must be method
+                        WriteLine($"public static {partiality}{_union.TypeName} {caseInfo.Name}({paramList}) => new {_union.TypeName}({argsList});");
+                    }
+                    else
+                    {
+                        // no-values, so generate property instead
                         WriteLine($"public static readonly {_union.TypeName} {caseInfo.Name} = new {_union.TypeName}({argsList});");
                     }
                 }
                 else
                 {
-                    // create from case type
-                    WriteLine($"{caseInfo.Accessibility} static {partiality}{_union.TypeName} Create{caseInfo.Name}({caseInfo.Type} value) => new {_union.TypeName}({argsList});");
+                    // factory for case type
+
+                    WriteLine($"{caseInfo.Accessibility} static {partiality}{_union.TypeName} {caseInfo.FactoryName}({caseInfo.Type} value) => new {_union.TypeName}({argsList});");
 
                     if (caseInfo.Kind == TypeKind.RecordStruct)
                     {
                         // create from values too
                         var valuesParamList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
                         var valuesArgsList = string.Join(", ", caseInfo.Values.Select(v => LowerName(v.Name)));
-                        WriteLine($"public static {_union.TypeName} Create{caseInfo.Name}({valuesParamList}) => Create{caseInfo.Name}(new {caseInfo.Type}({valuesArgsList}));");
+                        WriteLine($"public static {_union.TypeName} {caseInfo.FactoryName}({valuesParamList}) => {caseInfo.FactoryName}(new {caseInfo.Type}({valuesArgsList}));");
                     }
                 }
             }
@@ -519,7 +534,7 @@ namespace UnionTypes.Generators
                     {
                         if (caseInfo.Kind != TypeKind.Tag)
                         {
-                            WriteLine($"case {caseInfo.Type} c_{caseInfo.Name}: return Create{caseInfo.Name}(c_{caseInfo.Name});");
+                            WriteLine($"case {caseInfo.Type} c_{caseInfo.Name}: return {caseInfo.FactoryName}(c_{caseInfo.Name});");
                         }
                     }
                 });
@@ -541,7 +556,7 @@ namespace UnionTypes.Generators
                     var caseInfo = _caseInfos[i];
                     if (caseInfo.Kind != TypeKind.Tag)
                     {
-                        WriteLine($"if (oneOf.TryGet(out {caseInfo.Type} value{i})) return Create{caseInfo.Name}(value{i});");
+                        WriteLine($"if (oneOf.TryGet(out {caseInfo.Type} value{i})) return {caseInfo.FactoryName}(value{i});");
                     }
                 }
 
@@ -738,7 +753,7 @@ namespace UnionTypes.Generators
                 if (caseInfo.Kind != TypeKind.Tag
                     && caseInfo.Kind != TypeKind.Interface)
                 {
-                    WriteLine($"public static implicit operator {_union.TypeName}({caseInfo.Type} value) => Create{caseInfo.Name}(value);");
+                    WriteLine($"public static implicit operator {_union.TypeName}({caseInfo.Type} value) => {caseInfo.FactoryName}(value);");
                 }
             }
         }

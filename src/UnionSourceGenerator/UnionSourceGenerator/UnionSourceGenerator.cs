@@ -106,7 +106,7 @@ namespace UnionTypes.Generators
                 .OfType<INamedTypeSymbol>()
                 .Where(nt => nt.IsRecord
                     && (nt.DeclaredAccessibility == Accessibility.Public || nt.DeclaredAccessibility == Accessibility.Internal))
-                .Select(nt => CreateTypeCase(nt.Name, nt, isNested: true, isPartial: false))
+                .Select(nt => CreateTypeCase(nt.Name, nt, isNested: true, isPartial: false, factoryName: "Create" + nt.Name))
                 .ToArray();
         }
 
@@ -123,7 +123,7 @@ namespace UnionTypes.Generators
                 {
                     if (val.Kind == TypedConstantKind.Type && val.Value is INamedTypeSymbol nt)
                     {
-                        cases.Add(CreateTypeCase(nt.Name, nt, isNested: false, isPartial: false));
+                        cases.Add(CreateTypeCase(nt.Name, nt, isNested: false, isPartial: false, factoryName: nt.Name));
                     }
                 }
 
@@ -159,33 +159,34 @@ namespace UnionTypes.Generators
             var cases = new List<Case>();
 
             // from partial CreateXXX methods
-            var tagCreateMethods = unionType.GetMembers()
+            var factoryMethods = unionType.GetMembers()
                 .OfType<IMethodSymbol>()
-                .Where(m => m.IsPartialDefinition && m.IsStatic && m.TypeParameters.Length == 0 && m.Name.StartsWith("Create"))
+                .Where(m => m.IsPartialDefinition 
+                         && m.IsStatic
+                         && m.TypeParameters.Length == 0 
+                         && SymbolEqualityComparer.Default.Equals(m.ReturnType, unionType))
                 .ToList();
 
-            foreach (var method in tagCreateMethods)
+            foreach (var method in factoryMethods)
             {
-                var caseName = method.Name.Substring(6);  // everything after Create
-
                 if (method.Parameters.Length == 1 
                     && method.Parameters[0].Type is INamedTypeSymbol nt
-                    && nt.Name == caseName)
+                    && method.Name == nt.Name)
                 {
                     // this is an external type
-                    cases.Add(CreateTypeCase(caseName, nt, isNested: false, isPartial: true));
+                    cases.Add(CreateTypeCase(method.Name, nt, isNested: false, isPartial: true, factoryName: method.Name));
                 }
                 else
                 {
                     // this is a tag with possible values
-                    cases.Add(CreateTagCase(caseName, method, isPartial: true));
+                    cases.Add(CreateTagCase(method.Name, method, isPartial: true, factoryName: method.Name));
                 }
             }
 
             return cases;
         }
 
-        private Case CreateTypeCase(string caseName, INamedTypeSymbol caseSymbol, bool isNested, bool isPartial)
+        private Case CreateTypeCase(string caseName, INamedTypeSymbol caseSymbol, bool isNested, bool isPartial, string factoryName)
         {
             var typeName = isNested ? caseSymbol.Name : GetTypeFullName(caseSymbol);
             var caseValues = Array.Empty<Value>();
@@ -204,14 +205,15 @@ namespace UnionTypes.Generators
                 typeName,
                 GetAccessibility(caseSymbol.DeclaredAccessibility),
                 isPartial: isPartial,
+                factoryName: factoryName,
                 generate: false,
                 values: caseValues);
         }
 
-        private Case CreateTagCase(string caseName, IMethodSymbol caseMethod, bool isPartial)
+        private Case CreateTagCase(string caseName, IMethodSymbol caseMethod, bool isPartial, string factoryName)
         {
             var values = caseMethod.Parameters.Select(p => new Value(GetValueTypeKind(p.Type), p.Name, GetTypeFullName(p.Type))).ToArray();
-            return new Case(TypeKind.Tag, caseName, "", "public", isPartial: true, generate: false, values);
+            return new Case(TypeKind.Tag, caseName, "", "public", isPartial: true, factoryName: factoryName, generate: false, values);
         }
 
         private static TypeKind GetCaseTypeKind(ITypeSymbol type)
