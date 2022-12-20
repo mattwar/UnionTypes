@@ -40,7 +40,6 @@ namespace UnionTests
                         bool isA2 = unionA.Is<MyUnion.A>();
 
                         bool tryA = unionA.TryGetA(out MyUnion.A maybeA);
-                        bool tryA2 = unionA.TryGetAValues(out int x);
 
                         MyUnion.A a = unionA.GetA();
                         MyUnion.A a2 = unionA.Get<MyUnion.A>();
@@ -88,7 +87,6 @@ namespace UnionTests
                         bool isA2 = unionA.Is<A>();
                 
                         bool tryA = unionA.TryGetA(out A maybeA);
-                        bool tryA2 = unionA.TryGetAValues(out int x);
                 
                         A a = unionA.GetA();
                         A a2 = unionA.Get<A>();
@@ -145,6 +143,7 @@ namespace UnionTests
                     public static partial MyUnion A(int X);
                     public static partial MyUnion B();
                     public static partial MyUnion C(C value);
+                    public static partial MyUnion D(int p, int q);
                 }
 
                 public class Test
@@ -155,18 +154,23 @@ namespace UnionTests
                         MyUnion unionB = MyUnion.B();
                         MyUnion unionC = MyUnion.C(new C(5.0));
                         MyUnion unionC2 = MyUnion.C(5.0);
+                        MyUnion unionD = MyUnion.D(1, 2);
 
                         bool isA = unionA.IsA;
                         bool tryA = unionA.TryGetA(out int x);                      
+                        int ax = unionA.GetA();
                 
                         bool isB = unionB.IsB;
 
                         bool isC = unionC.IsC;
                         bool isC2 = unionC.Is<C>();
                         bool tryC = unionC.TryGetC(out C c);
-                        bool tryC2 = unionC.TryGetCValues(out double z);
                         C getC = unionC.GetC();
                         C getC2 = unionC.Get<C>();
+
+                        bool isD = unionD.IsD;
+                        bool tryD = unionD.TryGetD(out int p, out int q);
+                        (int p2, int q2) = unionD.GetD();
 
                         var areEqual = unionA == unionB;
                     }

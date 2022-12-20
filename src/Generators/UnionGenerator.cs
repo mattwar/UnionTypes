@@ -118,12 +118,12 @@ namespace UnionTypes.Generators
         }
 
         public Case(TypeKind kind, string name, string type, bool generate = true)
-            : this(kind, name, type, "public", isPartial: false, factoryName: null, generate, null)
+            : this(kind, name, type, "public", isPartial: false, factoryName: null!, generate, null)
         {
         }
 
         public Case(TypeKind kind, string name, string type, params Value[] values)
-            : this(kind, name, type, "public", isPartial: false, factoryName: null, generate: true, values)
+            : this(kind, name, type, "public", isPartial: false, factoryName: null!, generate: true, values)
         {
         }
 
@@ -397,7 +397,7 @@ namespace UnionTypes.Generators
                     WriteConvert,
                     WriteIsProperites,
                     WriteTryGetCaseMethods,
-                    WriteTryGetCaseValueMethods,
+                    //WriteTryGetCaseValueMethods,
                     WriteGetMethods,
                     WriteOneOfMethods,
                     WriteImplicitCastOperators,
@@ -549,18 +549,25 @@ namespace UnionTypes.Generators
             WriteLine($"public static {_union.TypeName} Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf");
             WriteBraceNested(() =>
             {
-                WriteLine($"if (oneOf is {_union.TypeName} me) return me;");
+                WriteLine($"return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();");
+            });
+            WriteLine();
+
+            WriteLine($"public static bool TryConvert<TOneOf>(TOneOf oneOf, out {_union.TypeName} thisOneOf) where TOneOf : IOneOf");
+            WriteBraceNested(() =>
+            {
+                WriteLine($"if (oneOf is {_union.TypeName} me) {{ thisOneOf = me; return true; }}");
 
                 for (int i = 0; i < _caseInfos.Count; i++)
                 {
                     var caseInfo = _caseInfos[i];
                     if (caseInfo.Kind != TypeKind.Tag)
                     {
-                        WriteLine($"if (oneOf.TryGet(out {caseInfo.Type} value{i})) return {caseInfo.FactoryName}(value{i});");
+                        WriteLine($"if (oneOf.TryGet(out {caseInfo.Type} value{i})) {{ thisOneOf = {caseInfo.FactoryName}(value{i}); return true; }}");
                     }
                 }
 
-                WriteLine("throw new InvalidCastException();");
+                WriteLine("thisOneOf = default!; return false;");
             });
         }
 
@@ -587,11 +594,40 @@ namespace UnionTypes.Generators
 
         private void WriteGetMethods()
         {
+            var first = true;
+
             foreach (var caseInfo in _caseInfos)
             {
                 if (caseInfo.Kind != TypeKind.Tag)
                 {
-                    WriteLine($"{caseInfo.Accessibility} {caseInfo.Type} Get{caseInfo.Name}() => TryGet{caseInfo.Name}(out var value) ? value : throw new InvalidCastException();");
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    WriteLine($"{caseInfo.Accessibility} {caseInfo.Type} Get{caseInfo.Name}() =>");
+                    WriteLineNested($"TryGet{caseInfo.Name}(out var value) ? value : throw new InvalidCastException();");
+                }
+                else if (caseInfo.Values.Count > 1)
+                {
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    var tupleType = "(" + string.Join(", ", caseInfo.Values.Select(c => $"{c.Type} {c.Name}")) + ")";
+                    var tupleInitializer = "(" + string.Join(", ", caseInfo.Values.Select(c => c.Name)) + ")";
+                    var outArgs = string.Join(", ", caseInfo.Values.Select(c => $"out var {c.Name}"));
+                    WriteLine($"public {tupleType} Get{caseInfo.Name}() =>");
+                    WriteLineNested($"TryGet{caseInfo.Name}({outArgs}) ? {tupleInitializer} : throw new InvalidCastException();");
+                }
+                else if (caseInfo.Values.Count == 1)
+                {
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    var valueInfo = caseInfo.Values[0];
+                    WriteLine($"public {valueInfo.Type} Get{caseInfo.Name}() =>");
+                    WriteLineNested($"TryGet{caseInfo.Name}(out var {valueInfo.Name}) ? {valueInfo.Name} : throw new InvalidCastException();");
                 }
             }
         }
@@ -635,6 +671,7 @@ namespace UnionTypes.Generators
             }
         }
 
+#if false
         private void WriteTryGetCaseValueMethods()
         {
             var first = true;
@@ -660,6 +697,7 @@ namespace UnionTypes.Generators
                 }
             }
         }
+#endif
 
         /// <summary>
         /// Gets the text of an expression that accesses the case type from the union's fields.

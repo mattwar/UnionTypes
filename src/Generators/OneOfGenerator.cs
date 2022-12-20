@@ -59,7 +59,7 @@ namespace UnionTypes.Generators
             _typeArgList = string.Join(", ", Enumerable.Range(1, nTypeArgs).Select(n => $"T{n}"));
             _oneOfType = $"OneOf<{_typeArgList}>";
 
-            WriteLine($"public class {_oneOfType}");
+            WriteLine($"public struct {_oneOfType}");
             WriteLineNested($": IOneOf, IEquatable<{_oneOfType}>");
             WriteBraceNested(() =>
             {
@@ -119,15 +119,25 @@ namespace UnionTypes.Generators
             WriteLine($"public static {_oneOfType} Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf");
             WriteBraceNested(() =>
             {
-                WriteLine($"if (oneOf is {_oneOfType} me) return me;");
+                WriteLine($"return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();");
+            });
+            WriteLine();
+
+            // TryConvert<TOneOf>
+            WriteLine($"public static bool TryConvert<TOneOf>(TOneOf oneOf, out {_oneOfType} thisOnOf) where TOneOf : IOneOf");
+            WriteBraceNested(() =>
+            {
+                WriteLine($"if (oneOf is {_oneOfType} me) {{ thisOnOf = me; return true; }}");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"if (oneOf.TryGet(out T{i} value{i})) return Create(value{i});");
+                    WriteLine($"if (oneOf.TryGet(out T{i} value{i})) {{ thisOnOf = Create(value{i}); return true; }}");
                 }
 
-                WriteLine("throw new InvalidCastException();");
+                WriteLine("thisOnOf = default!;");
+                WriteLine("return false;");
             });
+
         }
 
         private void WriteConversionOperators()
@@ -195,10 +205,10 @@ namespace UnionTypes.Generators
             WriteLine();
 
             // IEquatable
-            WriteLine($"public bool Equals({_oneOfType}? other)");
+            WriteLine($"public bool Equals({_oneOfType} other)");
             WriteBraceNested(() =>
             {
-                WriteLine("return object.Equals(_value, other?._value);");
+                WriteLine("return object.Equals(_value, other._value);");
             });
             WriteLine();
 
