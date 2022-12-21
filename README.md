@@ -102,14 +102,18 @@ By default all public/internal nested record types are seen as discriminated uni
 
 #### UnionTypesAttribute
 Use this attribute (in addition to Union attribute) to indicate other types to be include as discriminated union cases.
+Instead of using this attribute, you can alternatively declare a partial factory method for the external type.
 
 #### UnionTags
 Use this attribute (in addition to Union attribiute) to declare names of individual cases that carry no state (equivalent to enum names)
+Instead of using this attribute, you can alternatively declare a partial parameterless factory method for this case.
 
 
 ### Examples
 
 #### Union type with nested case types
+Any record type declared within the body of the struct automatically becomes a case type of the union.
+
 ```CSharp
 [Union]
 public partial struct MyUnion
@@ -121,6 +125,8 @@ public partial struct MyUnion
 ```
 
 #### Union type with external case types
+An partial factory method with the same name as the external type and a single parameter with the same type as the external type becomes a case type for the union.
+
 ```CSharp
 public record struct A(int X);
 public record struct B(string Y);
@@ -136,6 +142,9 @@ public partial struct MyUnion
 ```
 
 #### Union type with tag-only cases
+
+Any partial factory method that does not refer to an external type is considered a tag case (non type case).
+
 ```CSharp
 [Union]
 public partial struct MyUnion 
@@ -149,6 +158,8 @@ public partial struct MyUnion
 ```
 
 #### Union type with mix of nested, external and tag-only cases
+Unions can contain any mix of nested type, external type or tag cases.
+
 ```CSharp
 public record struct B(string Y);
 
@@ -221,7 +232,7 @@ var isC = abc.IsC;
 var isD = abc.IsD;
 ```
 
-#### Test and get specific case type
+#### Test and get specific case value
 ```CSharp
 public record struct B(string Y);
 
@@ -231,21 +242,19 @@ public partial struct ABC
     public record struct A(int X);
     public static partial ABC B(B b);
     public static partial ABC C(double z);
-    public static partial ABC D();
+    public static partial ABC D(int x, string y);
 }
 
 ABC abc = ...;
 var tryA = abc.TryGetA(out ABC.A a);
-var tryA2 = abc.TryGetAValues(out int x);
 var tryA3 = abc.TryGet<ABC.A>(out a);
 var tryB = abc.TryGetB(out B b);
-var tryB2 = abc.TryGetBValues(out string y);
 var tryB3 = abc.TryGet<B>(out b);
 var tryC = abc.TryGetC(out double z);
-var isD = abc.IsD;
+var tryD = abc.TryGetD(out int x, out string y);
 ```
 
-#### Get specific case type with possible failure
+#### Get specific case value(s) with possible failure
 ```CSharp
 public record struct B(string Y);
 
@@ -255,7 +264,7 @@ public partial struct ABC
     public record struct A(int X);
     public static partial ABC B(B b);
     public static partial ABC C(double z);
-    public static partial ABC D();
+    public static partial ABC D(int x, string y);
 }
 
 ABC abc = ...;
@@ -265,6 +274,8 @@ ABC.A a3 = (ABC.A)abc;
 B b = abc.GetB();
 B b2 = abc.Get<B>();
 B b2 = (B)abc;
+double z = abc.GetC();
+(int x, string y) dTuple = abc.GetD();
 ```
 
 #### Convert between compatible unions
