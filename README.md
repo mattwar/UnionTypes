@@ -190,7 +190,7 @@ public partial struct ABC
 }
 
 var a = ABC.Create(new ABC.A(10));
-ABC b = ABC.Create(new B("ten"));
+ABC b = ABC.B(new B("ten"));
 ABC c = ABC.C(5.0);
 ABC d = AbC.D();
 ```
@@ -205,7 +205,7 @@ public partial struct ABC
     public record struct A(int X);
     public static partial ABC B(B b);
 }
-
+ 
 ABC a = new ABC.A(10);
 ABC b = new B("ten");
 ```
