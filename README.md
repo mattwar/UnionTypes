@@ -125,7 +125,7 @@ public partial struct MyUnion
 ```
 
 #### Union type with external case types
-An partial factory method with the same name as the external type and a single parameter with the same type as the external type becomes a case type for the union.
+Any partial factory method with the same name as the external type and a single parameter with the same type as the external type becomes a case type for the union.
 
 ```CSharp
 public record struct A(int X);
