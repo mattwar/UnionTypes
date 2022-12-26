@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace UnionTypes
 {
     public struct OneOf<T1, T2>
-        : IOneOf, IEquatable<OneOf<T1, T2>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2>>
     {
         private readonly object _value;
 
@@ -29,17 +29,17 @@ namespace UnionTypes
             {
                 case T1 value1: return Create(value1);
                 case T2 value2: return Create(value2);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -75,7 +75,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -96,12 +96,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -133,7 +133,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3>>
     {
         private readonly object _value;
 
@@ -161,17 +161,17 @@ namespace UnionTypes
                 case T1 value1: return Create(value1);
                 case T2 value2: return Create(value2);
                 case T3 value3: return Create(value3);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -218,7 +218,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -239,12 +239,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -286,7 +286,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3, T4>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3, T4>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3, T4>>
     {
         private readonly object _value;
 
@@ -320,17 +320,17 @@ namespace UnionTypes
                 case T2 value2: return Create(value2);
                 case T3 value3: return Create(value3);
                 case T4 value4: return Create(value4);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3, T4> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3, T4> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3, T4> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -388,7 +388,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3, T4> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -409,12 +409,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3, T4> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3, T4> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3, T4> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3, T4> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -466,7 +466,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3, T4, T5>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3, T4, T5>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3, T4, T5>>
     {
         private readonly object _value;
 
@@ -506,17 +506,17 @@ namespace UnionTypes
                 case T3 value3: return Create(value3);
                 case T4 value4: return Create(value4);
                 case T5 value5: return Create(value5);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3, T4, T5> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3, T4, T5> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3, T4, T5> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -585,7 +585,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3, T4, T5> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -606,12 +606,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3, T4, T5> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3, T4, T5> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3, T4, T5> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3, T4, T5> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -673,7 +673,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3, T4, T5, T6>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3, T4, T5, T6>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3, T4, T5, T6>>
     {
         private readonly object _value;
 
@@ -719,17 +719,17 @@ namespace UnionTypes
                 case T4 value4: return Create(value4);
                 case T5 value5: return Create(value5);
                 case T6 value6: return Create(value6);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3, T4, T5, T6> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3, T4, T5, T6> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3, T4, T5, T6> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -809,7 +809,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -830,12 +830,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -907,7 +907,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3, T4, T5, T6, T7>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3, T4, T5, T6, T7>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3, T4, T5, T6, T7>>
     {
         private readonly object _value;
 
@@ -959,17 +959,17 @@ namespace UnionTypes
                 case T5 value5: return Create(value5);
                 case T6 value6: return Create(value6);
                 case T7 value7: return Create(value7);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3, T4, T5, T6, T7> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3, T4, T5, T6, T7> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6, T7> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6, T7> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3, T4, T5, T6, T7> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -1060,7 +1060,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6, T7> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -1081,12 +1081,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6, T7> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6, T7> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6, T7> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6, T7> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -1168,7 +1168,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3, T4, T5, T6, T7, T8>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3, T4, T5, T6, T7, T8>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3, T4, T5, T6, T7, T8>>
     {
         private readonly object _value;
 
@@ -1226,17 +1226,17 @@ namespace UnionTypes
                 case T6 value6: return Create(value6);
                 case T7 value7: return Create(value7);
                 case T8 value8: return Create(value8);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3, T4, T5, T6, T7, T8> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3, T4, T5, T6, T7, T8> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6, T7, T8> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6, T7, T8> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3, T4, T5, T6, T7, T8> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -1338,7 +1338,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6, T7, T8> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -1359,12 +1359,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6, T7, T8> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6, T7, T8> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6, T7, T8> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6, T7, T8> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }
@@ -1456,7 +1456,7 @@ namespace UnionTypes
     }
 
     public struct OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9>
-        : IOneOf, IEquatable<OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9>>
+        : ITypeUnion, IEquatable<OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9>>
     {
         private readonly object _value;
 
@@ -1520,17 +1520,17 @@ namespace UnionTypes
                 case T7 value7: return Create(value7);
                 case T8 value8: return Create(value8);
                 case T9 value9: return Create(value9);
-                case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());
+                case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());
                 default: throw new InvalidCastException();
             }
         }
 
-        public static OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf
+        public static OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion
         {
             return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();
         }
 
-        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> thisOnOf) where TOneOf : IOneOf
+        public static bool TryConvert<TOneOf>(TOneOf oneOf, out OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> thisOnOf) where TOneOf : ITypeUnion
         {
             if (oneOf is OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> me) { thisOnOf = me; return true; }
             if (oneOf.TryGet(out T1 value1)) { thisOnOf = Create(value1); return true; }
@@ -1643,7 +1643,7 @@ namespace UnionTypes
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> thisOneOf)
                 return object.Equals(this.Get<object>(), thisOneOf.Get<object>());
-            else if (value is IOneOf otherOneOf)
+            else if (value is ITypeUnion otherOneOf)
                 return object.Equals(this.Get<object>(), otherOneOf.Get<object>());
             else
                 return object.Equals(this.Get<object>(), value);
@@ -1664,12 +1664,12 @@ namespace UnionTypes
             return object.Equals(_value, other._value);
         }
 
-        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> oneOf, IOneOf? other)
+        public static bool operator ==(OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> oneOf, ITypeUnion? other)
         {
             return object.Equals(oneOf._value, other?.Get<object>());
         }
 
-        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> oneOf, IOneOf? other)
+        public static bool operator !=(OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> oneOf, ITypeUnion? other)
         {
             return !object.Equals(oneOf._value, other?.Get<object>());
         }

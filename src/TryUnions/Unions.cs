@@ -16,8 +16,8 @@ public partial struct TypesUnion
 [Union]
 public partial struct TagsUnion
 {
-    public static partial TagsUnion A(int X);
-    public static partial TagsUnion B(string Y);
+    public static partial TagsUnion A(int x);
+    public static partial TagsUnion B(string y);
     public static partial TagsUnion C();
     public static partial TagsUnion D(int p, int q);
 }

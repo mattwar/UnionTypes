@@ -60,7 +60,7 @@ namespace UnionTypes.Generators
             _oneOfType = $"OneOf<{_typeArgList}>";
 
             WriteLine($"public struct {_oneOfType}");
-            WriteLineNested($": IOneOf, IEquatable<{_oneOfType}>");
+            WriteLineNested($": ITypeUnion, IEquatable<{_oneOfType}>");
             WriteBraceNested(() =>
             {
                 WriteLineSeparated(
@@ -68,7 +68,7 @@ namespace UnionTypes.Generators
                     WriteConstructor,
                     WriteCreateMethods,
                     WriteConversionOperators,
-                    WriteIUnionImplementation,
+                    WriteITypeUnionImplementation,
                     WriteEquality,
                     WriteMiscMethods
                     );
@@ -109,14 +109,14 @@ namespace UnionTypes.Generators
                     {
                         WriteLine($"case T{i} value{i}: return Create(value{i});");
                     }
-                    WriteLine($"case IOneOf otherOneOf: return Create(otherOneOf.Get<object>());");
+                    WriteLine($"case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());");
                     WriteLine("default: throw new InvalidCastException();");
                 });
             });
             WriteLine();
 
             // Convert<TOneOf>
-            WriteLine($"public static {_oneOfType} Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf");
+            WriteLine($"public static {_oneOfType} Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion");
             WriteBraceNested(() =>
             {
                 WriteLine($"return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();");
@@ -124,7 +124,7 @@ namespace UnionTypes.Generators
             WriteLine();
 
             // TryConvert<TOneOf>
-            WriteLine($"public static bool TryConvert<TOneOf>(TOneOf oneOf, out {_oneOfType} thisOnOf) where TOneOf : IOneOf");
+            WriteLine($"public static bool TryConvert<TOneOf>(TOneOf oneOf, out {_oneOfType} thisOnOf) where TOneOf : ITypeUnion");
             WriteBraceNested(() =>
             {
                 WriteLine($"if (oneOf is {_oneOfType} me) {{ thisOnOf = me; return true; }}");
@@ -137,7 +137,6 @@ namespace UnionTypes.Generators
                 WriteLine("thisOnOf = default!;");
                 WriteLine("return false;");
             });
-
         }
 
         private void WriteConversionOperators()
@@ -162,7 +161,7 @@ namespace UnionTypes.Generators
             }
         }
 
-        private void WriteIUnionImplementation()
+        private void WriteITypeUnionImplementation()
         {
             // Is<T>
             WriteLine("public bool Is<T>() => _value is T;");
@@ -179,7 +178,7 @@ namespace UnionTypes.Generators
             {
                 WriteLine($"if (value is {_oneOfType} thisOneOf)");
                 WriteLineNested("return object.Equals(this.Get<object>(), thisOneOf.Get<object>());");
-                WriteLine("else if (value is IOneOf otherOneOf)");
+                WriteLine("else if (value is ITypeUnion otherOneOf)");
                 WriteLineNested("return object.Equals(this.Get<object>(), otherOneOf.Get<object>());");
                 WriteLine("else");
                 WriteLineNested("return object.Equals(this.Get<object>(), value);");
@@ -213,13 +212,13 @@ namespace UnionTypes.Generators
             WriteLine();
 
             // operators
-            WriteLine($"public static bool operator ==({_oneOfType} oneOf, IOneOf? other)");
+            WriteLine($"public static bool operator ==({_oneOfType} oneOf, ITypeUnion? other)");
             WriteBraceNested(() =>
             {
                 WriteLine("return object.Equals(oneOf._value, other?.Get<object>());");
             });
             WriteLine();
-            WriteLine($"public static bool operator !=({_oneOfType} oneOf, IOneOf? other)");
+            WriteLine($"public static bool operator !=({_oneOfType} oneOf, ITypeUnion? other)");
             WriteBraceNested(() =>
             {
                 WriteLine("return !object.Equals(oneOf._value, other?.Get<object>());");

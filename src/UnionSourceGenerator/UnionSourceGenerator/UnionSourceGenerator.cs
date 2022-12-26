@@ -93,7 +93,15 @@ namespace UnionTypes.Generators
                 && sourceLocation.SourceTree is SyntaxTree sourceTree
                 && sourceTree.GetRoot() is SyntaxNode root)
             {
-                return root.DescendantNodes().OfType<UsingDirectiveSyntax>().Select(uz => uz.ToString()).ToArray();
+                var usingDirectives =
+                    root.DescendantNodes()
+                    .OfType<UsingDirectiveSyntax>()
+                    .Where(u => u.GlobalKeyword == default)
+                    .ToList();
+
+                return 
+                    usingDirectives
+                    .Select(uz => uz.ToString()).ToArray();
             }
 
             return Array.Empty<string>();

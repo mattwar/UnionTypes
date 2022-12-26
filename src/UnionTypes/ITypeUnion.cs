@@ -2,7 +2,10 @@
 
 namespace UnionTypes
 {
-    public interface IOneOf
+    /// <summary>
+    /// A type union is a type that can hold a value from two or more distinct/unrelated types.
+    /// </summary>
+    public interface ITypeUnion
     {
         bool Is<T>();
         T Get<T>();

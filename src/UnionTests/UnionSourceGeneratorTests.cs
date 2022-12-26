@@ -199,6 +199,28 @@ namespace UnionTests
         }
 
         [TestMethod]
+        public void TestUnionWithGlobalUsings()
+        {
+            TestUnion(
+                """
+                global using System;
+                using UnionTypes;
+
+                namespace MyNamespace
+                {
+                    [Union]
+                    public partial struct MyUnion
+                    {
+                        public record struct A(int x);
+                        public record struct B(string y);
+                    }
+                }
+                """,
+                newText => newText.Contains("UnionTypes")
+                        && !newText.Contains("global"));
+        }
+
+        [TestMethod]
         public void TestUnionCasesFromTypesInsideOtherNamespace()
         {
             TestUnion(

@@ -16,7 +16,6 @@ namespace UnionTypes.Generators
         /// </summary>
         public string Name { get; }
 
-
         /// <summary>
         /// The type parameters (if any)
         /// </summary>
@@ -383,7 +382,7 @@ namespace UnionTypes.Generators
         {
             InitUnion(union);
 
-            var oneOf = _isAllTags ? "" : ", IOneOf";
+            var oneOf = _isAllTags ? "" : ", ITypeUnion";
 
             WriteLine($"{_union.Accessibility} partial struct {_union.TypeName} : IEquatable<{_union.TypeName}>{oneOf}");
             WriteBraceNested(() =>
@@ -392,14 +391,14 @@ namespace UnionTypes.Generators
                     WriteTagDeclaration,
                     WriteFields,
                     WriteConstructor,
-                    WriteCaseFactoryMethods,
-                    WriteCreateOfT,
+                    WriteFactoryMethods,
+                    WriteTryConvert,
                     WriteConvert,
                     WriteIsProperites,
-                    WriteTryGetCaseMethods,
-                    //WriteTryGetCaseValueMethods,
+                    WriteTryGetMethods,
                     WriteGetMethods,
-                    WriteOneOfMethods,
+                    WriteCreateOfT, 
+                    WriteITypeUnionMethods,
                     WriteImplicitCastOperators,
                     WriteExplicitCastOperators,
                     WriteEquatableEquals,
@@ -453,7 +452,7 @@ namespace UnionTypes.Generators
             });
         }
 
-        private void WriteCaseFactoryMethods()
+        private void WriteFactoryMethods()
         {
             var args = new List<string>();
 
@@ -474,7 +473,7 @@ namespace UnionTypes.Generators
                         args.AddRange(_fields.Select(f => f == caseInfo.Field ? "value" : "default!"));
                         break;
                     case TypeKind.Tag:
-                        args.AddRange(_fields.Select(f => caseInfo.FieldToCaseValueMap.TryGetValue(f, out var cv) ? $"{LowerName(cv.Name)}" : "default!"));
+                        args.AddRange(_fields.Select(f => caseInfo.FieldToCaseValueMap.TryGetValue(f, out var cv) ? $"{cv.Name}" : "default!"));
                         break;
                 }
 
@@ -483,9 +482,8 @@ namespace UnionTypes.Generators
 
                 if (caseInfo.Kind == TypeKind.Tag)
                 {
-                    // factory for tag + values
-
-                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
+                    // factory for tag + values case
+                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {v.Name}"));
                     if (caseInfo.FactoryName != null)
                     {
                         // this was a user specified factory method
@@ -504,8 +502,7 @@ namespace UnionTypes.Generators
                 }
                 else
                 {
-                    // factory for case type
-
+                    // factory for type case
                     WriteLine($"{caseInfo.Accessibility} static {partiality}{_union.TypeName} {caseInfo.FactoryName}({caseInfo.Type} value) => new {_union.TypeName}({argsList});");
 
                     if (caseInfo.Kind == TypeKind.RecordStruct)
@@ -519,8 +516,179 @@ namespace UnionTypes.Generators
             }
         }
 
+        private void WriteTryConvert()
+        {
+            WriteLine($"public static bool TryConvert<TUnion>(TUnion union, out {_union.TypeName} converted) where TUnion : ITypeUnion");
+            WriteBraceNested(() =>
+            {
+                WriteLine($"if (union is {_union.TypeName} me) {{ converted = me; return true; }}");
+
+                foreach (var caseInfo in _caseInfos)
+                {
+                    if (caseInfo.Kind != TypeKind.Tag)
+                    {
+                        WriteLine($"if (union.TryGet(out {caseInfo.Type} v_{caseInfo.Name})) {{ converted = {caseInfo.FactoryName}(v_{caseInfo.Name}); return true; }}");
+                    }
+                }
+
+                WriteLine("converted = default!; return false;");
+            });
+        }
+
+        private void WriteConvert()
+        {
+            WriteLine($"public static {_union.TypeName} Convert<TUnion>(TUnion union) where TUnion : ITypeUnion");
+            WriteBraceNested(() =>
+            {
+                WriteLine($"return TryConvert(union, out var converted) ? converted : throw new InvalidCastException();");
+            });
+        }
+
+        private void WriteIsProperites()
+        {
+            foreach (var caseInfo in _caseInfos)
+            {
+                WriteLine($"public bool Is{caseInfo.Name} => _tag == Tag.{caseInfo.Name};");
+            }
+        }
+
+        private void WriteGetMethods()
+        {
+            var first = true;
+
+            foreach (var caseInfo in _caseInfos)
+            {
+                if (caseInfo.Kind != TypeKind.Tag)
+                {
+                    // this is a type case
+
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    WriteLine($"{caseInfo.Accessibility} {caseInfo.Type} Get{caseInfo.Name}() =>");
+                    WriteLineNested($"TryGet{caseInfo.Name}(out var value) ? value : throw new InvalidCastException();");
+                }
+                else if (caseInfo.Values.Count > 1)
+                {
+                    // this is a tag case (w/ more than one value)
+
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    var tupleType = "(" + string.Join(", ", caseInfo.Values.Select(c => $"{c.Type} {c.Name}")) + ")";
+                    var tupleInitializer = "(" + string.Join(", ", caseInfo.Values.Select(c => c.Name)) + ")";
+                    var outArgs = string.Join(", ", caseInfo.Values.Select(c => $"out var {c.Name}"));
+                    WriteLine($"public {tupleType} Get{caseInfo.Name}() =>");
+                    WriteLineNested($"TryGet{caseInfo.Name}({outArgs}) ? {tupleInitializer} : throw new InvalidCastException();");
+                }
+                else if (caseInfo.Values.Count == 1)
+                {
+                    // this is a tag case (w/ only one value)
+
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    var valueInfo = caseInfo.Values[0];
+                    WriteLine($"public {valueInfo.Type} Get{caseInfo.Name}() =>");
+                    WriteLineNested($"TryGet{caseInfo.Name}(out var {valueInfo.Name}) ? {valueInfo.Name} : throw new InvalidCastException();");
+                }
+                else
+                {
+                    // tag case with no values does not get a Get method.
+                }
+            }
+        }
+
+        private void WriteTryGetMethods()
+        {
+            var first = true;
+            foreach (var caseInfo in _caseInfos)
+            {
+                if (caseInfo.Kind != TypeKind.Tag)
+                {
+                    // this is a type case
+
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    var construction = GetTypeCaseInstanceAccessExpression(caseInfo);
+                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}(out {caseInfo.Type} value)");
+                    WriteBraceNested(() =>
+                    {
+                        WriteLine($"if (Is{caseInfo.Name}) {{ value = {construction}; return true; }}");
+                        WriteLine("value = default!; return false;");
+                    });
+                }
+                else if (caseInfo.Values.Count > 0)
+                {
+                    // this is a tag case (w/ values)
+
+                    if (!first)
+                        WriteLine();
+                    first = false;
+
+                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {cv.Name}"));
+
+                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}({paramList})");
+                    WriteBraceNested(() =>
+                    {
+                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
+                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = default!"));
+                        WriteLine($"if (Is{caseInfo.Name}) {{ {assignments}; return true; }}");
+                        WriteLine($"{defAssignments}; return false;");
+                    });
+                }
+                else
+                {
+                    // tag case (w/o values) does not get a TryGet method
+                }
+            }
+        }
+
+        private string GetCaseValueFromFieldArgument(CaseInfo caseInfo, Value value)
+        {
+            var field = caseInfo.CaseValueToFieldMap[value];
+            if (field.Type != value.Type)
+            {
+                return $"({value.Type}){field.Name}";
+            }
+            else
+            {
+                return field.Name;
+            }
+        }
+
+        /// <summary>
+        /// Gets the text of an expression that accesses the type case instance from the union's fields.
+        /// </summary>
+        private string GetTypeCaseInstanceAccessExpression(CaseInfo caseInfo)
+        {
+            switch (caseInfo.Kind)
+            {
+                case TypeKind.RecordStruct:
+                    // construct the record struct type case instance from the value fields
+                    var argList = string.Join(", ", caseInfo.Values.Select(v => GetCaseValueFromFieldArgument(caseInfo, v)));
+                    return $"new {caseInfo.Type}({argList})";
+                case TypeKind.Class:
+                case TypeKind.Interface:
+                case TypeKind.Struct:
+                case TypeKind.Primitive:
+                    // pull the entire reference type case instance from a single value field
+                    return $"({caseInfo.Type}){caseInfo.Field.Name}";
+                case TypeKind.Tag:
+                    // tag case, not a type case
+                default:
+                    return ""; 
+            }
+        }
+
         private void WriteCreateOfT()
         {
+            // cannot create from type case instance if the union has no type cases
             if (_isAllTags)
                 return;
 
@@ -544,187 +712,9 @@ namespace UnionTypes.Generators
             });
         }
 
-        private void WriteConvert()
+        private void WriteITypeUnionMethods()
         {
-            WriteLine($"public static {_union.TypeName} Convert<TOneOf>(TOneOf oneOf) where TOneOf : IOneOf");
-            WriteBraceNested(() =>
-            {
-                WriteLine($"return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();");
-            });
-            WriteLine();
-
-            WriteLine($"public static bool TryConvert<TOneOf>(TOneOf oneOf, out {_union.TypeName} thisOneOf) where TOneOf : IOneOf");
-            WriteBraceNested(() =>
-            {
-                WriteLine($"if (oneOf is {_union.TypeName} me) {{ thisOneOf = me; return true; }}");
-
-                for (int i = 0; i < _caseInfos.Count; i++)
-                {
-                    var caseInfo = _caseInfos[i];
-                    if (caseInfo.Kind != TypeKind.Tag)
-                    {
-                        WriteLine($"if (oneOf.TryGet(out {caseInfo.Type} value{i})) {{ thisOneOf = {caseInfo.FactoryName}(value{i}); return true; }}");
-                    }
-                }
-
-                WriteLine("thisOneOf = default!; return false;");
-            });
-        }
-
-        private void WriteIsProperites()
-        {
-            foreach (var caseInfo in _caseInfos)
-            {
-                WriteLine($"public bool Is{caseInfo.Name} => _tag == Tag.{caseInfo.Name};");
-            }
-        }
-
-        private string GetCaseValueFromFieldArgument(CaseInfo caseInfo, Value value)
-        {
-            var field = caseInfo.CaseValueToFieldMap[value];
-            if (field.Type != value.Type)
-            {
-                return $"({value.Type}){field.Name}";
-            }
-            else
-            {
-                return field.Name;
-            }
-        }
-
-        private void WriteGetMethods()
-        {
-            var first = true;
-
-            foreach (var caseInfo in _caseInfos)
-            {
-                if (caseInfo.Kind != TypeKind.Tag)
-                {
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    WriteLine($"{caseInfo.Accessibility} {caseInfo.Type} Get{caseInfo.Name}() =>");
-                    WriteLineNested($"TryGet{caseInfo.Name}(out var value) ? value : throw new InvalidCastException();");
-                }
-                else if (caseInfo.Values.Count > 1)
-                {
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var tupleType = "(" + string.Join(", ", caseInfo.Values.Select(c => $"{c.Type} {c.Name}")) + ")";
-                    var tupleInitializer = "(" + string.Join(", ", caseInfo.Values.Select(c => c.Name)) + ")";
-                    var outArgs = string.Join(", ", caseInfo.Values.Select(c => $"out var {c.Name}"));
-                    WriteLine($"public {tupleType} Get{caseInfo.Name}() =>");
-                    WriteLineNested($"TryGet{caseInfo.Name}({outArgs}) ? {tupleInitializer} : throw new InvalidCastException();");
-                }
-                else if (caseInfo.Values.Count == 1)
-                {
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var valueInfo = caseInfo.Values[0];
-                    WriteLine($"public {valueInfo.Type} Get{caseInfo.Name}() =>");
-                    WriteLineNested($"TryGet{caseInfo.Name}(out var {valueInfo.Name}) ? {valueInfo.Name} : throw new InvalidCastException();");
-                }
-            }
-        }
-
-        private void WriteTryGetCaseMethods()
-        {
-            var first = true;
-            foreach (var caseInfo in _caseInfos)
-            {
-                if (caseInfo.Kind != TypeKind.Tag)
-                {
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var construction = GetCaseTypeAccessExpression(caseInfo);
-                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}(out {caseInfo.Type} value)");
-                    WriteBraceNested(() =>
-                    {
-                        WriteLine($"if (Is{caseInfo.Name}) {{ value = {construction}; return true; }}");
-                        WriteLine("value = default!; return false;");
-                    });
-                }
-                else if (caseInfo.Values.Count > 0)
-                {
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {LowerName(cv.Name)}"));
-
-                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}({paramList})");
-                    WriteBraceNested(() =>
-                    {
-                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
-                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = default!"));
-                        WriteLine($"if (Is{caseInfo.Name}) {{ {assignments}; return true; }}");
-                        WriteLine($"{defAssignments}; return false;");
-                    });
-                }
-            }
-        }
-
-#if false
-        private void WriteTryGetCaseValueMethods()
-        {
-            var first = true;
-            foreach (var caseInfo in _caseInfos)
-            {
-                if (caseInfo.Kind != TypeKind.Tag
-                    && caseInfo.Values.Count > 0)
-                {
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {LowerName(cv.Name)}"));
-
-                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}Values({paramList})");
-                    WriteBraceNested(() =>
-                    {
-                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
-                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{LowerName(v.Name)} = default!"));
-                        WriteLine($"if (Is{caseInfo.Name}) {{ {assignments}; return true; }}");
-                        WriteLine($"{defAssignments}; return false;");
-                    });
-                }
-            }
-        }
-#endif
-
-        /// <summary>
-        /// Gets the text of an expression that accesses the case type from the union's fields.
-        /// </summary>
-        private string GetCaseTypeAccessExpression(CaseInfo caseInfo)
-        {
-            switch (caseInfo.Kind)
-            {
-                case TypeKind.RecordStruct:
-                    // construct the record struct case type from the value fields
-                    var argList = string.Join(", ", caseInfo.Values.Select(v => GetCaseValueFromFieldArgument(caseInfo, v)));
-                    return $"new {caseInfo.Type}({argList})";
-                case TypeKind.Class:
-                case TypeKind.Interface:
-                case TypeKind.Struct:
-                case TypeKind.Primitive:
-                    // pull the reference type from a single field.
-                    return $"({caseInfo.Type}){caseInfo.Field.Name}";
-                case TypeKind.Tag:
-                default:
-                    return ""; // no type
-            }
-        }
-
-        private void WriteOneOfMethods()
-        {
-            // all tags has no case types, so cannot implement IOneOf
+            // cannot implement ITypeUnion if the union has no type cases
             if (_isAllTags)
                 return;
 
@@ -781,6 +771,41 @@ namespace UnionTypes.Generators
 
             // Get<T>()
             WriteLine($"public TType Get<TType>() => TryGet<TType>(out TType t) ? t : throw new InvalidCastException();");
+            WriteLine();
+
+            // Equals<TValue> 
+            WriteLine("public bool Equals<TValue>(TValue value)");
+            WriteBraceNested(() =>
+            {
+                WriteLine("switch (value)");
+                WriteBraceNested(() =>
+                {
+                    // value is same union type as this
+                    WriteLine($"case {_union.TypeName} sameUnion:");
+                    WriteLineNested("return this.Equals(sameUnion);");
+
+                    // value is one of the type cases for this union type
+                    foreach (var caseInfo in _caseInfos)
+                    {
+                        if (caseInfo.Kind != TypeKind.Tag)
+                        {
+                            WriteLine($"case {caseInfo.Type} v_{caseInfo.Name}:");
+                            WriteLineNested($"return _tag == Tag.{caseInfo.Name} && v_{caseInfo.Name}.Equals(Get{caseInfo.Name}());");
+                        }
+                    }
+
+                    // value is some other type union with type cases (implements ITypeUnion)
+                    if (!_isAllTags)
+                    {
+                        // we don't know what types the other union supports, so get value as object
+                        WriteLine("case ITypeUnion otherUnion:");
+                        WriteLineNested("return Equals(otherUnion.Get<object>());");
+                    }
+
+                    WriteLine("default:");
+                    WriteLineNested("return false;");
+                });
+            });
         }
 
         private void WriteImplicitCastOperators()
@@ -788,6 +813,7 @@ namespace UnionTypes.Generators
             // implicit cast value to union
             foreach (var caseInfo in _caseInfos)
             {
+                // only applicable to type cases and cannot work with interface types.
                 if (caseInfo.Kind != TypeKind.Tag
                     && caseInfo.Kind != TypeKind.Interface)
                 {
@@ -801,6 +827,7 @@ namespace UnionTypes.Generators
             // explicit cast union to value
             foreach (var caseInfo in _caseInfos)
             {
+                // only applicable to type cases and cannot work with interface types.
                 if (caseInfo.Kind != TypeKind.Tag
                     && caseInfo.Kind != TypeKind.Interface)
                 {
@@ -848,43 +875,19 @@ namespace UnionTypes.Generators
 
         private void WriteObjectEquals()
         {
-            // Equals<TValue> 
-            WriteLine("public bool Equals<TValue>(TValue value)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("switch (value)");
-                WriteBraceNested(() =>
-                {
-                    WriteLine($"case {_union.TypeName} union:");
-                    WriteLineNested("return this.Equals(union);");
-
-                    foreach (var caseInfo in _caseInfos)
-                    {
-                        if (caseInfo.Kind != TypeKind.Tag)
-                        {
-                            WriteLine($"case {caseInfo.Type} v_{LowerName(caseInfo.Name)}:");
-                            WriteLineNested($"return _tag == Tag.{caseInfo.Name} && value.Equals(Get{caseInfo.Name}());");
-                        }
-                    }
-
-                    if (!_isAllTags)
-                    {
-                        // cannot match other unions if this one does not have any case types.
-                        WriteLine("case IOneOf oneOf:");
-                        WriteLineNested("return Equals(oneOf.Get<object>());");
-                    }
-
-                    WriteLine("default:");
-                    WriteLineNested("return false;");
-                });
-            });
-            WriteLine();
-
-            // object.Equals
             WriteLine("public override bool Equals(object? other)");
             WriteBraceNested(() =>
             {
-                WriteLine("return other is object obj && Equals<object>(obj);");
+                if (_isAllTags)
+                {
+                    // defer to IEquatable.Equals
+                    WriteLine($"return other is {_union.TypeName} union && Equals(union);");
+                }
+                else
+                {
+                    // defer to ITypeUnion.Equals
+                    WriteLine("return other is object obj && Equals<object>(obj);");
+                }
             });
         }
 
