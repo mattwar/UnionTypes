@@ -737,7 +737,7 @@ namespace UnionTypes.Generators
                             case TypeKind.Interface:
                             case TypeKind.Struct:
                             case TypeKind.Primitive:
-                                WriteLineNested($"{caseInfo.Field.Name} is TType");
+                                WriteLineNested($"return {caseInfo.Field.Name} is TType;");
                                 break;
                         }
                     }

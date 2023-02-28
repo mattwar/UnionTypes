@@ -165,12 +165,15 @@ namespace UnionTypes.Generators
         {
             // Is<T>
             WriteLine("public bool Is<T>() => _value is T;");
+            WriteLine();
 
             // Get<T>
             WriteLine("public T Get<T>() => _value is T t ? t : throw new InvalidCastException();");
+            WriteLine();
 
             // TryGet<T>
             WriteLine("public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }");
+            WriteLine();
 
             // equals
             WriteLine("public bool Equals<TValue>(TValue value)");

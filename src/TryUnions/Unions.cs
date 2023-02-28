@@ -12,6 +12,20 @@ public partial struct TypesUnion
     public record struct C(double Z);
 }
 
+// Type union as a tag union?
+[Union]
+public partial struct Animal
+{
+    public static partial Animal Dog(Dog value);
+    public static partial Animal Cat(Cat value);
+    public static partial Animal Bird(Bird value);
+}
+
+public record Dog(int X);
+public record Cat(string Y);
+public record Bird(double Z);
+
+
 // Tags union declared with partial factory methods
 [Union]
 public partial struct TagsUnion

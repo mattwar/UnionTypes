@@ -69,8 +69,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2> thisOneOf)
@@ -212,8 +215,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3> thisOneOf)
@@ -382,8 +388,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3, T4> thisOneOf)
@@ -579,8 +588,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3, T4, T5> thisOneOf)
@@ -803,8 +815,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6> thisOneOf)
@@ -1054,8 +1069,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6, T7> thisOneOf)
@@ -1332,8 +1350,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6, T7, T8> thisOneOf)
@@ -1637,8 +1658,11 @@ namespace UnionTypes
         }
 
         public bool Is<T>() => _value is T;
+
         public T Get<T>() => _value is T t ? t : throw new InvalidCastException();
+
         public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }
+
         public bool Equals<TValue>(TValue value)
         {
             if (value is OneOf<T1, T2, T3, T4, T5, T6, T7, T8, T9> thisOneOf)
