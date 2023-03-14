@@ -6,6 +6,7 @@ namespace UnionTypes.Generators
     using System.Collections.Generic;
     using System.Dynamic;
     using System.Linq;
+    using System.Security.Claims;
 #endif
 
 #nullable enable
@@ -112,12 +113,17 @@ namespace UnionTypes.Generators
         /// <summary>
         /// A type parameter
         /// </summary>
-        TypeParameter, 
+        TypeParameter_Unconstrained, 
 
         /// <summary>
         /// A ref constrained type parameter
         /// </summary>
-        TypeParameter_RefConstrained
+        TypeParameter_RefConstrained,
+
+        /// <summary>
+        /// A value-type constrained type parameter
+        /// </summary>
+        TypeParameter_ValConstrained
     }
 
     public class Case
@@ -170,7 +176,8 @@ namespace UnionTypes.Generators
         private readonly List<Union> _unions;
         private readonly List<CaseInfo> _caseInfos;
         private Union _union;
-        private bool _isAllTags;       
+        private bool _isParameterlessTagsOnly;
+        private bool _hasTypeCases;
         private bool _hasOverlappingRefData;
         private bool _hasOverlappingValData;
         private List<Field> _nonOverlappingFields;
@@ -273,37 +280,9 @@ namespace UnionTypes.Generators
             }
 
             public ParameterKind Kind => this.Parameter.Kind;
-            public ParameterCategory Category => GetParameterCategory(this.Kind);
+            public ParameterCategory Category => GetCategory(this.Kind);
             public string Name => this.Parameter.Name;
             public string Type => this.Parameter.Type;
-        }
-
-        private static ParameterCategory GetParameterCategory(ParameterKind kind)
-        {
-            switch (kind)
-            {
-                case ParameterKind.TypeParameter:
-                case ParameterKind.NonOverlappableStruct:
-                case ParameterKind.Unknown:
-                    return ParameterCategory.NonOverlappable;
-
-                case ParameterKind.RecordStruct:
-                case ParameterKind.Tuple:
-                    return ParameterCategory.Decomposable;
-
-                case ParameterKind.Class:
-                case ParameterKind.Interface:
-                case ParameterKind.TypeParameter_RefConstrained:
-                case ParameterKind.OverlappableRefStruct:
-                    return ParameterCategory.OverlappableRefData;
-
-                case ParameterKind.PrimitiveStruct:
-                case ParameterKind.OverlappableValStruct:
-                    return ParameterCategory.OverlappableValData;
-
-                default:
-                    throw new NotImplementedException();
-            }
         }
 
         private static Field RefDataField = new Field("_refData", "RefData", "refData");
@@ -326,7 +305,8 @@ namespace UnionTypes.Generators
                 _caseInfos.Add(InitCase(unionCase));
             }
 
-            _isAllTags = _caseInfos.All(c => c.Kind == CaseKind.Tag);
+            _hasTypeCases = _caseInfos.Any(c => c.Kind == CaseKind.Type);
+            _isParameterlessTagsOnly = _caseInfos.All(c => c.Kind == CaseKind.Tag && c.Parameters.Count == 0);
 
             CaseInfo InitCase(Case unionCase)
             {
@@ -361,7 +341,7 @@ namespace UnionTypes.Generators
 
             void Declare(CaseParameterInfo param)
             {
-                switch (GetParameterCategory(param.Kind))
+                switch (GetCategory(param.Kind))
                 {
                     case ParameterCategory.OverlappableRefData:
                         overlappingRefParameters.Add(param);
@@ -384,7 +364,7 @@ namespace UnionTypes.Generators
                 pathFromField = CombineName(pathFromField, caseParam.Name);
                 pathFromFactoryArg = CombinePath(pathFromFactoryArg, caseParam.Name);
 
-                switch (GetParameterCategory(caseParam.Kind))
+                switch (GetCategory(caseParam.Kind))
                 {
                     case ParameterCategory.Decomposable:
                         nestedParameters = new List<CaseParameterInfo>(caseParam.NestedParameters.Count);
@@ -430,13 +410,55 @@ namespace UnionTypes.Generators
             return string.Join("_", parts.Where(p => !string.IsNullOrEmpty(p)));
         }
 
-
         public enum ParameterCategory
         {
             OverlappableRefData,
             Decomposable,
             OverlappableValData,
             NonOverlappable
+        }
+
+        private static ParameterCategory GetCategory(ParameterKind kind)
+        {
+            switch (kind)
+            {
+                case ParameterKind.TypeParameter_Unconstrained:
+                case ParameterKind.TypeParameter_ValConstrained:
+                case ParameterKind.NonOverlappableStruct:
+                case ParameterKind.Unknown:
+                    return ParameterCategory.NonOverlappable;
+
+                case ParameterKind.RecordStruct:
+                case ParameterKind.Tuple:
+                    return ParameterCategory.Decomposable;
+
+                case ParameterKind.Class:
+                case ParameterKind.Interface:
+                case ParameterKind.TypeParameter_RefConstrained:
+                case ParameterKind.OverlappableRefStruct:
+                    return ParameterCategory.OverlappableRefData;
+
+                case ParameterKind.PrimitiveStruct:
+                case ParameterKind.OverlappableValStruct:
+                    return ParameterCategory.OverlappableValData;
+
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        private static bool IsPossibleReference(ParameterKind kind)
+        {
+            switch (kind)
+            {
+                case ParameterKind.Class:
+                case ParameterKind.Interface:
+                case ParameterKind.TypeParameter_Unconstrained:
+                case ParameterKind.TypeParameter_RefConstrained:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private void WriteFile(IReadOnlyList<Union> unions)
@@ -496,9 +518,9 @@ namespace UnionTypes.Generators
         {
             InitUnion(union);
 
-            var oneOf = _isAllTags ? "" : ", ITypeUnion";
+            var typeUnionInterface = _hasTypeCases ? ", ITypeUnion" : "";
 
-            WriteLine($"{_union.Accessibility} partial struct {_union.TypeName} : IEquatable<{_union.TypeName}>{oneOf}");
+            WriteLine($"{_union.Accessibility} partial struct {_union.TypeName} : IEquatable<{_union.TypeName}>{typeUnionInterface}");
             WriteBraceNested(() =>
             {
                 WriteLineSeparated(
@@ -931,7 +953,7 @@ namespace UnionTypes.Generators
 
         private void WriteTryConvert()
         {
-            if (_isAllTags)
+            if (!_hasTypeCases)
                 return;
 
             WriteLine($"public static bool TryConvert<TUnion>(TUnion union, out {_union.TypeName} converted) where TUnion : ITypeUnion");
@@ -954,7 +976,7 @@ namespace UnionTypes.Generators
 
         private void WriteConvert()
         {
-            if (_isAllTags)
+            if (!_hasTypeCases)
                 return;
 
             WriteLine($"public static {_union.TypeName} Convert<TUnion>(TUnion union) where TUnion : ITypeUnion");
@@ -1033,7 +1055,7 @@ namespace UnionTypes.Generators
                                 {
                                     foreach (var param in caseInfo.Parameters)
                                     {
-                                        Write($"{param.Name} = default!;");
+                                        WriteLine($"{param.Name} = default!;");
                                     }
                                     WriteLine("return false;");
                                 });
@@ -1224,7 +1246,7 @@ namespace UnionTypes.Generators
         private void WriteCreateOfT()
         {
             // cannot create from type case instance if the union has no type cases
-            if (_isAllTags)
+            if (!_hasTypeCases)
                 return;
 
             WriteLine($"public static {_union.TypeName} Create<TValue>(TValue value)");
@@ -1250,7 +1272,7 @@ namespace UnionTypes.Generators
         private void WriteITypeUnionMethods()
         {
             // cannot implement ITypeUnion if the union has no type cases
-            if (_isAllTags)
+            if (!_hasTypeCases)
                 return;
 
             // Is<T>
@@ -1336,12 +1358,9 @@ namespace UnionTypes.Generators
                     }
 
                     // value is some other type union with type cases (implements ITypeUnion)
-                    if (!_isAllTags)
-                    {
-                        // we don't know what types the other union supports, so get value as object
-                        WriteLine("case ITypeUnion otherUnion:");
-                        WriteLineNested("return Equals(otherUnion.Get<object>());");
-                    }
+                    // we don't know what types the other union supports, so get value as object
+                    WriteLine("case ITypeUnion otherUnion:");
+                    WriteLineNested("return Equals(otherUnion.Get<object>());");
 
                     WriteLine("default:");
                     WriteLineNested("return false;");
@@ -1391,7 +1410,7 @@ namespace UnionTypes.Generators
             WriteLine($"public bool Equals({_union.TypeName} other)");
             WriteBraceNested(() =>
             {
-                if (_isAllTags)
+                if (_isParameterlessTagsOnly)
                 {
                     WriteLine("return _tag == other._tag;");
                 }
@@ -1411,12 +1430,33 @@ namespace UnionTypes.Generators
                             }
                             else
                             {
-                                WriteLineNested($"return Get{caseInfo.Name}().Equals(other.Get{caseInfo.Name}());");
+                                if (caseInfo.Parameters.Count == 1
+                                    && IsPossibleReference(caseInfo.Parameters[0].Kind))
+                                {
+                                    WriteBraceNested(() =>
+                                    {
+                                        WriteLine($"var value = Get{caseInfo.Name}();");
+                                        WriteLine($"var otherValue = other.Get{caseInfo.Name}();");
+                                        WriteLine($"return (value != null && otherValue != null)");
+                                        WriteLineNested("|| (value != null && otherValue != null && value.Equals(otherValue));");
+                                    });
+                                }
+                                else
+                                {
+                                    // will be a struct
+                                    WriteBraceNested(() =>
+                                    {
+                                        WriteLine($"var value = Get{caseInfo.Name}();");
+                                        WriteLine($"var otherValue = other.Get{caseInfo.Name}();");
+                                        WriteLine($"return value.Equals(otherValue);");
+                                    });
+                                }
                             }
                         }
 
+                        // same tag value, but not a known tag.. probably default
                         WriteLine("default:");
-                        WriteLineNested("throw new InvalidOperationException();");
+                        WriteLineNested("return true;");
                     });
                 }
             });
@@ -1427,15 +1467,15 @@ namespace UnionTypes.Generators
             WriteLine("public override bool Equals(object? other)");
             WriteBraceNested(() =>
             {
-                if (_isAllTags)
-                {
-                    // defer to IEquatable.Equals
-                    WriteLine($"return other is {_union.TypeName} union && Equals(union);");
-                }
-                else
+                if (_hasTypeCases)
                 {
                     // defer to ITypeUnion.Equals
                     WriteLine("return other is object obj && Equals<object>(obj);");
+                }
+                else
+                {
+                    // defer to IEquatable.Equals
+                    WriteLine($"return other is {_union.TypeName} union && Equals(union);");
                 }
             });
         }
@@ -1446,7 +1486,7 @@ namespace UnionTypes.Generators
             WriteLine("public override int GetHashCode()");
             WriteBraceNested(() =>
             {
-                if (_isAllTags)
+                if (_isParameterlessTagsOnly)
                 {
                     WriteLine("return (int)_tag;");
                 }
@@ -1462,6 +1502,10 @@ namespace UnionTypes.Generators
                             if (caseInfo.Kind == CaseKind.Tag && caseInfo.Parameters.Count == 0)
                             {
                                 WriteLineNested($"return (int)_tag;");
+                            }
+                            else if (caseInfo.Parameters.Count == 1 && IsPossibleReference(caseInfo.Parameters[0].Kind))
+                            {
+                                WriteLineNested($"return Get{caseInfo.Name}()?.GetHashCode() ?? 0;");
                             }
                             else
                             {
@@ -1492,7 +1536,7 @@ namespace UnionTypes.Generators
             WriteLine("public override string ToString()");
             WriteBraceNested(() =>
             {
-                if (_isAllTags && _union.Cases.All(c => c.Parameters.Count == 0))
+                if (_isParameterlessTagsOnly)
                 {
                     WriteLine("return _tag.ToString();");
                 }

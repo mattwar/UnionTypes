@@ -321,7 +321,7 @@ namespace UnionTypes.Generators
                     var tp = (ITypeParameterSymbol)type;
                     if (tp.HasReferenceTypeConstraint)
                         return ParameterKind.TypeParameter_RefConstrained;
-                    return ParameterKind.TypeParameter;
+                    return ParameterKind.TypeParameter_Unconstrained;
                 default:
                     return ParameterKind.Unknown;
             }
