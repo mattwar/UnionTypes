@@ -42,10 +42,10 @@ A seperate projects with its own solution `TryUnions.sln`. This is intended to b
 11) Mess about with defining union types
 <br/>
 
-## Using pre-declared OneOf&lt;T&gt; types.
+## Using pre-declared `OneOf` types.
 
-A series of overloaded versions of OneOf&lt;T&gt; are predeclared in `UnionTypes.dll'.
-Use them to declare unions of existing types only.
+A series of overloaded versions of `OneOf<...>` are predeclared in `UnionTypes.dll`.
+Use them to declare type unions of existing types only.
 
 ### Examples
 
