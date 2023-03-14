@@ -1,4 +1,5 @@
-﻿global using IntOrString = UnionTypes.OneOf<int, string>;
+﻿#if false
+global using IntOrString = UnionTypes.OneOf<int, string>;
 global using IntOrStringOrDouble = UnionTypes.OneOf<int, string, double>;
 
 using UnionTypes;
@@ -12,6 +13,20 @@ public partial struct TypesUnion
     public record struct C(double Z);
 }
 
+// Tag Union
+[Union]
+public partial struct CatDogBird
+{
+    public static partial CatDogBird Cat(string name, CatState state);
+    public static partial CatDogBird Dog(string name, DogState state, bool friendly);
+    public static partial CatDogBird Bird(string name, BirdState state, string[] thingsItSays);
+}
+
+public enum CatState { Eating, Sleeping, Playing, Hunting, Annoyed }
+public enum DogState { Eating, Sleeping, Playing }
+public enum BirdState { Quiet, Chirping }
+
+
 // Type union as a tag union?
 [Union]
 public partial struct Animal
@@ -24,6 +39,15 @@ public partial struct Animal
 public record Dog(int X);
 public record Cat(string Y);
 public record Bird(double Z);
+
+
+[Union]
+public partial struct Animal
+{
+    public static partial Animal Dog(Dog value);
+    public static partial Animal Cat(Cat value);
+    public static partial Animal Bird(Bird value);
+}
 
 
 // Tags union declared with partial factory methods
@@ -59,3 +83,4 @@ public partial struct Option<T>
     public static partial Option<T> Some(T value);
     public static partial Option<T> None();
 }
+#endif

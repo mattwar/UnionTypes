@@ -11,7 +11,7 @@ namespace UnionTests
     public class UnionSourceGeneratorTests
     {
         [TestMethod]
-        public void TestUnionCasesFromNestedRecords()
+        public void TestTypeUnionFromNestedTypes()
         {
             TestUnion(
                 """
@@ -29,12 +29,10 @@ namespace UnionTests
                     public void TestMethod()
                     {
                         MyUnion unionA = new MyUnion.A(10);
-                        MyUnion unionA2 = MyUnion.CreateA(10);
-                        MyUnion unionA3 = MyUnion.Create(new MyUnion.A(10));
+                        MyUnion unionA2 = MyUnion.Create(new MyUnion.A(10));
                         
                         MyUnion unionB = new MyUnion.B("ten");
-                        MyUnion unionB2 = MyUnion.Create(new MyUnion.A(10));
-                        MyUnion unionB3 = MyUnion.CreateB("ten");
+                        MyUnion unionB2 = MyUnion.Create(new MyUnion.B("ten"));
                                         
                         bool isA = unionA.IsA;
                         bool isA2 = unionA.Is<MyUnion.A>();
@@ -54,7 +52,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionCasesFromTypesAttribute()
+        public void TestTypeUnionFromAttribute()
         {
             TestUnion(
                 """
@@ -74,14 +72,10 @@ namespace UnionTests
                     public void TestMethod()
                     {
                         MyUnion unionA = new A(10);
-                        MyUnion unionA2 = MyUnion.A(new A(10));
-                        MyUnion unionA3 = MyUnion.A(10);
-                        MyUnion unionA4 = MyUnion.Create(new A(10));
+                        MyUnion unionA2 = MyUnion.Create(new A(10));
                         
                         MyUnion unionB = new B("ten");
-                        MyUnion unionB2 = MyUnion.B(new B("ten"));
-                        MyUnion unionB3 = MyUnion.B("ten");
-                        MyUnion unionB4 = MyUnion.Create(new B("ten"));
+                        MyUnion unionB2 = MyUnion.Create(new B("ten"));
                         
                         bool isA = unionA.IsA;
                         bool isA2 = unionA.Is<A>();
@@ -100,7 +94,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionCasesFromTagsAttribute()
+        public void TestTagUnionFromAttribute()
         {
             TestUnion(
                 """
@@ -116,8 +110,8 @@ namespace UnionTests
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = MyUnion.A;
-                        MyUnion unionB = MyUnion.B;
+                        MyUnion unionA = MyUnion.A();
+                        MyUnion unionB = MyUnion.B();
 
                         var isA = unionA.IsA;
                         var isB = unionB.IsB;
@@ -129,7 +123,29 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionCasesFromPartialFactories()
+        public void TestTagUnionFromFactories()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [Union]
+                public partial struct CatDogBird
+                {
+                    public static partial CatDogBird Cat(string name, CatState state);
+                    public static partial CatDogBird Dog(string name, DogState state, bool friendly);
+                    public static partial CatDogBird Bird(string name, BirdState state, string[] thingsItSays);
+                }
+
+                public enum CatState { Eating, Sleeping, Playing, Hunting, Annoyed}
+                public enum DogState { Eating, Sleeping, Playing }
+                public enum BirdState { Quiet, Chirping }
+                """);
+        }
+
+
+        [TestMethod]
+        public void TestMixedUnionFromFactories()
         {
             TestUnion(
                 """
@@ -153,7 +169,6 @@ namespace UnionTests
                         MyUnion unionA = MyUnion.A(10);
                         MyUnion unionB = MyUnion.B();
                         MyUnion unionC = MyUnion.C(new C(5.0));
-                        MyUnion unionC2 = MyUnion.C(5.0);
                         MyUnion unionD = MyUnion.D(1, 2);
 
                         bool isA = unionA.IsA;
@@ -174,6 +189,22 @@ namespace UnionTests
 
                         var areEqual = unionA == unionB;
                     }
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestTypeUnionFromFactories()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [Union]
+                public partial struct StringOrInt
+                {
+                    public static partial StringOrInt Create(string value);
+                    public static partial StringOrInt Create(int value);
                 }
                 """);
         }
@@ -221,7 +252,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionCasesFromTypesInsideOtherNamespace()
+        public void TestTypeUnionFromTypesInOtherNamespace()
         {
             TestUnion(
                 """
@@ -242,7 +273,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionCasesFromTypesInsideOtherType()
+        public void TestTypeUnionFromTypesInsideOtherType()
         {
             TestUnion(
                 """
@@ -263,7 +294,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionWithInternalAccessibility()
+        public void TestTypeUnionWithInternalAccessibility()
         {
             TestUnion(
                 """
@@ -283,7 +314,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionCasesFromNestedRecordsWithInternalAccessibility()
+        public void TestTypeUnionFromTypesWithInternalAccessibility()
         {
             TestUnion(
                 """
@@ -299,11 +330,27 @@ namespace UnionTests
                     }
                 }
                 """,
-                newText => newText.Contains("internal A GetA"));
+                newText => newText.Contains(" internal static MyUnion Create"));
         }
 
         [TestMethod]
-        public void TestUnionWithTypeParameters()
+        public void TestTagUnionWithTypeParameter()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [Union]
+                public partial struct Result<T>
+                {
+                    public static partial Result<T> Success(T value);
+                    public static partial Result<T> Failure(string reason);
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestTypeUnionWithTypeParameter()
         {
             TestUnion(
                 """
@@ -319,17 +366,33 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestUnionWithPartialFactoriesAndTypeParameters()
+        public void TestTagUnionWithReferenceConstrainedTypeParameter()
         {
             TestUnion(
                 """
                 using UnionTypes;
 
                 [Union]
-                public partial struct Result<T>
+                public partial struct Result<T> where T : class
                 {
                     public static partial Result<T> Success(T value);
                     public static partial Result<T> Failure(string reason);
+                }
+                """);
+        }
+
+        [TestMethod]
+        public void TestTypeUnionWithReferencedConstrainedTypeParameter()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [Union]
+                public partial struct Result<T> where T : class
+                {
+                    public record struct Success(T value);
+                    public record struct Failure(string reason);
                 }
                 """);
         }

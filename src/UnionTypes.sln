@@ -5,13 +5,15 @@ VisualStudioVersion = 17.3.32804.467
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnionTypes", "UnionTypes\UnionTypes.csproj", "{FAD0F6C5-9808-4AB0-8FDA-2CF9799DB151}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnionTests", "UnionTests\UnionTests.csproj", "{E16F8F8C-A53E-400E-93D5-9098D5E6032E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnionTests", "UnionTests\UnionTests.csproj", "{E16F8F8C-A53E-400E-93D5-9098D5E6032E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnionSourceGenerator", "UnionSourceGenerator\UnionSourceGenerator\UnionSourceGenerator.csproj", "{49432D88-C8C9-4CFD-B70B-7C0B28B88CC3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnionSourceGenerator", "UnionSourceGenerator\UnionSourceGenerator\UnionSourceGenerator.csproj", "{49432D88-C8C9-4CFD-B70B-7C0B28B88CC3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnionSourceGenerator.Package", "UnionSourceGenerator\UnionSourceGenerator.Package\UnionSourceGenerator.Package.csproj", "{F77932CC-DCCC-4C66-BD71-E18BC2C0A839}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnionSourceGenerator.Package", "UnionSourceGenerator\UnionSourceGenerator.Package\UnionSourceGenerator.Package.csproj", "{F77932CC-DCCC-4C66-BD71-E18BC2C0A839}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Generators", "Generators\Generators.csproj", "{2CC794DB-4BEF-40E7-A190-FA034922645A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scratch", "Scratch\Scratch.csproj", "{2CE01113-687F-48E3-A091-44F6799843CF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{2CC794DB-4BEF-40E7-A190-FA034922645A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2CC794DB-4BEF-40E7-A190-FA034922645A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2CC794DB-4BEF-40E7-A190-FA034922645A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2CE01113-687F-48E3-A091-44F6799843CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2CE01113-687F-48E3-A091-44F6799843CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2CE01113-687F-48E3-A091-44F6799843CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2CE01113-687F-48E3-A091-44F6799843CF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

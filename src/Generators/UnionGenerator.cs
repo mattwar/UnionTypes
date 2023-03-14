@@ -4,6 +4,7 @@ namespace UnionTypes.Generators
 {
     using System;
     using System.Collections.Generic;
+    using System.Dynamic;
     using System.Linq;
 #endif
 
@@ -48,27 +49,50 @@ namespace UnionTypes.Generators
         }
     }
 
-    public enum TypeKind
+    public enum CaseKind
     {
         /// <summary>
-        /// The type kind is unknown
+        /// The case is a single unique type across all cases
+        /// </summary>
+        Type,
+
+        /// <summary>
+        /// The case is a tag and optional parameters
+        /// </summary>
+        Tag
+    }
+
+    public enum ParameterKind
+    {
+        /// <summary>
+        /// The kind is unknown
         /// </summary>
         Unknown,
 
         /// <summary>
-        /// Just a tag, contains no values
+        /// A tuple containing one or more values that can be decomposed
         /// </summary>
-        Tag,
+        Tuple,
 
         /// <summary>
-        /// Just a single value (not class/struct holding it)
-        /// </summary>
-        Primitive,
-
-        /// <summary>
-        /// struct containing one or more values that can be deconstructed
+        /// struct containing one or more values that can be decomposed
         /// </summary>
         RecordStruct,
+
+        /// <summary>
+        /// struct containing only reference type members
+        /// </summary>
+        OverlappableRefStruct,
+
+        /// <summary>
+        /// struct containing only overlappable value type members
+        /// </summary>
+        OverlappableValStruct,
+
+        /// <summary>
+        /// Just a single primitive value type
+        /// </summary>
+        PrimitiveStruct,
 
         /// <summary>
         /// class containing zero or more values
@@ -76,94 +100,80 @@ namespace UnionTypes.Generators
         Class,
 
         /// <summary>
-        /// struct containing zero or more values
-        /// </summary>
-        Struct,
-
-        /// <summary>
         /// An interface
         /// </summary>
         Interface,
 
         /// <summary>
+        /// struct containing one or more reference values and one or more value-type values
+        /// </summary>
+        NonOverlappableStruct,
+
+        /// <summary>
         /// A type parameter
         /// </summary>
-        TypeParameter
+        TypeParameter, 
+
+        /// <summary>
+        /// A ref constrained type parameter
+        /// </summary>
+        TypeParameter_RefConstrained
     }
 
     public class Case
     {
-        public TypeKind Kind { get; }
+        public CaseKind Kind { get; }
         public string Name { get; }
-        public string Type { get; }
         public string Accessibilty { get; }
         public bool IsPartial { get; }
         public string FactoryName { get; }
-        public IReadOnlyList<Value> Values { get; }
-        public bool Generate { get; }
+        public IReadOnlyList<CaseParameter> Parameters { get; }
+        public bool GenerateCaseType { get; }
 
         public Case(
-            TypeKind kind, string name, string type, 
-            string accessibility, bool isPartial, string factoryName, bool generate, IReadOnlyList<Value>? values)
+            CaseKind kind, 
+            string name,
+            string accessibility, 
+            bool isPartial, 
+            string factoryName, 
+            bool generateCaseType, 
+            IReadOnlyList<CaseParameter>? parameters)
         {
             this.Kind = kind;
             this.Name = name;
-            this.Type = type ?? name;
             this.Accessibilty = accessibility ?? "";
             this.IsPartial = isPartial;
             this.FactoryName = factoryName;
-            this.Generate = generate;
-            this.Values = values ?? Array.Empty<Value>();
-        }
-
-        public Case(TypeKind kind, string name, string type, bool generate = true)
-            : this(kind, name, type, "public", isPartial: false, factoryName: null!, generate, null)
-        {
-        }
-
-        public Case(TypeKind kind, string name, string type, params Value[] values)
-            : this(kind, name, type, "public", isPartial: false, factoryName: null!, generate: true, values)
-        {
-        }
-
-        public Case(TypeKind kind, string name, params Value[] values)
-            : this(kind, name, name, values)
-        {
-        }
-
-        public Case(string name, params Value[] values)
-            : this(values.Length > 0 ? TypeKind.RecordStruct : TypeKind.Tag, name, name, values)
-        {
+            this.GenerateCaseType = generateCaseType;
+            this.Parameters = parameters ?? Array.Empty<CaseParameter>();
         }
     }
 
-    public class Value
+    public class CaseParameter
     {
-        public TypeKind Kind { get; }
+        public ParameterKind Kind { get; }
         public string Name { get; }
         public string Type { get; }
+        public IReadOnlyList<CaseParameter> NestedParameters { get; }
 
-        public Value(TypeKind kind, string name, string type)
+        public CaseParameter(ParameterKind kind, string name, string type, IReadOnlyList<CaseParameter>? nestedParameters = null)
         {
             this.Kind = kind;
             this.Name = name;
             this.Type = type;
-        }
-
-        public Value(string name, string type)
-            : this(TypeKind.Primitive, name, type)
-        {
+            this.NestedParameters = nestedParameters ?? Array.Empty<CaseParameter>();
         }
     }
 
     public class UnionGenerator : Generator
     {
         private readonly List<Union> _unions;
-        private readonly List<Field> _fields;
-        private readonly List<Field> _constructorParameters;
         private readonly List<CaseInfo> _caseInfos;
         private Union _union;
-        private bool _isAllTags;
+        private bool _isAllTags;       
+        private bool _hasOverlappingRefData;
+        private bool _hasOverlappingValData;
+        private List<Field> _nonOverlappingFields;
         private bool _generateCaseTypes;
         private string? _namespace;
         private readonly IReadOnlyList<string>? _usings;
@@ -174,10 +184,9 @@ namespace UnionTypes.Generators
             _generateCaseTypes = generateCaseTypes;
             _usings = usings;
             _unions = new List<Union>();
-            _fields = new List<Field>();
             _union = null!;
-            _constructorParameters = new List<Field>();
             _caseInfos = new List<CaseInfo>();
+            _nonOverlappingFields = new List<Field>();
         }
 
         public string GenerateFile(params Union[] unions)
@@ -195,140 +204,245 @@ namespace UnionTypes.Generators
         {
             public string Name { get; }
             public string Type { get; }
+            public string ConstructorArg { get; }
 
-            public Field(string name, string type)
+            public Field(string fieldName, string type, string constructorArg)
             {
-                this.Name = name;
+                this.Name = fieldName;
                 this.Type = type;
+                this.ConstructorArg = constructorArg;
             }
         }
 
         private class CaseInfo
         {
             public Case Case { get; }
-            public Field Field { get; set; }
-            public Dictionary<Value, Field> CaseValueToFieldMap { get; }
-            public Dictionary<Field, Value> FieldToCaseValueMap { get; }
+            public IReadOnlyList<CaseParameterInfo> Parameters { get; }
+            public IReadOnlyList<CaseParameterInfo> OverlappingRefParameters { get; }
+            public IReadOnlyList<CaseParameterInfo> OverlappingValParameters { get; }
+            public IReadOnlyList<CaseParameterInfo> NonOverlappingParameters { get; }
 
-            public TypeKind Kind => this.Case.Kind;
-            public bool Generate => this.Case.Generate;
+            public CaseKind Kind => this.Case.Kind;
+            public bool GenerateCaseType => this.Case.GenerateCaseType;
             public string Name => this.Case.Name;
-            public string Type => this.Case.Type;
             public string Accessibility => this.Case.Accessibilty;
             public bool IsPartial => this.Case.IsPartial;
             public string FactoryName => this.Case.FactoryName;
-            public IReadOnlyList<Value> Values => this.Case.Values;
 
-            public CaseInfo(Case @case)
+            public CaseInfo(
+                Case unionCase, 
+                IReadOnlyList<CaseParameterInfo> parameters, 
+                IReadOnlyList<CaseParameterInfo> overlappingRefParameters,
+                IReadOnlyList<CaseParameterInfo> overlappingValParameters,
+                IReadOnlyList<CaseParameterInfo> nonOverlappingParameters)
             {
-                this.Case = @case;
-                this.Field = null!;
-                this.CaseValueToFieldMap = new Dictionary<Value, Field>();
-                this.FieldToCaseValueMap = new Dictionary<Field, Value>();
+                this.Case = unionCase;
+                this.Parameters = parameters;
+                this.OverlappingRefParameters = overlappingRefParameters;
+                this.OverlappingValParameters = overlappingValParameters;
+                this.NonOverlappingParameters = nonOverlappingParameters;
+            }
+
+            public bool TryGetNonOverlappingParameter(Field field, out CaseParameterInfo param)
+            {
+                param = this.NonOverlappingParameters.FirstOrDefault(p => p.Field == field);
+                return param != null;
             }
         }
+
+        private class CaseParameterInfo
+        {
+            public CaseParameter Parameter { get; }
+            public string? PathFromFactoryArg { get; }
+            public string? PathFromField { get; }
+            public Field? Field { get; }
+            public IReadOnlyList<CaseParameterInfo> NestedParameters { get; }
+
+            public CaseParameterInfo(
+                CaseParameter parameter,
+                Field? field,
+                string? pathFromFactoryArg, 
+                string? pathFromField,
+                IReadOnlyList<CaseParameterInfo>? nestedParameters)
+            {
+                this.Parameter = parameter;
+                this.Field = field;
+                this.PathFromFactoryArg = pathFromFactoryArg;
+                this.PathFromField = pathFromField;
+                this.NestedParameters = nestedParameters ?? Array.Empty<CaseParameterInfo>();
+            }
+
+            public ParameterKind Kind => this.Parameter.Kind;
+            public ParameterCategory Category => GetParameterCategory(this.Kind);
+            public string Name => this.Parameter.Name;
+            public string Type => this.Parameter.Type;
+        }
+
+        private static ParameterCategory GetParameterCategory(ParameterKind kind)
+        {
+            switch (kind)
+            {
+                case ParameterKind.TypeParameter:
+                case ParameterKind.NonOverlappableStruct:
+                case ParameterKind.Unknown:
+                    return ParameterCategory.NonOverlappable;
+
+                case ParameterKind.RecordStruct:
+                case ParameterKind.Tuple:
+                    return ParameterCategory.Decomposable;
+
+                case ParameterKind.Class:
+                case ParameterKind.Interface:
+                case ParameterKind.TypeParameter_RefConstrained:
+                case ParameterKind.OverlappableRefStruct:
+                    return ParameterCategory.OverlappableRefData;
+
+                case ParameterKind.PrimitiveStruct:
+                case ParameterKind.OverlappableValStruct:
+                    return ParameterCategory.OverlappableValData;
+
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        private static Field RefDataField = new Field("_refData", "RefData", "refData");
+        private static Field ValDataField = new Field("_valData", "ValData", "valData");
 
         private void InitUnion(Union union)
         {
             _union = union;
             _caseInfos.Clear();
-            _caseInfos.AddRange(union.Cases.Select(c => new CaseInfo(c)));
-            _fields.Clear();
-            _constructorParameters.Clear();
-            _isAllTags = _caseInfos.All(c => c.Kind == TypeKind.Tag);
+            _hasOverlappingRefData = false;
+            _hasOverlappingValData = false;
+            _nonOverlappingFields.Clear();
 
-            var usedFields = new HashSet<Field>();
+            var overlappingRefParameters = new List<CaseParameterInfo>();
+            var overlappingValParameters = new List<CaseParameterInfo>();
+            var nonOverlappingParameters = new List<CaseParameterInfo>();
 
-            // figure out what fields all the case values are mapping to
-            foreach (var caseInfo in _caseInfos)
+            foreach (var unionCase in union.Cases)
             {
-                usedFields.Clear();
+                _caseInfos.Add(InitCase(unionCase));
+            }
 
-                if (caseInfo.Kind == TypeKind.RecordStruct
-                    || caseInfo.Kind == TypeKind.Tag)
+            _isAllTags = _caseInfos.All(c => c.Kind == CaseKind.Tag);
+
+            CaseInfo InitCase(Case unionCase)
+            {
+                overlappingRefParameters.Clear();
+                overlappingValParameters.Clear();
+                nonOverlappingParameters.Clear();
+
+                List<CaseParameterInfo> caseParams = new List<CaseParameterInfo>();
+                foreach (var param in unionCase.Parameters)
                 {
-                    foreach (var caseValue in caseInfo.Values)
-                    {
-                        var type = GetFieldType(caseValue.Kind, caseValue.Type, isCase: false);
-                        var field = GetField(caseValue.Kind, type, usedFields);
-
-                        // init maps
-                        AddCaseValueToFieldRelation(caseInfo, caseValue, field);
-                    }
+                    var caseParam = InitCaseParameter(
+                            unionCase, param,
+                            pathFromField: "",
+                            pathFromFactoryArg: "",
+                            isRoot: true);
+                    Declare(caseParam);
+                    caseParams.Add(caseParam);
                 }
-                else
+
+                var info = new CaseInfo(
+                    unionCase, 
+                    caseParams, 
+                    overlappingRefParameters.ToList(), 
+                    overlappingValParameters.ToList(), 
+                    nonOverlappingParameters.ToList());
+
+                _hasOverlappingRefData |= overlappingRefParameters.Count > 0;
+                _hasOverlappingValData |= overlappingValParameters.Count > 0;
+
+                return info;
+            }
+
+            void Declare(CaseParameterInfo param)
+            {
+                switch (GetParameterCategory(param.Kind))
                 {
-                    var type = GetFieldType(caseInfo.Kind, caseInfo.Type, isCase: true);
-                    var field = GetField(caseInfo.Kind, type, usedFields);
-                    caseInfo.Field = field;
+                    case ParameterCategory.OverlappableRefData:
+                        overlappingRefParameters.Add(param);
+                        break;
+                    case ParameterCategory.NonOverlappable:
+                        nonOverlappingParameters.Add(param);
+                        break;
+                    case ParameterCategory.OverlappableValData:
+                        overlappingValParameters.Add(param);
+                        break;
                 }
             }
-        }
 
-        private string GetFieldType(TypeKind kind, string type, bool isCase)
-        {
-            switch (kind)
+            CaseParameterInfo InitCaseParameter(
+                Case unionCase, CaseParameter caseParam, string pathFromField, string pathFromFactoryArg, bool isRoot)
             {
-                case TypeKind.Class:
-                case TypeKind.Interface:
-                    return "object";
-                case TypeKind.Struct:
-                    return isCase ? "object" : type;
-                case TypeKind.Primitive:
-                    return GetFieldTypeFromPrimitive(type);
-                case TypeKind.Tag:
-                    return "Tag";
-                default:
-                    return type;
+                Field? field = null;
+                List<CaseParameterInfo>? nestedParameters = null;
+
+                pathFromField = CombineName(pathFromField, caseParam.Name);
+                pathFromFactoryArg = CombinePath(pathFromFactoryArg, caseParam.Name);
+
+                switch (GetParameterCategory(caseParam.Kind))
+                {
+                    case ParameterCategory.Decomposable:
+                        nestedParameters = new List<CaseParameterInfo>(caseParam.NestedParameters.Count);
+                        foreach (var np in caseParam.NestedParameters)
+                        {
+                            var newCaseParamInfo = InitCaseParameter(unionCase, np, pathFromField, pathFromFactoryArg, isRoot: false);
+                            Declare(newCaseParamInfo);
+                            nestedParameters.Add(newCaseParamInfo);
+                        }
+                        break;
+
+                    case ParameterCategory.OverlappableValData:
+                        pathFromField = CombinePath(ValDataField.Name, unionCase.Name, pathFromField);
+                        break;
+
+                    case ParameterCategory.OverlappableRefData:
+                        pathFromField = CombinePath(RefDataField.Name, unionCase.Name, pathFromField);
+                        break;
+
+                    case ParameterCategory.NonOverlappable:
+                        var constructorArg = "field" + _nonOverlappingFields.Count;
+                        var fieldName = "_" + constructorArg;
+                        pathFromField = fieldName;
+                        field = new Field(fieldName, caseParam.Type, constructorArg);
+                        _nonOverlappingFields.Add(field);
+                        break;
+
+                    default:
+                        throw new NotImplementedException();
+                }
+
+                return new CaseParameterInfo(caseParam, field, pathFromFactoryArg, pathFromField, nestedParameters);
             }
         }
 
-        private string GetFieldTypeFromPrimitive(string primitiveType)
+        private static string CombinePath(params string[] parts)
         {
-            switch (primitiveType)
-            {
-                case "string":
-                    return "object";
-                default:
-                    return primitiveType;
-            }
+            return string.Join(".", parts.Where(p => !string.IsNullOrEmpty(p)));
         }
 
-        private void AddCaseValueToFieldRelation(CaseInfo caseInfo, Value caseValue, Field field)
+        private static string CombineName(params string[] parts)
         {
-            if (!caseInfo.CaseValueToFieldMap.ContainsKey(caseValue))
-            {
-                caseInfo.CaseValueToFieldMap.Add(caseValue, field);
-            }
-
-            if (!caseInfo.FieldToCaseValueMap.ContainsKey(field))
-            {
-                caseInfo.FieldToCaseValueMap.Add(field, caseValue);
-            }
+            return string.Join("_", parts.Where(p => !string.IsNullOrEmpty(p)));
         }
 
-        private Field GetField(TypeKind kind, string type, HashSet<Field> usedFields)
+
+        public enum ParameterCategory
         {
-            // find next unused field with same type
-            var field = _fields.FirstOrDefault(f => f.Type == type && !usedFields.Contains(f));
-
-            // if no such field exists, add a new one
-            if (field == null)
-            {
-                var index = _fields.Count;
-                _fields.Add(field = new Field("_value" + index, type));
-                _constructorParameters.Add(new Field("value" + index, type));
-            }
-
-            // mark it as used for this case
-            usedFields.Add(field);
-
-            return field;
+            OverlappableRefData,
+            Decomposable,
+            OverlappableValData,
+            NonOverlappable
         }
 
         private void WriteFile(IReadOnlyList<Union> unions)
         {
             WriteLine("using System;");
+            WriteLine("using System.Runtime.InteropServices;");
             WriteLine("using UnionTypes;");
 
             if (_usings != null)
@@ -390,6 +504,7 @@ namespace UnionTypes.Generators
                 WriteLineSeparated(
                     WriteTagDeclaration,
                     WriteFields,
+                    WriteDataTypes,
                     WriteConstructor,
                     WriteFactoryMethods,
                     WriteTryConvert,
@@ -397,6 +512,7 @@ namespace UnionTypes.Generators
                     WriteIsProperites,
                     WriteTryGetMethods,
                     WriteGetMethods,
+                    WriteGetOrDefaultMethods,
                     WriteCreateOfT, 
                     WriteITypeUnionMethods,
                     WriteImplicitCastOperators,
@@ -406,7 +522,7 @@ namespace UnionTypes.Generators
                     WriteGetHashCode,
                     WriteEqualityOperators,
                     WriteToString,
-                    WriteCaseTypes
+                    WriteGeneratedCaseTypes
                     );
             });
         }
@@ -426,91 +542,388 @@ namespace UnionTypes.Generators
         private void WriteFields()
         {
             WriteLine("private readonly Tag _tag;");
+            
+            if (_hasOverlappingRefData)
+                WriteLine($"private readonly {RefDataField.Type} {RefDataField.Name};");
+            
+            if (_hasOverlappingValData)
+                WriteLine($"private readonly {ValDataField.Type} {ValDataField.Name};");
 
-            foreach (var field in _fields)
+            if (_nonOverlappingFields.Count > 0)
             {
-                WriteLine($"private readonly {field.Type} {field.Name};");
+                foreach (var field in _nonOverlappingFields)
+                {
+                    WriteLine($"private readonly {field.Type} {field.Name};");
+                }
+            }
+        }
+
+        private void WriteDataTypes()
+        {
+            WriteLineSeparatedBlocks(() =>
+            {
+                if (_hasOverlappingRefData)
+                {
+                    WriteBlock(() => WriteRefDataType());
+                }
+
+                if (_hasOverlappingValData)
+                {
+                    WriteBlock(() => WriteValDataType());
+                }
+            });
+
+            void WriteRefDataType()
+            {
+                WriteLine("[StructLayout(LayoutKind.Explicit)]");
+                WriteLine($"private struct {RefDataField.Type}");
+                WriteBraceNested(() =>
+                {
+                    WriteLineSeparatedBlocks(() =>
+                    {
+                        WriteBlock(() =>
+                        {
+                            foreach (var caseInfo in _caseInfos)
+                            {
+                                if (caseInfo.OverlappingRefParameters.Count > 0)
+                                {
+                                    WriteLine("[FieldOffset(0)]");
+                                    WriteLine($"public {caseInfo.Name}_Data {caseInfo.Name};");
+                                }
+                            }
+                        });
+
+                        WriteCaseDataTypes();
+                    });
+                });
+
+                void WriteCaseDataTypes()
+                {
+                    foreach (var caseInfo in _caseInfos)
+                    {
+                        if (caseInfo.OverlappingRefParameters.Count == 0)
+                            continue;
+
+                        WriteBlock(() =>
+                        {
+                            WriteLine($"public struct {caseInfo.Name}_Data");
+                            WriteBraceNested(() =>
+                            {
+                                foreach (var param in caseInfo.Parameters)
+                                {
+                                    WriteFields(param, param.Name);
+                                }
+                            });
+                        });
+                    }
+
+                    void WriteFields(CaseParameterInfo param, string name)
+                    {
+                        switch (param.Category)
+                        {
+                            case ParameterCategory.Decomposable:
+                                foreach (var np in param.NestedParameters)
+                                {
+                                    WriteFields(np, CombineName(name, np.Name));
+                                }
+                                break;
+
+                            case ParameterCategory.OverlappableRefData:
+                                WriteLine($"public {param.Type} {name};");
+                                break;
+
+                            case ParameterCategory.OverlappableValData:
+                            case ParameterCategory.NonOverlappable:
+                                break;
+
+                            default:
+                                throw new NotImplementedException();
+                        }
+                    }
+                }
+            }
+
+            void WriteValDataType()
+            {
+                WriteLine("[StructLayout(LayoutKind.Explicit)]");
+                WriteLine($"private struct {ValDataField.Type}");
+                WriteBraceNested(() =>
+                {
+                    WriteLineSeparatedBlocks(() =>
+                    {
+                        WriteBlock(() =>
+                        {
+                            foreach (var caseInfo in _caseInfos)
+                            {
+                                if (caseInfo.OverlappingValParameters.Count > 0)
+                                {
+                                    WriteLine("[FieldOffset(0)]");
+                                    WriteLine($"public {caseInfo.Name}_Data {caseInfo.Name};");
+                                }
+                            }
+                        });
+
+                        WriteCaseDataTypes();
+                    });
+
+                    void WriteCaseDataTypes()
+                    {
+                        foreach (var caseInfo in _caseInfos)
+                        {
+                            if (caseInfo.OverlappingValParameters.Count == 0)
+                                continue;
+
+                            WriteBlock(() =>
+                            {
+                                WriteLine($"public struct {caseInfo.Name}_Data");
+                                WriteBraceNested(() =>
+                                {
+                                    foreach (var param in caseInfo.Parameters)
+                                    {
+                                        WriteFields(param, param.Name);
+                                    }
+                                });
+                            });
+                        }
+
+                        void WriteFields(CaseParameterInfo param, string name)
+                        {
+                            switch (param.Category)
+                            {
+                                case ParameterCategory.Decomposable:
+                                    foreach (var np in param.NestedParameters)
+                                    {
+                                        WriteFields(np, CombineName(name, np.Name));
+                                    }
+                                    break;
+
+                                case ParameterCategory.OverlappableValData:
+                                    WriteLine($"public {param.Type} {name};");
+                                    break;
+
+                                case ParameterCategory.OverlappableRefData:
+                                case ParameterCategory.NonOverlappable:
+                                    break;
+
+                                default:
+                                    throw new NotImplementedException();
+                            }
+                        }
+                    }
+                });
             }
         }
 
         private void WriteConstructor()
         {
-            var parameters = new List<string>();
-            parameters.Add("Tag tag");
-            parameters.AddRange(_constructorParameters.Select(p => $"{p.Type} {p.Name}"));
-            var parameterList = string.Join(", ", parameters);
+            var args = new List<string>() { "Tag tag" };
 
-            WriteLine($"private {_union.Name}({parameterList})");
+            if (_hasOverlappingRefData)
+                args.Add($"{RefDataField.Type} {RefDataField.ConstructorArg}");
+
+            if (_hasOverlappingValData)
+                args.Add($"{ValDataField.Type} {ValDataField.ConstructorArg}");
+
+            foreach (var field in _nonOverlappingFields)
+            {
+                args.Add($"{field.Type} {field.ConstructorArg}");
+            }
+
+            var argsList = string.Join(", ", args);
+
+            WriteLine($"private {_union.Name}({argsList})");
             WriteBraceNested(() =>
             {
                 WriteLine("_tag = tag;");
 
-                for (int i = 0; i < _fields.Count; i++)
+                if (_hasOverlappingRefData)
+                    WriteLine($"{RefDataField.Name} = {RefDataField.ConstructorArg};");
+
+                if (_hasOverlappingValData)
+                    WriteLine($"{ValDataField.Name} = {ValDataField.ConstructorArg};");
+
+                foreach (var field in _nonOverlappingFields)
                 {
-                    WriteLine($"{_fields[i].Name} = {_constructorParameters[i].Name};");
+                    WriteLine($"this.{field.Name} = {field.ConstructorArg};");
                 }
             });
         }
 
         private void WriteFactoryMethods()
         {
-            var args = new List<string>();
-
-            foreach (var caseInfo in _caseInfos)
+            WriteLineSeparatedBlocks(() =>
             {
-                args.Clear();
-                args.Add($"Tag.{caseInfo.Name}");
+                foreach (var caseInfo in _caseInfos)
+                {
+                    WriteBlock(() => WriteFactoryMethod(caseInfo));
+                }
+            });
+
+            void WriteFactoryMethod(CaseInfo caseInfo)
+            {
+                var access = string.IsNullOrEmpty(caseInfo.Accessibility) ? "public" : caseInfo.Accessibility;
+                var decl = $"{access} static {(caseInfo.IsPartial ? "partial " + _union.TypeName : _union.TypeName)} {caseInfo.FactoryName}";
 
                 switch (caseInfo.Kind)
                 {
-                    case TypeKind.RecordStruct:
-                        args.AddRange(_fields.Select(f => caseInfo.FieldToCaseValueMap.TryGetValue(f, out var cv) ? $"value.{cv.Name}" : "default!"));
+                    case CaseKind.Tag:
+                        var parameters = string.Join(", ", caseInfo.Parameters.Select(p => $"{p.Type} {p.Name}"));
+                        WriteFactory(parameters);
                         break;
-                    case TypeKind.Class:
-                    case TypeKind.Interface:
-                    case TypeKind.Struct:
-                    case TypeKind.Primitive:
-                        args.AddRange(_fields.Select(f => f == caseInfo.Field ? "value" : "default!"));
-                        break;
-                    case TypeKind.Tag:
-                        args.AddRange(_fields.Select(f => caseInfo.FieldToCaseValueMap.TryGetValue(f, out var cv) ? $"{cv.Name}" : "default!"));
+
+                    case CaseKind.Type:
+                        var param = caseInfo.Parameters[0];
+                        WriteFactory($"{param.Type} {param.Name}");
                         break;
                 }
 
-                string argsList = string.Join(", ", args);
-                var partiality = caseInfo.IsPartial ? "partial " : "";
-
-                if (caseInfo.Kind == TypeKind.Tag)
+                void WriteFactory(string parameters)
                 {
-                    // factory for tag + values case
-                    var paramList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {v.Name}"));
-                    if (caseInfo.FactoryName != null)
+                    Write($"{decl}({parameters})");
+                    WriteBraceNested(() =>
                     {
-                        // this was a user specified factory method
-                        WriteLine($"public static {partiality}{_union.TypeName} {caseInfo.FactoryName}({paramList}) => new {_union.TypeName}({argsList});");
-                    }
-                    else if (caseInfo.Values.Count > 0)
+                        WriteLine($"return new {_union.TypeName}(");
+                        WriteNested(() =>
+                        {
+                            WriteCommaList(() =>
+                            {
+                                WriteCommaListElement(() => WriteLine($"Tag.{caseInfo.Name}"));
+
+                                if (_hasOverlappingRefData)
+                                {
+                                    WriteCommaListElement(() =>
+                                    {
+                                        if (caseInfo.OverlappingRefParameters.Count > 0)
+                                        {
+                                            WriteLine($"new RefData");
+                                            WriteBraceNested(() =>
+                                            {
+                                                Write($"{caseInfo.Name} = ");
+                                                WriteRefCaseTypeConstruction(caseInfo);
+                                            });
+                                        }
+                                        else
+                                        {
+                                            WriteLine("new RefData {}");
+                                        }
+                                    });
+                                }
+
+                                if (_hasOverlappingValData)
+                                {
+                                    WriteCommaListElement(() =>
+                                    {
+                                        if (caseInfo.OverlappingValParameters.Count > 0)
+                                        {
+                                            WriteLine($"new ValData");
+                                            WriteBraceNested(() =>
+                                            {
+                                                Write($"{caseInfo.Name} = ");
+                                                WriteValCaseTypeConstruction(caseInfo);
+                                            });
+                                        }
+                                        else
+                                        {
+                                            WriteLine("new ValData {}");
+                                        }
+                                    });
+                                }
+
+                                foreach (var field in _nonOverlappingFields)
+                                {
+                                    WriteCommaListElement(() =>
+                                    {
+                                        if (caseInfo.TryGetNonOverlappingParameter(field, out var param))
+                                        {
+                                            WriteLine($"{field.ConstructorArg}: {param.PathFromFactoryArg}");
+                                        }
+                                        else
+                                        {
+                                            WriteLine($"{field.ConstructorArg}: default!");
+                                        }
+                                    });
+                                }
+                            });
+
+                            WriteLine(");");
+                        });
+                    });
+                }
+            }
+
+            void WriteRefCaseTypeConstruction(CaseInfo caseInfo)
+            {
+                WriteLine($"new RefData.{caseInfo.Name}_Data");
+                WriteBraceNested(() =>
+                {
+                    WriteCommaList(() =>
                     {
-                        // have values so must be method
-                        WriteLine($"public static {partiality}{_union.TypeName} {caseInfo.Name}({paramList}) => new {_union.TypeName}({argsList});");
-                    }
-                    else
+                        foreach (var param in caseInfo.Parameters)
+                        {
+                            WriteParameter(param, param.Name);
+                        }
+                    });
+                });
+
+                void WriteParameter(CaseParameterInfo param, string name)
+                {
+                    switch (param.Category)
                     {
-                        // no-values, so generate property instead
-                        WriteLine($"public static readonly {_union.TypeName} {caseInfo.Name} = new {_union.TypeName}({argsList});");
+                        case ParameterCategory.Decomposable:
+                            foreach (var np in param.NestedParameters)
+                            {
+                                WriteParameter(np, CombineName(name, np.Name));
+                            }
+                            break;
+
+                        case ParameterCategory.OverlappableRefData:
+                            WriteCommaListElement(() =>
+                            {
+                                WriteLine($"{name} = {param.PathFromFactoryArg}");
+                            });
+                            break;
+
+                        case ParameterCategory.OverlappableValData:
+                        case ParameterCategory.NonOverlappable:
+                        default:
+                            break;
                     }
                 }
-                else
-                {
-                    // factory for type case
-                    WriteLine($"{caseInfo.Accessibility} static {partiality}{_union.TypeName} {caseInfo.FactoryName}({caseInfo.Type} value) => new {_union.TypeName}({argsList});");
+            }
 
-                    if (caseInfo.Kind == TypeKind.RecordStruct)
+            void WriteValCaseTypeConstruction(CaseInfo caseInfo)
+            {
+                WriteLine($"new ValData.{caseInfo.Name}_Data");
+                WriteBraceNested(() =>
+                {
+                    WriteCommaList(() =>
                     {
-                        // create from values too
-                        var valuesParamList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {LowerName(v.Name)}"));
-                        var valuesArgsList = string.Join(", ", caseInfo.Values.Select(v => LowerName(v.Name)));
-                        WriteLine($"public static {_union.TypeName} {caseInfo.FactoryName}({valuesParamList}) => {caseInfo.FactoryName}(new {caseInfo.Type}({valuesArgsList}));");
+                        foreach (var param in caseInfo.Parameters)
+                        {
+                            WriteParameter(param, param.Name);
+                        }
+                    });
+                });
+
+                void WriteParameter(CaseParameterInfo param, string name)
+                {
+                    switch (param.Category)
+                    {
+                        case ParameterCategory.Decomposable:
+                            foreach (var np in param.NestedParameters)
+                            {
+                                WriteParameter(np, CombineName(name, np.Name));
+                            }
+                            break;
+
+                        case ParameterCategory.OverlappableValData:
+                            WriteCommaListElement(() =>
+                            {
+                                WriteLine($"{name} = {param.PathFromFactoryArg}");
+                            });
+                            break;
+                        default:
+                            break;
                     }
                 }
             }
@@ -518,6 +931,9 @@ namespace UnionTypes.Generators
 
         private void WriteTryConvert()
         {
+            if (_isAllTags)
+                return;
+
             WriteLine($"public static bool TryConvert<TUnion>(TUnion union, out {_union.TypeName} converted) where TUnion : ITypeUnion");
             WriteBraceNested(() =>
             {
@@ -525,9 +941,10 @@ namespace UnionTypes.Generators
 
                 foreach (var caseInfo in _caseInfos)
                 {
-                    if (caseInfo.Kind != TypeKind.Tag)
+                    if (caseInfo.Kind == CaseKind.Type)
                     {
-                        WriteLine($"if (union.TryGet(out {caseInfo.Type} v_{caseInfo.Name})) {{ converted = {caseInfo.FactoryName}(v_{caseInfo.Name}); return true; }}");
+                        var param = caseInfo.Parameters[0];
+                        WriteLine($"if (union.TryGet(out {param.Type} v_{caseInfo.Name})) {{ converted = {caseInfo.FactoryName}(v_{caseInfo.Name}); return true; }}");
                     }
                 }
 
@@ -537,6 +954,9 @@ namespace UnionTypes.Generators
 
         private void WriteConvert()
         {
+            if (_isAllTags)
+                return;
+
             WriteLine($"public static {_union.TypeName} Convert<TUnion>(TUnion union) where TUnion : ITypeUnion");
             WriteBraceNested(() =>
             {
@@ -552,138 +972,253 @@ namespace UnionTypes.Generators
             }
         }
 
-        private void WriteGetMethods()
-        {
-            var first = true;
-
-            foreach (var caseInfo in _caseInfos)
-            {
-                if (caseInfo.Kind != TypeKind.Tag)
-                {
-                    // this is a type case
-
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    WriteLine($"{caseInfo.Accessibility} {caseInfo.Type} Get{caseInfo.Name}() =>");
-                    WriteLineNested($"TryGet{caseInfo.Name}(out var value) ? value : throw new InvalidCastException();");
-                }
-                else if (caseInfo.Values.Count > 1)
-                {
-                    // this is a tag case (w/ more than one value)
-
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var tupleType = "(" + string.Join(", ", caseInfo.Values.Select(c => $"{c.Type} {c.Name}")) + ")";
-                    var tupleInitializer = "(" + string.Join(", ", caseInfo.Values.Select(c => c.Name)) + ")";
-                    var outArgs = string.Join(", ", caseInfo.Values.Select(c => $"out var {c.Name}"));
-                    WriteLine($"public {tupleType} Get{caseInfo.Name}() =>");
-                    WriteLineNested($"TryGet{caseInfo.Name}({outArgs}) ? {tupleInitializer} : throw new InvalidCastException();");
-                }
-                else if (caseInfo.Values.Count == 1)
-                {
-                    // this is a tag case (w/ only one value)
-
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var valueInfo = caseInfo.Values[0];
-                    WriteLine($"public {valueInfo.Type} Get{caseInfo.Name}() =>");
-                    WriteLineNested($"TryGet{caseInfo.Name}(out var {valueInfo.Name}) ? {valueInfo.Name} : throw new InvalidCastException();");
-                }
-                else
-                {
-                    // tag case with no values does not get a Get method.
-                }
-            }
-        }
-
         private void WriteTryGetMethods()
         {
-            var first = true;
-            foreach (var caseInfo in _caseInfos)
+            WriteLineSeparatedBlocks(() =>
             {
-                if (caseInfo.Kind != TypeKind.Tag)
+                foreach (var caseInfo in _caseInfos)
                 {
-                    // this is a type case
-
-                    if (!first)
-                        WriteLine();
-                    first = false;
-
-                    var construction = GetTypeCaseInstanceAccessExpression(caseInfo);
-                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}(out {caseInfo.Type} value)");
-                    WriteBraceNested(() =>
-                    {
-                        WriteLine($"if (Is{caseInfo.Name}) {{ value = {construction}; return true; }}");
-                        WriteLine("value = default!; return false;");
-                    });
+                    WriteBlock(() => WriteTryGetMethod(caseInfo));
                 }
-                else if (caseInfo.Values.Count > 0)
+            });
+
+            void WriteTryGetMethod(CaseInfo caseInfo)
+            {
+                switch (caseInfo.Kind)
                 {
-                    // this is a tag case (w/ values)
+                    case CaseKind.Type:
+                        var param = caseInfo.Parameters[0];
+                        WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}(out {param.Type} value)");
+                        WriteBraceNested(() =>
+                        {
+                            WriteLine($"if (Is{caseInfo.Name})");
+                            WriteBraceNested(() =>
+                            {
+                                Write("value = ");
+                                WriteCaseAccessOrConstruction(caseInfo);
+                                WriteLine(";");
+                                WriteLine("return true;");
+                            });
+                            WriteLine("else");
+                            WriteBraceNested(() =>
+                            {
+                                WriteLine("value = default!;");
+                                WriteLine("return false;");
+                            });
+                        });
+                        break;
 
-                    if (!first)
-                        WriteLine();
-                    first = false;
+                    case CaseKind.Tag:
+                        if (caseInfo.Parameters.Count > 0)
+                        {
+                            // this is a tag case (w/ values)
+                            var paramList = string.Join(", ", caseInfo.Parameters.Select(cv => $"out {cv.Type} {cv.Name}"));
 
-                    var paramList = string.Join(", ", caseInfo.Values.Select(cv => $"out {cv.Type} {cv.Name}"));
-
-                    WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}({paramList})");
-                    WriteBraceNested(() =>
-                    {
-                        var assignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = {GetCaseValueFromFieldArgument(caseInfo, v)}"));
-                        var defAssignments = string.Join("; ", caseInfo.Values.Select(v => $"{v.Name} = default!"));
-                        WriteLine($"if (Is{caseInfo.Name}) {{ {assignments}; return true; }}");
-                        WriteLine($"{defAssignments}; return false;");
-                    });
-                }
-                else
-                {
-                    // tag case (w/o values) does not get a TryGet method
+                            WriteLine($"{caseInfo.Accessibility} bool TryGet{caseInfo.Name}({paramList})");
+                            WriteBraceNested(() =>
+                            {
+                                WriteLine($"if (Is{caseInfo.Name})");
+                                WriteBraceNested(() =>
+                                {
+                                    foreach (var param in caseInfo.Parameters)
+                                    {
+                                        Write($"{param.Name} = ");
+                                        WriteCaseParamAccessOrConstruction(param);
+                                        WriteLine(";");
+                                    }
+                                    WriteLine("return true;");
+                                });
+                                WriteLine("else");
+                                WriteBraceNested(() =>
+                                {
+                                    foreach (var param in caseInfo.Parameters)
+                                    {
+                                        Write($"{param.Name} = default!;");
+                                    }
+                                    WriteLine("return false;");
+                                });
+                            });
+                        }
+                        else
+                        {
+                            // tag case (w/o values) does not get a TryGet method
+                        }
+                        break;
                 }
             }
         }
 
-        private string GetCaseValueFromFieldArgument(CaseInfo caseInfo, Value value)
+        private void WriteGetMethods()
         {
-            var field = caseInfo.CaseValueToFieldMap[value];
-            if (field.Type != value.Type)
+            WriteLineSeparatedBlocks(() =>
             {
-                return $"({value.Type}){field.Name}";
+                foreach (var caseInfo in _caseInfos)
+                {
+                    WriteBlock(() => WriteMethod(caseInfo));
+                }
+            });
+
+            void WriteMethod(CaseInfo caseInfo)
+            {
+                switch (caseInfo.Kind)
+                {
+                    case CaseKind.Type:
+                        var param = caseInfo.Parameters[0];
+                        WriteLine($"{caseInfo.Accessibility} {param.Type} Get{caseInfo.Name}() =>");
+                        WriteLineNested($"TryGet{caseInfo.Name}(out var value) ? value : throw new InvalidCastException();");
+                        break;
+
+                    case CaseKind.Tag:
+                        if (caseInfo.Parameters.Count > 1)
+                        {
+                            // this is a tag case (w/ more than one value)
+                            var tupleType = "(" + string.Join(", ", caseInfo.Parameters.Select(c => $"{c.Type} {c.Name}")) + ")";
+                            var tupleInitializer = "(" + string.Join(", ", caseInfo.Parameters.Select(c => c.Name)) + ")";
+                            var outArgs = string.Join(", ", caseInfo.Parameters.Select(c => $"out var {c.Name}"));
+                            WriteLine($"public {tupleType} Get{caseInfo.Name}() =>");
+                            WriteLineNested($"TryGet{caseInfo.Name}({outArgs}) ? {tupleInitializer} : throw new InvalidCastException();");
+                        }
+                        else if (caseInfo.Parameters.Count == 1)
+                        {
+                            // this is a tag case (w/ only one value)
+                            var valueInfo = caseInfo.Parameters[0];
+                            WriteLine($"public {valueInfo.Type} Get{caseInfo.Name}() =>");
+                            WriteLineNested($"TryGet{caseInfo.Name}(out var {valueInfo.Name}) ? {valueInfo.Name} : throw new InvalidCastException();");
+                        }
+                        else
+                        {
+                            // tag case with no values does not get a Get method.
+                        }
+                        break;
+                }
             }
-            else
+        }
+
+        private void WriteGetOrDefaultMethods()
+        {
+            WriteLineSeparatedBlocks(() =>
             {
-                return field.Name;
+                foreach (var caseInfo in _caseInfos)
+                {
+                    WriteBlock(() => WriteMethod(caseInfo));
+                }
+            });
+
+            void WriteMethod(CaseInfo caseInfo)
+            {
+                switch (caseInfo.Kind)
+                {
+                    case CaseKind.Type:
+                        var param = caseInfo.Parameters[0];
+                        WriteLine($"{caseInfo.Accessibility} {param.Type} Get{caseInfo.Name}OrDefault() =>");
+                        WriteLineNested($"TryGet{caseInfo.Name}(out var value) ? value : default!;");
+                        break;
+
+                    case CaseKind.Tag:
+                        if (caseInfo.Parameters.Count > 1)
+                        {
+                            // this is a tag case (w/ more than one value)
+                            var tupleType = "(" + string.Join(", ", caseInfo.Parameters.Select(c => $"{c.Type} {c.Name}")) + ")";
+                            var tupleInitializer = "(" + string.Join(", ", caseInfo.Parameters.Select(c => c.Name)) + ")";
+                            var outArgs = string.Join(", ", caseInfo.Parameters.Select(c => $"out var {c.Name}"));
+                            WriteLine($"public {tupleType} Get{caseInfo.Name}OrDefault() =>");
+                            WriteLineNested($"TryGet{caseInfo.Name}({outArgs}) ? {tupleInitializer} : default!;");
+                        }
+                        else if (caseInfo.Parameters.Count == 1)
+                        {
+                            // this is a tag case (w/ only one value)
+                            var valueInfo = caseInfo.Parameters[0];
+                            WriteLine($"public {valueInfo.Type} Get{caseInfo.Name}OrDefault() =>");
+                            WriteLineNested($"TryGet{caseInfo.Name}(out var {valueInfo.Name}) ? {valueInfo.Name} : default!;");
+                        }
+                        else
+                        {
+                            // tag case with no values does not get a Get method.
+                        }
+                        break;
+                }
             }
         }
 
         /// <summary>
         /// Gets the text of an expression that accesses the type case instance from the union's fields.
         /// </summary>
-        private string GetTypeCaseInstanceAccessExpression(CaseInfo caseInfo)
+        private void WriteCaseAccessOrConstruction(CaseInfo caseInfo)
         {
             switch (caseInfo.Kind)
             {
-                case TypeKind.RecordStruct:
-                    // construct the record struct type case instance from the value fields
-                    var argList = string.Join(", ", caseInfo.Values.Select(v => GetCaseValueFromFieldArgument(caseInfo, v)));
-                    return $"new {caseInfo.Type}({argList})";
-                case TypeKind.Class:
-                case TypeKind.Interface:
-                case TypeKind.Struct:
-                case TypeKind.Primitive:
-                    // pull the entire reference type case instance from a single value field
-                    return $"({caseInfo.Type}){caseInfo.Field.Name}";
-                case TypeKind.Tag:
-                    // tag case, not a type case
-                default:
-                    return ""; 
+                case CaseKind.Type:
+                    WriteCaseParamAccessOrConstruction(caseInfo.Parameters[0]);
+                    break;
+
+                case CaseKind.Tag:
+                    if (caseInfo.Parameters.Count == 1)
+                    {
+                        // treat as single parameter value
+                        WriteCaseParamAccessOrConstruction(caseInfo.Parameters[0]);
+                    }
+                    else if (caseInfo.Parameters.Count > 1)
+                    {
+                        // treat as tuple of parameter values
+                        WriteTupleConstruction(caseInfo.Parameters);
+                    }
+                    else
+                    {
+                        // cannot access tag members that do not have any parameters
+                        throw new InvalidOperationException();
+                    }
+                    break;
             }
+        }
+
+        private void WriteCaseParamAccessOrConstruction(CaseParameterInfo param)
+        {
+            if (param.Category == ParameterCategory.Decomposable)
+            {
+                switch (param.Kind)
+                {
+                    case ParameterKind.RecordStruct:
+                        WriteRecordConstruction(param);
+                        break;
+
+                    case ParameterKind.Tuple:
+                        WriteTupleConstruction(param.NestedParameters);
+                        break;
+                    default:
+                        throw new NotImplementedException();
+                }
+            }
+            else
+            {
+                // pull the entire reference type case instance from a single value field
+                Write(param.PathFromField!);
+            }
+        }
+
+        private void WriteRecordConstruction(CaseParameterInfo param)
+        {
+            Write($"new {param.Type}(");
+            WriteCommaList(() =>
+            {
+                foreach (var np in param.NestedParameters)
+                {
+                    WriteCommaListElement(() => WriteCaseParamAccessOrConstruction(np));
+                }
+            });
+            Write(")");
+        }
+
+        private void WriteTupleConstruction(IReadOnlyList<CaseParameterInfo> parameters)
+        {
+            Write($"(");
+            WriteCommaList(() =>
+            {
+                foreach (var np in parameters)
+                {
+                    WriteCommaListElement(() => WriteCaseParamAccessOrConstruction(np));
+                }
+            });
+            Write(")");
         }
 
         private void WriteCreateOfT()
@@ -700,14 +1235,14 @@ namespace UnionTypes.Generators
                 {
                     foreach (var caseInfo in _caseInfos)
                     {
-                        if (caseInfo.Kind != TypeKind.Tag)
+                        if (caseInfo.Kind == CaseKind.Type)
                         {
-                            WriteLine($"case {caseInfo.Type} c_{caseInfo.Name}: return {caseInfo.FactoryName}(c_{caseInfo.Name});");
+                            var param = caseInfo.Parameters[0];
+                            WriteLine($"case {param.Type} c_{caseInfo.Name}: return {caseInfo.FactoryName}(c_{caseInfo.Name});");
                         }
                     }
                 });
                 WriteLine();
-
                 WriteLine("throw new InvalidCastException();");
             });
         }
@@ -727,18 +1262,22 @@ namespace UnionTypes.Generators
                 {
                     foreach (var caseInfo in _caseInfos)
                     {
-                        Write($"case Tag.{caseInfo.Name}: ");
-                        switch (caseInfo.Kind)
+                        if (caseInfo.Kind == CaseKind.Type)
                         {
-                            case TypeKind.RecordStruct:
-                                WriteLineNested($"return typeof(TType) == typeof({caseInfo.Type});");
-                                break;
-                            case TypeKind.Class:
-                            case TypeKind.Interface:
-                            case TypeKind.Struct:
-                            case TypeKind.Primitive:
-                                WriteLineNested($"return {caseInfo.Field.Name} is TType;");
-                                break;
+                            Write($"case Tag.{caseInfo.Name}: ");
+                            var param = caseInfo.Parameters[0];
+                            switch (param.Kind)
+                            {
+                                case ParameterKind.Class:
+                                case ParameterKind.Interface:
+                                case ParameterKind.TypeParameter_RefConstrained:
+                                    // known reference types
+                                    WriteLineNested($"return {param.PathFromField} is TType;");
+                                    break;
+                                default:
+                                    WriteLineNested($"return typeof(TType) == typeof({param.Type});");
+                                    break;
+                            }
                         }
                     }
                     WriteLine("default: return false;");
@@ -755,10 +1294,11 @@ namespace UnionTypes.Generators
                 {
                     foreach (var caseInfo in _caseInfos)
                     {
-                        if (caseInfo.Kind != TypeKind.Tag)
+                        if (caseInfo.Kind == CaseKind.Type)
                         {
+                            var param = caseInfo.Parameters[0];
                             WriteLine($"case Tag.{caseInfo.Name}: ");
-                            WriteLineNested($"if (TryGet{caseInfo.Name}(out {caseInfo.Type} c_{caseInfo.Name}) && c_{caseInfo.Name} is TType t_{caseInfo.Name}) {{ value = t_{caseInfo.Name}; return true; }}");
+                            WriteLineNested($"if (TryGet{caseInfo.Name}(out {param.Type} c_{caseInfo.Name}) && c_{caseInfo.Name} is TType t_{caseInfo.Name}) {{ value = t_{caseInfo.Name}; return true; }}");
                             WriteLineNested("break;");
                         }
                     }
@@ -787,9 +1327,10 @@ namespace UnionTypes.Generators
                     // value is one of the type cases for this union type
                     foreach (var caseInfo in _caseInfos)
                     {
-                        if (caseInfo.Kind != TypeKind.Tag)
+                        if (caseInfo.Kind == CaseKind.Type)
                         {
-                            WriteLine($"case {caseInfo.Type} v_{caseInfo.Name}:");
+                            var param = caseInfo.Parameters[0];
+                            WriteLine($"case {param.Type} v_{caseInfo.Name}:");
                             WriteLineNested($"return _tag == Tag.{caseInfo.Name} && v_{caseInfo.Name}.Equals(Get{caseInfo.Name}());");
                         }
                     }
@@ -814,10 +1355,14 @@ namespace UnionTypes.Generators
             foreach (var caseInfo in _caseInfos)
             {
                 // only applicable to type cases and cannot work with interface types.
-                if (caseInfo.Kind != TypeKind.Tag
-                    && caseInfo.Kind != TypeKind.Interface)
+                if (caseInfo.Kind == CaseKind.Type)
                 {
-                    WriteLine($"public static implicit operator {_union.TypeName}({caseInfo.Type} value) => {caseInfo.FactoryName}(value);");
+                    var param = caseInfo.Parameters[0];
+                    if (param.Kind != ParameterKind.Interface
+                        && caseInfo.Accessibility == "public")
+                    {
+                        WriteLine($"public static implicit operator {_union.TypeName}({param.Type} value) => {caseInfo.FactoryName}(value);");
+                    }
                 }
             }
         }
@@ -828,10 +1373,14 @@ namespace UnionTypes.Generators
             foreach (var caseInfo in _caseInfos)
             {
                 // only applicable to type cases and cannot work with interface types.
-                if (caseInfo.Kind != TypeKind.Tag
-                    && caseInfo.Kind != TypeKind.Interface)
+                if (caseInfo.Kind == CaseKind.Type)
                 {
-                    WriteLine($"public static explicit operator {caseInfo.Type} ({_union.TypeName} union) => union.Get{caseInfo.Name}();");
+                    var param = caseInfo.Parameters[0];
+                    if (param.Kind != ParameterKind.Interface
+                        && caseInfo.Accessibility == "public")
+                    {
+                        WriteLine($"public static explicit operator {param.Type} ({_union.TypeName} union) => union.Get{caseInfo.Name}();");
+                    }
                 }
             }
         }
@@ -856,7 +1405,7 @@ namespace UnionTypes.Generators
                         foreach (var caseInfo in _caseInfos)
                         {
                             WriteLine($"case Tag.{caseInfo.Name}:");
-                            if (caseInfo.Kind == TypeKind.Tag)
+                            if (caseInfo.Kind == CaseKind.Tag && caseInfo.Parameters.Count == 0)
                             {
                                 WriteLineNested($"return true;");
                             }
@@ -910,7 +1459,7 @@ namespace UnionTypes.Generators
                         {
                             WriteLine($"case Tag.{caseInfo.Name}:");
 
-                            if (caseInfo.Kind == TypeKind.Tag)
+                            if (caseInfo.Kind == CaseKind.Tag && caseInfo.Parameters.Count == 0)
                             {
                                 WriteLineNested($"return (int)_tag;");
                             }
@@ -943,7 +1492,7 @@ namespace UnionTypes.Generators
             WriteLine("public override string ToString()");
             WriteBraceNested(() =>
             {
-                if (_isAllTags)
+                if (_isAllTags && _union.Cases.All(c => c.Parameters.Count == 0))
                 {
                     WriteLine("return _tag.ToString();");
                 }
@@ -955,9 +1504,28 @@ namespace UnionTypes.Generators
                         foreach (var caseInfo in _caseInfos)
                         {
                             WriteLine($"case Tag.{caseInfo.Name}:");
-                            if (caseInfo.Kind == TypeKind.Tag)
+                            if (caseInfo.Kind == CaseKind.Tag)
                             {
-                                WriteLineNested($"return _tag.ToString();");
+                                if (caseInfo.Parameters.Count == 0)
+                                {
+                                    WriteLineNested($"return _tag.ToString();");
+                                }
+                                else if (caseInfo.Parameters.Count == 1)
+                                {
+                                    WriteNested(() =>
+                                    {
+                                        WriteLine($"return $\"{caseInfo.Name}({{Get{caseInfo.Name}()}})\";");
+                                    });
+                                }
+                                else
+                                {
+                                    WriteNested(() =>
+                                    {
+                                        WriteLine($"var v_{caseInfo.Name} = Get{caseInfo.Name}();");
+                                        var props = string.Join(", ", caseInfo.Parameters.Select(p => $"{p.Name}: {{v_{caseInfo.Name}.{p.Name}}}"));
+                                        WriteLine($$"""return $"{{caseInfo.Name}}({{props}})";""");
+                                    });
+                                }
                             }
                             else
                             {
@@ -972,23 +1540,25 @@ namespace UnionTypes.Generators
             });
         }
 
-        private void WriteCaseTypes()
+        private void WriteGeneratedCaseTypes()
         {
             if (!_generateCaseTypes)
                 return;
 
             foreach (var caseInfo in _caseInfos)
             {
-                if (caseInfo.Generate)
+                if (caseInfo.GenerateCaseType && caseInfo.Kind == CaseKind.Type)
                 {
-                    var propList = string.Join(", ", caseInfo.Values.Select(v => $"{v.Type} {v.Name}"));
-                    switch (caseInfo.Kind)
+                    var param = caseInfo.Parameters[0];
+
+                    var propList = string.Join(", ", param.NestedParameters.Select(v => $"{v.Type} {v.Name}"));
+                    switch (param.Kind)
                     {
-                        case TypeKind.RecordStruct:
-                            WriteLine($"{caseInfo.Accessibility} record struct {caseInfo.Type}({propList});");
+                        case ParameterKind.RecordStruct:
+                            WriteLine($"{caseInfo.Accessibility} record struct {param.Type}({propList});");
                             break;
-                        case TypeKind.Class:
-                            WriteLine($"{caseInfo.Accessibility} record {caseInfo.Type}({propList});");
+                        case ParameterKind.Class:
+                            WriteLine($"{caseInfo.Accessibility} record {param.Type}({propList});");
                             break;
                     }
                 }

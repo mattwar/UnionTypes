@@ -65,33 +65,76 @@ namespace UnionTypes.Generators
             WriteNested("{", "}", action);
         }
 
+        private List<string> _blocks = default!;
+
+        protected void WriteLineSeparatedBlocks(Action action)
+        {
+            var oldBuilder = _builder;
+            var oldBlocks = _blocks;
+            _builder = new StringBuilder();
+            _blocks = new List<string>();
+
+            action();
+
+            _builder = oldBuilder;
+
+            if (_blocks.Count > 0)
+            {
+                _builder.Append(string.Join(Environment.NewLine, _blocks));
+            }
+
+            _blocks = oldBlocks;
+        }
+
+        protected void WriteBlock(Action action)
+        {
+            // any writes outside of WriteBlock is treated as a separate block
+            if (_builder.Length > 0)
+            {
+                _blocks.Add(_builder.ToString());
+                _builder.Clear();
+            }
+
+            action();
+
+            if (_builder.Length > 0)
+            {
+                _blocks.Add(_builder.ToString());
+                _builder.Clear();
+            }
+        }
+
         /// <summary>
         /// Writes a blank line between each action
         /// </summary>
         protected void WriteLineSeparated(params Action[] actions)
         {
-            var oldBuilder = _builder;
-            _builder = new StringBuilder();
-            var segments = new List<string>();
-
-            for (int i = 0; i < actions.Length; i++)
+            WriteLineSeparatedBlocks(() =>
             {
-                _builder.Clear();
-
-                actions[i]();
-
-                if (_builder.Length > 0)
+                foreach (var action in actions)
                 {
-                    segments.Add(_builder.ToString());
+                    WriteBlock(action);
                 }
-            }
-
-            _builder = oldBuilder;
-            if (segments.Count > 0)
-            {
-                _builder.Append(string.Join(Environment.NewLine, segments));
-            }
+            });
         }
+
+        private bool _firstListElement = false;
+        protected void WriteCommaList(Action action)
+        {
+            var oldFirstListElement = _firstListElement;
+            _firstListElement = true;
+            action();
+            _firstListElement = oldFirstListElement;
+        }
+
+        protected void WriteCommaListElement(Action action)
+        {
+            if (!_firstListElement)
+                Write(", ");
+            action();
+            _firstListElement = false;
+        }
+
 
         internal static string LowerName(string name)
         {

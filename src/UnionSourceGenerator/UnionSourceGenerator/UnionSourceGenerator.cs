@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Security.Cryptography;
 using Microsoft.CodeAnalysis;
@@ -114,7 +115,7 @@ namespace UnionTypes.Generators
                 .OfType<INamedTypeSymbol>()
                 .Where(nt => nt.IsRecord
                     && (nt.DeclaredAccessibility == Accessibility.Public || nt.DeclaredAccessibility == Accessibility.Internal))
-                .Select(nt => CreateTypeCase(nt.Name, nt, isNested: true, isPartial: false, factoryName: "Create" + nt.Name))
+                .Select(nt => CreateTypeCase(nt.Name, nt, isNested: true, isPartial: false, factoryName: "Create"))
                 .ToArray();
         }
 
@@ -131,7 +132,7 @@ namespace UnionTypes.Generators
                 {
                     if (val.Kind == TypedConstantKind.Type && val.Value is INamedTypeSymbol nt)
                     {
-                        cases.Add(CreateTypeCase(nt.Name, nt, isNested: false, isPartial: false, factoryName: nt.Name));
+                        cases.Add(CreateTypeCase(nt.Name, nt, isNested: false, isPartial: false, factoryName: "Create"));
                     }
                 }
 
@@ -154,7 +155,15 @@ namespace UnionTypes.Generators
                 {
                     if (val.Kind == TypedConstantKind.Primitive && val.Value is string tagName)
                     {
-                        cases.Add(new Case(TypeKind.Tag, tagName));
+                        var tagCase = new Case(
+                            CaseKind.Tag,
+                            tagName,
+                            accessibility: "public",
+                            isPartial: false,
+                            factoryName: tagName,
+                            generateCaseType: false,
+                            parameters: null);
+                        cases.Add(tagCase);
                     }
                 }
             }
@@ -166,7 +175,7 @@ namespace UnionTypes.Generators
         {
             var cases = new List<Case>();
 
-            // from partial CreateXXX methods
+            // any static partial method returning the union type is a factory
             var factoryMethods = unionType.GetMembers()
                 .OfType<IMethodSymbol>()
                 .Where(m => m.IsPartialDefinition 
@@ -177,88 +186,214 @@ namespace UnionTypes.Generators
 
             foreach (var method in factoryMethods)
             {
-                if (method.Parameters.Length == 1 
-                    && method.Parameters[0].Type is INamedTypeSymbol nt
-                    && method.Name == nt.Name)
+                if (method.Parameters.Length == 1
+                    && method.Parameters[0].Type is INamedTypeSymbol nt)
                 {
-                    // this is an external type
-                    cases.Add(CreateTypeCase(method.Name, nt, isNested: false, isPartial: true, factoryName: method.Name));
+                    if (method.Name == nt.Name)
+                    {
+                        cases.Add(CreateFactoryTypeCase(method.Name, method, isNested: false, isPartial: true, factoryName: method.Name));
+                        continue;
+                    }
+                    else if (method.Name == "Create")
+                    {
+                        cases.Add(CreateFactoryTypeCase(nt.Name, method, isNested: false, isPartial: true, factoryName: method.Name));
+                        continue;
+                    }
+                    else if (method.Name == "Create" + nt.Name)
+                    {
+                        cases.Add(CreateFactoryTypeCase(nt.Name, method, isNested: false, isPartial: true, factoryName: method.Name));
+                        continue;
+                    }
                 }
-                else
-                {
-                    // this is a tag with possible values
-                    cases.Add(CreateTagCase(method.Name, method, isPartial: true, factoryName: method.Name));
-                }
+
+                // this is a tag with possible values
+                var tagCaseName = method.Name.StartsWith("Create") && method.Name.Length > 6
+                    ? method.Name.Substring(6)
+                    : method.Name;
+
+                cases.Add(CreateTagCase(tagCaseName, method, isPartial: true, factoryName: method.Name));
             }
 
             return cases;
         }
 
-        private Case CreateTypeCase(string caseName, INamedTypeSymbol caseSymbol, bool isNested, bool isPartial, string factoryName)
+        private Case CreateFactoryTypeCase(string caseName, IMethodSymbol methodSymbol, bool isNested, bool isPartial, string factoryName)
         {
-            var typeName = isNested ? caseSymbol.Name : GetTypeFullName(caseSymbol);
-            var caseValues = Array.Empty<Value>();
-
-            var primaryConstructor = caseSymbol.Constructors.FirstOrDefault(c => c.Parameters.Length > 0);
-            if (primaryConstructor != null)
-            {
-                caseValues = primaryConstructor.Parameters.Select(p =>
-                    new Value(GetValueTypeKind(p.Type), p.Name, GetTypeFullName(p.Type)))
-                    .ToArray();
-            }
+            var caseParameters = GetCaseParameters(methodSymbol.Parameters);
 
             return new Case(
-                GetCaseTypeKind(caseSymbol),
+                CaseKind.Type,
                 caseName,
-                typeName,
-                GetAccessibility(caseSymbol.DeclaredAccessibility),
+                GetAccessibility(methodSymbol.DeclaredAccessibility),
                 isPartial: isPartial,
                 factoryName: factoryName,
-                generate: false,
-                values: caseValues);
+                generateCaseType: false,
+                caseParameters);
+        }
+
+        private Case CreateTypeCase(string caseName, ITypeSymbol caseTypeSymbol, bool isNested, bool isPartial, string factoryName)
+        {
+            var caseParameters = new[] { GetCaseParameter(caseTypeSymbol, "value") };
+
+            return new Case(
+                CaseKind.Type,
+                caseName,
+                GetAccessibility(caseTypeSymbol.DeclaredAccessibility),
+                isPartial: isPartial,
+                factoryName: factoryName,
+                generateCaseType: false,
+                caseParameters);
+        }
+
+        private IReadOnlyList<CaseParameter> GetCaseParameters(IReadOnlyList<IParameterSymbol> parameters)
+        {
+            return parameters.Select(p => GetCaseParameter(p)).ToArray();
+        }
+
+        private CaseParameter GetCaseParameter(IParameterSymbol parameter)
+        {
+            return GetCaseParameter(parameter.Type, parameter.Name);
+        }
+
+        private CaseParameter GetCaseParameter(ITypeSymbol type, string name)
+        {
+            var kind = GetParameterKind(type);
+            var typeName = GetTypeFullName(type);
+            var nestedParameters = GetNestedParameters(type);
+            return new CaseParameter(kind, name, typeName, nestedParameters);
+        }
+
+        private IReadOnlyList<CaseParameter> GetNestedParameters(ITypeSymbol caseSymbol)
+        {
+            if (caseSymbol.IsValueType && caseSymbol.IsRecord && caseSymbol is INamedTypeSymbol nt)
+            {
+                // look for nested case parameters from records and tuple arguments
+                var primaryConstructor = nt.Constructors.FirstOrDefault(c => c.Parameters.Length > 0);
+                if (primaryConstructor != null)
+                {
+                    return primaryConstructor.Parameters.Select(p => GetCaseParameter(p)).ToArray();
+                }
+            }
+
+            return Array.Empty<CaseParameter>();
         }
 
         private Case CreateTagCase(string caseName, IMethodSymbol caseMethod, bool isPartial, string factoryName)
         {
-            var values = caseMethod.Parameters.Select(p => new Value(GetValueTypeKind(p.Type), p.Name, GetTypeFullName(p.Type))).ToArray();
-            return new Case(TypeKind.Tag, caseName, "", "public", isPartial: true, factoryName: factoryName, generate: false, values);
+            var values = caseMethod.Parameters.Select(p => new CaseParameter(GetParameterKind(p.Type), p.Name, GetTypeFullName(p.Type))).ToArray();
+            return new Case(CaseKind.Tag, caseName, "public", isPartial: isPartial, factoryName: factoryName, generateCaseType: false, values);
         }
 
-        private static TypeKind GetCaseTypeKind(ITypeSymbol type)
+        private static ParameterKind GetCaseTypeKind(ITypeSymbol type)
         {
             if (type is INamedTypeSymbol nt && nt.IsRecord && nt.IsValueType)
-                return TypeKind.RecordStruct;
-            return GetValueTypeKind(type);
+                return ParameterKind.RecordStruct;
+            return GetParameterKind(type);
         }
 
-        private static TypeKind GetValueTypeKind(ITypeSymbol type)
+        private static ParameterKind GetParameterKind(ITypeSymbol type)
         {
             switch (type.TypeKind)
             {
                 case CATypeKind.Enum:
-                    return TypeKind.Primitive;
+                    return ParameterKind.PrimitiveStruct;
                 case CATypeKind.Struct:
-                    return TypeKind.Struct;
+                    if (IsPrimitiveValType(type))
+                        return ParameterKind.PrimitiveStruct;
+                    else if (type.IsTupleType)
+                        return ParameterKind.Tuple;
+                    else if (type.IsRecord)
+                        return ParameterKind.RecordStruct;
+                    else if (IsOverlappableValStruct(type))
+                        return ParameterKind.OverlappableValStruct;
+                    //else if (IsOverlappableRefStruct(type))            // these don't align well when overlayed
+                    //    return ParameterKind.OverlappableRefStruct;
+                    else
+                        return ParameterKind.NonOverlappableStruct;
                 case CATypeKind.Interface:
-                    return TypeKind.Interface;
+                    return ParameterKind.Interface;
                 case CATypeKind.Class:
                 case CATypeKind.Array:
                 case CATypeKind.Dynamic:
                 case CATypeKind.Delegate:
-                    return TypeKind.Class;
+                    return ParameterKind.Class;
                 case CATypeKind.TypeParameter:
-                    return TypeKind.TypeParameter;
-
+                    var tp = (ITypeParameterSymbol)type;
+                    if (tp.HasReferenceTypeConstraint)
+                        return ParameterKind.TypeParameter_RefConstrained;
+                    return ParameterKind.TypeParameter;
                 default:
-                    if (type is INamedTypeSymbol nt && IsPrimitive(nt))
-                        return TypeKind.Primitive;
-                    return TypeKind.Unknown;
+                    return ParameterKind.Unknown;
             }
         }
 
-        private static bool IsPrimitive(INamedTypeSymbol type)
+        private static bool IsDecomposableType(ITypeSymbol type)
         {
-            switch (type.SpecialType)
+            return type.IsValueType
+                && (type.IsTupleType || type.IsRecord);
+        }
+
+        private static bool IsOverlappableRefType(ITypeSymbol type)
+        {
+            switch (type.TypeKind)
+            {
+                case CATypeKind.Enum:
+                    return false;
+                case CATypeKind.Struct:
+                    return IsOverlappableRefStruct(type);
+                case CATypeKind.Interface:
+                case CATypeKind.Class:
+                case CATypeKind.Array:
+                case CATypeKind.Dynamic:
+                case CATypeKind.Delegate:
+                    return true;
+                case CATypeKind.TypeParameter:
+                    return false; // what about constrained type parameters?
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsOverlappableValType(ITypeSymbol type)
+        {
+            switch (type.TypeKind)
+            {
+                case CATypeKind.Enum:
+                    return true;
+                case CATypeKind.Struct:
+                    return IsPrimitiveValType(type)
+                        || IsOverlappableValStruct(type);
+                case CATypeKind.Interface:
+                case CATypeKind.Class:
+                case CATypeKind.Array:
+                case CATypeKind.Dynamic:
+                case CATypeKind.Delegate:
+                    return false;
+                case CATypeKind.TypeParameter:
+                    return false; // what about constrained type parameters?
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsOverlappableRefStruct(ITypeSymbol type)
+        {
+            return type.IsValueType
+                && type.GetMembers().OfType<IFieldSymbol>().All(f => IsOverlappableRefType(f.Type));
+        }
+
+        private static bool IsOverlappableValStruct(ITypeSymbol type)
+        {
+            return type.IsValueType
+                && type.GetMembers().OfType<IFieldSymbol>().All(f => IsOverlappableValType(f.Type));
+        }
+
+        private static bool IsPrimitiveValType(ITypeSymbol type)
+        {
+            if (!(type is INamedTypeSymbol nt))
+                return false;
+
+            switch (nt.SpecialType)
             {
                 case SpecialType.System_Boolean:
                 case SpecialType.System_Byte:
@@ -305,27 +440,24 @@ namespace UnionTypes.Generators
 
         private static string GetTypeFullName(ITypeSymbol type)
         {
-            if (type is INamedTypeSymbol nt)
-            {
-                var shortName = GetTypeShortName(nt);
+            var shortName = GetTypeShortName(type);
 
-                if (nt.ContainingType != null)
-                {
-                    return GetTypeFullName(nt.ContainingType) + "." + shortName;
-                }
-                else if (nt.ContainingNamespace != null
-                        && !nt.ContainingNamespace.IsGlobalNamespace)
-                {
-                    return GetNamespaceName(nt.ContainingNamespace) + "." + shortName;
-                }
-                else
-                {
-                    return shortName;
-                }
+            if (type is ITypeParameterSymbol
+                || type.IsTupleType)
+                return shortName;
+
+            if (type.ContainingType != null)
+            {
+                return GetTypeFullName(type.ContainingType) + "." + shortName;
+            }
+            else if (type.ContainingNamespace != null
+                    && !type.ContainingNamespace.IsGlobalNamespace)
+            {
+                return GetNamespaceName(type.ContainingNamespace) + "." + shortName;
             }
             else
             {
-                return type.Name;
+                return shortName;
             }
         }
 
@@ -335,6 +467,22 @@ namespace UnionTypes.Generators
             {
                 var typeParameterList = GetTypeParameterList(nt);
                 return string.IsNullOrEmpty(typeParameterList) ? nt.Name : nt.Name + typeParameterList;
+            }
+            else if (type is IArrayTypeSymbol at)
+            {
+                var elementType = GetTypeShortName(at.ElementType);
+                if (at.Rank == 1)
+                {
+                    return elementType + "[]";
+                }
+                else if (at.Rank == 2)
+                {
+                    return elementType + "[,]";
+                }
+                else
+                {
+                    return elementType + "[" + new string(',', at.Rank - 1) + "]";
+                }
             }
             else
             {
