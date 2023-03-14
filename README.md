@@ -70,12 +70,12 @@ if (intOrString.TryGet<int>(out var value)) { }
 var value = (int)intOrString;
 ```
 
-### Convert between compatible unions
+#### Convert between compatible unions
 ``` CSharp
 OneOf<int, string> intOrString = 5;
 OneOf<int, string, double> intOrStringOrDouble = OneOf<int, string, double>.Convert(intOrstring);
 ```
-### Compare for equality between union and values
+#### Compare for equality between union and values
 ``` CSharp
 OneOf<int, string> intValue = 5;
 OneOf<int, string> stringValue = "five";
@@ -84,7 +84,7 @@ var areEqual2 = intValue == intValue;
 var notEqual = intValue == stringValue;
 ```
 
-### Compare equality between different unions
+#### Compare equality between different unions
 ``` CSharp
 OneOf<int, string> value1 = 5;
 OneOf<string, int> value2 = 5;
@@ -256,7 +256,7 @@ CatDogBird pet = new Cat("Fluffy", CatState.Sleeping);
 ### Test for specific type cases using `Is<T>` method.
 ```CSharp
 CatDogBird pet = new Cat("Fluffy", CatState.Sleeping);
-var isCatOrDog = pet.IsType<Cat>() || pet.IsType<Dog>();
+var isCatOrDog = pet.Is<Cat>() || pet.Is<Dog>();
 ```
 
 ### Test and get specific type case value using `TryGet<T>` method.
