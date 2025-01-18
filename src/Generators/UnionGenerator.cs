@@ -4,9 +4,7 @@ namespace UnionTypes.Generators
 {
     using System;
     using System.Collections.Generic;
-    using System.Dynamic;
     using System.Linq;
-    using System.Security.Claims;
 #endif
 
 #nullable enable
