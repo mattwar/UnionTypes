@@ -3,13 +3,579 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using UnionTypes;
-using UnionTypes.Generators;
 
 namespace UnionTests
 {
     [TestClass]
     public class UnionSourceGeneratorTests
     {
+        [TestMethod]
+        public void TestTypeUnion_NestedRecords_Defaults()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase]
+                    public record struct A(int x);
+
+                    [UnionCase]
+                    public record struct B(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(new MyUnion.A(10));
+                        MyUnion unionB = MyUnion.CreateB(new MyUnion.B("x", 5.0f));
+                        MyUnion.A a = unionA.ValueA;
+                        MyUnion.B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_NestedRecords_OverrideCaseNames()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Name="Aa")]
+                    public record struct A(int x);
+
+                    [UnionCase(Name="Bb")]
+                    public record struct B(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateAa(new MyUnion.A(10));
+                        MyUnion unionB = MyUnion.CreateBb(new MyUnion.B("x", 5.0f));
+                        MyUnion.A a = unionA.ValueAa;
+                        MyUnion.B b = unionB.ValueBb;
+                        var correctTagA = unionA.Kind == MyUnion.Case.Aa;
+                        var correctTagB = unionB.Kind == MyUnion.Case.Bb; 
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("Aa = 1")
+                        && newText.Contains("Bb = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_NestedRecords_OverrideFactoryNames()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(FactoryName="MakeA")]
+                    public record struct A(int x);
+
+                    [UnionCase(FactoryName="MakeB")]
+                    public record struct B(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.MakeA(new MyUnion.A(10));
+                        MyUnion unionB = MyUnion.MakeB(new MyUnion.B("x", 5.0f));
+                        MyUnion.A a = unionA.ValueA;
+                        MyUnion.B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B; 
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_NestedRecords_OverrideTagValues()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Value=4)]
+                    public record struct A(int x);
+
+                    [UnionCase(Value=3)]
+                    public record struct B(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(new MyUnion.A(10));
+                        MyUnion unionB = MyUnion.CreateB(new MyUnion.B("x", 5.0f));
+                        MyUnion.A a = unionA.ValueA;
+                        MyUnion.B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 4")
+                        && newText.Contains("B = 3");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_FactoryMethods_Defaults()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase]
+                    public static partial MyUnion MakeA(A a);
+
+                    [UnionCase]
+                    public static partial MyUnion MakeB(B b);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.MakeA(new A(10));
+                        MyUnion unionB = MyUnion.MakeB(new B("x", 5.0f));
+                        A a = unionA.ValueA;
+                        B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_FactoryMethods_OverrideCaseNames()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Name="Aa")]
+                    public static partial MyUnion MakeA(A a);
+
+                    [UnionCase(Name="Bb")]
+                    public static partial MyUnion MakeB(B b);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.MakeA(new A(10));
+                        MyUnion unionB = MyUnion.MakeB(new B("x", 5.0f));
+                        A a = unionA.ValueAa;
+                        B b = unionB.ValueBb;
+                        var correctTagA = unionA.Kind == MyUnion.Case.Aa;
+                        var correctTagB = unionB.Kind == MyUnion.Case.Bb;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    // tag values
+                    return newText.Contains("Aa = 1")
+                        && newText.Contains("Bb = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_FactoryMethods_OverrideTagValues()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Value=4)]
+                    public static partial MyUnion MakeA(A a);
+
+                    [UnionCase(Value=3)]
+                    public static partial MyUnion MakeB(B b);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.MakeA(new A(10));
+                        MyUnion unionB = MyUnion.MakeB(new B("x", 5.0f));
+                        A a = unionA.ValueA;
+                        B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 4")
+                        && newText.Contains("B = 3");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_UnionCasesOnType_Types()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                [UnionCase(Type=typeof(A))]
+                [UnionCase(Type=typeof(B))]
+                public partial struct MyUnion
+                {
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(new A(10));
+                        MyUnion unionB = MyUnion.CreateB(new B("x", 5.0f));
+                        A a = unionA.ValueA;
+                        B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;                
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_UnionCasesOnType_OverrideCaseNames()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                [UnionCase(Name="Aa", Type=typeof(A))]
+                [UnionCase(Name="Bb", Type=typeof(B))]
+                public partial struct MyUnion
+                {
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateAa(new A(10));
+                        MyUnion unionB = MyUnion.CreateBb(new B("x", 5.0f));
+                        A a = unionA.ValueAa;
+                        B b = unionB.ValueBb;
+                        var correctTagA = unionA.Kind == MyUnion.Case.Aa;
+                        var correctTagB = unionB.Kind == MyUnion.Case.Bb;                
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("Aa = 1")
+                        && newText.Contains("Bb = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_UnionCasesOnType_OverrideFactoryNames()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                [UnionCase(Type=typeof(A), FactoryName="MakeA")]
+                [UnionCase(Type=typeof(B), FactoryName="MakeB")]
+                public partial struct MyUnion
+                {
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.MakeA(new A(10));
+                        MyUnion unionB = MyUnion.MakeB(new B("x", 5.0f));
+                        A a = unionA.ValueA;
+                        B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;                
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_UnionCasesOnType_OverrideTagValues()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct A(int x);
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                [UnionCase(Type=typeof(A), Value=4)]
+                [UnionCase(Type=typeof(B), Value=3)]
+                public partial struct MyUnion
+                {
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(new A(10));
+                        MyUnion unionB = MyUnion.CreateB(new B("x", 5.0f));
+                        A a = unionA.ValueA;
+                        B b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;                
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 4")
+                        && newText.Contains("B = 3");
+                });
+        }
+
+
+        [TestMethod]
+        public void TestTagUnion_FactoryMethods_Defaults()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase]
+                    public static partial MyUnion CreateA(int x);
+
+                    [UnionCase]
+                    public static partial MyUnion CreateB(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(10);
+                        MyUnion unionB = MyUnion.CreateB("x", 5.0f);
+                        var a = unionA.ValueA;
+                        var b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_FactoryMethods_OverrideCaseNames()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Name="A")]
+                    public static partial MyUnion Create(int x);
+
+                    [UnionCase(Name="B")]
+                    public static partial MyUnion Create(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.Create(10);
+                        MyUnion unionB = MyUnion.Create("x", 5.0f);
+                        var a = unionA.ValueA;
+                        var b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_FactoryMethods_OverTagValues()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Value=4)]
+                    public static partial MyUnion CreateA(int x);
+
+                    [UnionCase(Value=3)]
+                    public static partial MyUnion CreateB(string y, float z);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.CreateA(10);
+                        MyUnion unionB = MyUnion.CreateB("x", 5.0f);
+                        var a = unionA.ValueA;
+                        var b = unionB.ValueB;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 4")
+                        && newText.Contains("B = 3");
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_FactoryMethods_DefaultState()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    [UnionCase(Name="None", Value=0)]
+                    public static partial MyUnion None();
+
+                    [UnionCase(Name="Some")]
+                    public static partial MyUnion Some(string value);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionN = MyUnion.None();
+                        MyUnion unionS = MyUnion.Some("text");
+                        var n = unionN.ValueNone;
+                        var s = unionS.ValueSome;
+                        var correctTagN = unionN.Kind == MyUnion.Case.None;
+                        var correctTagS = unionS.Kind == MyUnion.Case.Some;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("None = 0")
+                        && newText.Contains("Some = 1");
+                });
+        }
+
+#if false
         [TestMethod]
         public void TestTypeUnionFromNestedTypes()
         {
@@ -396,12 +962,12 @@ namespace UnionTests
                 }
                 """);
         }
+#endif
 
         private void TestUnion(string sourceText, Func<string, bool>? generatedTextAssertion = null)
         {
             var compilation = CreateCompilation(sourceText);
             var diagnostics = compilation.GetDiagnostics();
-            //AssertNoDiagnostics(diagnostics);
             var trees = compilation.SyntaxTrees.ToArray();
 
             var newCompilation = RunGenerators(compilation, out var genDiagnostics, new UnionTypes.Generators.UnionSourceGenerator());

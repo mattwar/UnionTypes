@@ -2,28 +2,19 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>netstandard2.1</TargetFramework>
-		<LangVersion>10.0</LangVersion>
+		<TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="OneOf - Copy.cs" />
-    <Compile Remove="Shape - Copy.cs" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Include="OneOf.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>OneOf.tt</DependentUpon>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="OneOf.tt">
+	<ItemGroup>
+    <None Update="OneOf_generated.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>OneOf.cs</LastGenOutput>
+      <LastGenOutput>OneOf_generated.cs</LastGenOutput>
     </None>
   </ItemGroup>
 
@@ -36,6 +27,11 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>OneOf.tt</DependentUpon>
+    </Compile>
+    <Compile Update="OneOf_generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>OneOf_generated.tt</DependentUpon>
     </Compile>
     <Compile Update="ShapeGenerator.cs">
       <DesignTime>True</DesignTime>

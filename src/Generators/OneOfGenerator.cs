@@ -30,6 +30,7 @@ namespace UnionTypes.Generators
         {
             WriteLine("using System;");
             WriteLine("using System.Collections.Generic;");
+            WriteLine("using System.Diagnostics.CodeAnalysis;");
             WriteLine("#nullable enable");
             WriteLine();
             WriteLine("namespace UnionTypes");
@@ -60,131 +61,94 @@ namespace UnionTypes.Generators
             _oneOfType = $"OneOf<{_typeArgList}>";
 
             WriteLine($"public struct {_oneOfType}");
-            WriteLineNested($": ITypeUnion, IEquatable<{_oneOfType}>");
+            WriteLineNested($": IOneOf<{_oneOfType}>");
             WriteBraceNested(() =>
             {
-                WriteLineSeparated(
-                    WriteFields,
-                    WriteConstructor,
-                    WriteCreateMethods,
-                    WriteConversionOperators,
-                    WriteITypeUnionImplementation,
-                    WriteEquality,
-                    WriteMiscMethods
-                    );
-            });
-        }
+                WriteLine($"private readonly OneOfCore<{_oneOfType}> _core;");
+                WriteLine($"private OneOf(OneOfCore<{_oneOfType}> core) => _core = core;");
+                WriteLine($"static {_oneOfType} IOneOf<{_oneOfType}>.Construct(OneOfCore<{_oneOfType}> core) => new {_oneOfType}(core);");
 
-        private void WriteFields()
-        {
-            WriteLine("private readonly object _value;");
-        }
-
-        private void WriteConstructor()
-        {
-            WriteLine("private OneOf(object value) { _value = value; }");
-        }
-
-        private void WriteCreateMethods()
-        {
-            // Create(T)
-            for (int i = 1; i <= _nTypeArgs; i++)
-            {
-                WriteLine($"public static {_oneOfType} Create(T{i} value)");
-                WriteBraceNested(() =>
-                {
-                    WriteLine($"return new {_oneOfType}(value!);");
-                });
-                WriteLine();
-            }
-
-            // Create<TOneOf>
-            WriteLine($"public static {_oneOfType} Create<TValue>(TValue value)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("switch (value)");
-                WriteBraceNested(() =>
-                {
-                    for (int i = 1; i <= _nTypeArgs; i++)
-                    {
-                        WriteLine($"case T{i} value{i}: return Create(value{i});");
-                    }
-                    WriteLine($"case ITypeUnion otherOneOf: return Create(otherOneOf.Get<object>());");
-                    WriteLine("default: throw new InvalidCastException();");
-                });
-            });
-            WriteLine();
-
-            // Convert<TOneOf>
-            WriteLine($"public static {_oneOfType} Convert<TOneOf>(TOneOf oneOf) where TOneOf : ITypeUnion");
-            WriteBraceNested(() =>
-            {
-                WriteLine($"return TryConvert(oneOf, out var thisOneOf) ? thisOneOf : throw new InvalidCastException();");
-            });
-            WriteLine();
-
-            // TryConvert<TOneOf>
-            WriteLine($"public static bool TryConvert<TOneOf>(TOneOf oneOf, out {_oneOfType} thisOnOf) where TOneOf : ITypeUnion");
-            WriteBraceNested(() =>
-            {
-                WriteLine($"if (oneOf is {_oneOfType} me) {{ thisOnOf = me; return true; }}");
+                //WriteLine($"public static bool CanCreateFrom<TValue>(TValue value) => OneOfCore<{_oneOfType}>.CanCreateFrom(value);");
+                WriteLine($"public static bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out {_oneOfType} union) => OneOfCore<{_oneOfType}>.TryCreateFrom(value, out union);");
+                //WriteLine($"public static {_oneOfType} CreateFrom<TValue>(TValue value) => OneOfCore<{_oneOfType}>.CreateFrom(value);");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"if (oneOf.TryGet(out T{i} value{i})) {{ thisOnOf = Create(value{i}); return true; }}");
+                    WriteLine($"public static {_oneOfType} Create{i}(T{i} value) => new {_oneOfType}(new OneOfCore<{_oneOfType}>({i}, value!));");
                 }
 
-                WriteLine("thisOnOf = default!;");
-                WriteLine("return false;");
-            });
-        }
-
-        private void WriteConversionOperators()
-        {
-            for (int i = 1; i <= _nTypeArgs; i++)
-            {
-                WriteLine($"public static implicit operator {_oneOfType}(T{i} value)");
-                WriteBraceNested(() =>
+                for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"return Create<T{i}>(value);");
-                });
+                    WriteLine("/// <summary>The union's value as type <typeparamref name=\"T1\"/>.</summary>");
+                    WriteLine($"public T{i} Value{i} => _core.Get<T{i}>();");
+                }
+
+                WriteLine("public object BoxedValue => _core.Value;");
+                WriteLine("public Type Type => _core.GetIndexType();");
+                WriteLine("public int TypeIndex => _core.GetTypeIndex();");
+
+                var typeList = string.Join(", ", Enumerable.Range(1, nTypeArgs).Select(n => $"typeof(T{n})"));
+                WriteLine($"private static IReadOnlyList<Type> _types = [{typeList}];");
+                WriteLine($"public static IReadOnlyList<Type> Types => _types;");
+
+                //WriteLine($"public bool CanGet<T>() => _core.CanGet<T>();");
+                WriteLine($"public bool TryGet<T>([NotNullWhen(true)] out T value) => _core.TryGet(out value);");
+                //WriteLine($"public T Get<T>() => _core.Get<T>();");
+                //WriteLine("public T GetOrDefault<T>() => _core.GetOrDefault<T>();");
+
+                WriteLine("public override string ToString() => _core.ToString();");
+
+                for (int i = 1; i <= _nTypeArgs; i++)
+                {
+                    WriteLine($"public static implicit operator {_oneOfType}(T{i} value) => Create{i}(value);");
+                }
+
+                // match function
+                Write("public TResult Match<TResult>(");
+                for (int i = 1; i <= _nTypeArgs; i++)
+                {
+                    Write($"Func<T{i}, TResult> match{i}");
+                    Write((i < _nTypeArgs) ? ", " : ")");
+                }
                 WriteLine();
+                WriteBraceNested(
+                    () =>
+                    {
+                        WriteLine("switch (TypeIndex)");
+                        WriteBraceNested(
+                            () =>
+                            {
+                                for (int i = 1; i <= _nTypeArgs; i++)
+                                {
+                                    WriteLine($"case {i}: return match{i}(Value{i});");
+                                }
+                                WriteLine("""default: throw new InvalidOperationException("Invalid union state.");""");
+                            });
+                    });
 
-                WriteLine($"public static explicit operator T{i}({_oneOfType} oneOf)");
-                WriteBraceNested(() =>
+                // match action
+                Write("public void Match<TResult>(");
+                for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"return oneOf.Get<T{i}>();");
-                });
+                    Write($"Action<T{i}> match{i}");
+                    Write((i < _nTypeArgs) ? ", " : ")");
+                }
+                WriteLine();
+                WriteBraceNested(
+                    () =>
+                    {
+                        WriteLine("switch (TypeIndex)");
+                        WriteBraceNested(
+                            () =>
+                            {
+                                for (int i = 1; i <= _nTypeArgs; i++)
+                                {
+                                    WriteLine($"case {i}: match{i}(Value{i}); break;");
+                                }
+                                WriteLine("""default: throw new InvalidOperationException("Invalid union state.");""");
+                            });
+                    });
 
-                if (i < _nTypeArgs)
-                    WriteLine();
-            }
-        }
-
-        private void WriteITypeUnionImplementation()
-        {
-            // Is<T>
-            WriteLine("public bool Is<T>() => _value is T;");
-            WriteLine();
-
-            // Get<T>
-            WriteLine("public T Get<T>() => _value is T t ? t : throw new InvalidCastException();");
-            WriteLine();
-
-            // TryGet<T>
-            WriteLine("public bool TryGet<T>(out T value) { if (_value is T t) { value = t; return true; } else { value = default!; return false; } }");
-            WriteLine();
-
-            // equals
-            WriteLine("public bool Equals<TValue>(TValue value)");
-            WriteBraceNested(() =>
-            {
-                WriteLine($"if (value is {_oneOfType} thisOneOf)");
-                WriteLineNested("return object.Equals(this.Get<object>(), thisOneOf.Get<object>());");
-                WriteLine("else if (value is ITypeUnion otherOneOf)");
-                WriteLineNested("return object.Equals(this.Get<object>(), otherOneOf.Get<object>());");
-                WriteLine("else");
-                WriteLineNested("return object.Equals(this.Get<object>(), value);");
             });
         }
 

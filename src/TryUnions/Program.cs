@@ -1,22 +1,21 @@
-﻿using UnionTypes;
+﻿global using IntOrString = UnionTypes.OneOf<int, string>;
+using UnionTypes;
 
-var pet1 = CatDogBird.Cat("fluffy", CatState.Sleeping);
-var pet2 = CatDogBird.Cat("fluffy", CatState.Sleeping);
+Variant a = 100;
+Variant b = 10.0;
 
-var equals = pet1 == pet2;
-
+Console.WriteLine(a == b);
 Console.ReadLine();
 
 
-// Tag Union
 [Union]
-public partial struct CatDogBird
+[UnionTags("A", "B", "C")]
+public partial struct TagUnion
 {
-    public static partial CatDogBird Cat(string name, CatState state);
-    public static partial CatDogBird Dog(string name, DogState state, bool friendly);
-    public static partial CatDogBird Bird(string name, BirdState state, string[] thingsItSays);
 }
 
-public enum CatState { Eating, Sleeping, Playing, Hunting, Annoyed }
-public enum DogState { Eating, Sleeping, Playing }
-public enum BirdState { Quiet, Chirping }
+[Union]
+[UnionTypes(typeof(string), typeof(int), typeof(double), typeof(float), typeof(long), typeof(object))]
+public partial struct Variant
+{
+}
