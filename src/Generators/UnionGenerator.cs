@@ -949,26 +949,10 @@ namespace UnionTypes.Generators
                     break;
 
                 case DataKind.SameTypeSharable:
-                    field = FindOrAllocateUnionField(
-                        DataKind.SameTypeSharable,
-                        caseValue.Type,
-                        unionFields,
-                        allocatedUnionFields
-                        );
-                    break;
-
                 case DataKind.ReferenceSharable:
-                    field = FindOrAllocateUnionField(
-                        DataKind.ReferenceSharable,
-                        caseValue.Type,
-                        unionFields,
-                        allocatedUnionFields
-                        );
-                    break;
-
                 case DataKind.Unique:
                     field = FindOrAllocateUnionField(
-                        DataKind.Unique,
+                        dataKind,
                         caseValue.Type,
                         unionFields,
                         allocatedUnionFields

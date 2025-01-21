@@ -989,6 +989,165 @@ namespace UnionTests
                 """);
         }
 
+        [TestMethod]
+        public void TestUnion_NoShareReferenceFields()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(ShareReferenceFields=false)]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(string x);
+
+                    [TagCase]
+                    public static partial MyUnion B(object y);
+                }
+                """,
+                newText =>
+                {
+                    if (newText.Contains("OverlappedData"))
+                        return false;
+
+                    var fields = GetFields(newText);
+                    if (fields.Count != 2)
+                        return false;
+
+                    return true;
+                });
+        }
+
+        [TestMethod]
+        public void TestUnion_NoShareSameTypeFields()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(OverlapStructs=false, ShareSameTypeFields=false)]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(int y);
+                }
+                """,
+                newText =>
+                {
+                    if (newText.Contains("OverlappedData"))
+                        return false;
+
+                    var fields = GetFields(newText);
+                    if (fields.Count != 2)
+                        return false;
+
+                    return true;
+                });
+        }
+
+        [TestMethod]
+        public void TestUnion_NoOverlapStructs()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(OverlapStructs=false)]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x, int y);
+
+                    [TagCase]
+                    public static partial MyUnion B(long x, long y);
+                }
+                """,
+                newText =>
+                {
+                    if (newText.Contains("OverlappedData"))
+                        return false;
+
+                    var fields = GetFields(newText);
+                    if (fields.Count != 4)
+                        return false;
+
+                    return true;
+                });
+        }
+
+        [TestMethod]
+        public void TestUnion_NoDecomposeStructs()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public record struct AData(int x, string y);
+                public record struct BData(long x, string y);
+
+                [TagUnion(DecomposeStructs=false)]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(AData data);
+
+                    [TagCase]
+                    public static partial MyUnion B(BData data);
+                }
+                """,
+                newText => !newText.Contains("OverlappedData")
+                        && GetFields(newText).Count == 2
+                );
+        }
+
+        [TestMethod]
+        public void TestUnion_TagTypeName()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(TagTypeName="Tag")]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(string y);
+                }
+                """,
+                newText => newText.Contains("enum Tag")
+                    && newText.Contains("Tag Kind { get; }")
+                );
+        }
+
+        [TestMethod]
+        public void TestUnion_TagPropertyName()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(TagPropertyName="Tag")]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(string y);
+                }
+                """,
+                newText => newText.Contains("enum Case")
+                    && newText.Contains("Case Tag { get; }")
+                );
+        }
+
 
 #if false
 
@@ -1055,6 +1214,53 @@ namespace UnionTests
             {
                 Assert.IsTrue(generatedTextAssertion(newText), "generated text assertion failed");
             }
+        }
+
+        public static HashSet<string> GetFields(string generatedText)
+        {
+            return GetIdentifiers("_field", generatedText);
+        }
+
+        public static HashSet<string> GetIdentifiers(string namePrefix, string generatedText)
+        {
+            var names = new HashSet<string>();
+            var index = 0;
+            while (index >= 0)
+            {
+                var foundIndex = generatedText.IndexOf(namePrefix, index);
+                if (foundIndex < index)
+                    break;
+
+                if (foundIndex > 0 && IsIdentifierChar(generatedText[foundIndex - 1]))
+                {
+                    // middle of another identifier? skip forward
+                    index = foundIndex + 1;
+                }
+                else
+                {
+                    var name = GetIdentifierAt(foundIndex);
+                    names.Add(name);
+                    index = foundIndex + name.Length;
+                }
+            }
+
+            return names;
+
+            string GetIdentifierAt(int start)
+            {
+                var end = start;
+                
+                while (end < generatedText.Length 
+                    && IsIdentifierChar(generatedText[end]))
+                {
+                    end++;
+                }
+
+                return generatedText.Substring(start, end - start);
+            }
+
+            bool IsIdentifierChar(char ch) =>
+                char.IsLetterOrDigit(ch) || ch == '_';
         }
 
         private static void AssertNoDiagnostics(ImmutableArray<Diagnostic> diagnostics, string newText)
