@@ -19,10 +19,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase]
+                    [TypeCase]
                     public record struct A(int x);
 
-                    [UnionCase]
+                    [TypeCase]
                     public record struct B(string y, float z);
                 }
 
@@ -56,10 +56,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Name="Aa")]
+                    [TypeCase(Name="Aa")]
                     public record struct A(int x);
 
-                    [UnionCase(Name="Bb")]
+                    [TypeCase(Name="Bb")]
                     public record struct B(string y, float z);
                 }
 
@@ -93,10 +93,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(FactoryName="MakeA")]
+                    [TypeCase(FactoryName="MakeA")]
                     public record struct A(int x);
 
-                    [UnionCase(FactoryName="MakeB")]
+                    [TypeCase(FactoryName="MakeB")]
                     public record struct B(string y, float z);
                 }
 
@@ -130,10 +130,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Value=4)]
+                    [TypeCase(TagValue=4)]
                     public record struct A(int x);
 
-                    [UnionCase(Value=3)]
+                    [TypeCase(TagValue=3)]
                     public record struct B(string y, float z);
                 }
 
@@ -170,10 +170,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase]
+                    [TypeCase]
                     public static partial MyUnion Create(A a);
 
-                    [UnionCase]
+                    [TypeCase]
                     public static partial MyUnion Create(B b);
                 }
 
@@ -210,10 +210,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Name="Aa")]
+                    [TypeCase(Name="Aa")]
                     public static partial MyUnion Create(A a);
 
-                    [UnionCase(Name="Bb")]
+                    [TypeCase(Name="Bb")]
                     public static partial MyUnion Create(B b);
                 }
 
@@ -251,10 +251,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Value=4)]
+                    [TypeCase(TagValue=4)]
                     public static partial MyUnion Create(A a);
 
-                    [UnionCase(Value=3)]
+                    [TypeCase(TagValue=3)]
                     public static partial MyUnion Create(B b);
                 }
 
@@ -289,8 +289,8 @@ namespace UnionTests
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [UnionCase(Type=typeof(A))]
-                [UnionCase(Type=typeof(B))]
+                [TypeCase(Type=typeof(A))]
+                [TypeCase(Type=typeof(B))]
                 public partial struct MyUnion
                 {
                 }
@@ -326,8 +326,8 @@ namespace UnionTests
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [UnionCase(Name="Aa", Type=typeof(A))]
-                [UnionCase(Name="Bb", Type=typeof(B))]
+                [TypeCase(Name="Aa", Type=typeof(A))]
+                [TypeCase(Name="Bb", Type=typeof(B))]
                 public partial struct MyUnion
                 {
                 }
@@ -363,8 +363,8 @@ namespace UnionTests
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [UnionCase(Type=typeof(A), FactoryName="MakeA")]
-                [UnionCase(Type=typeof(B), FactoryName="MakeB")]
+                [TypeCase(Type=typeof(A), FactoryName="MakeA")]
+                [TypeCase(Type=typeof(B), FactoryName="MakeB")]
                 public partial struct MyUnion
                 {
                 }
@@ -400,8 +400,8 @@ namespace UnionTests
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [UnionCase(Type=typeof(A), Value=4)]
-                [UnionCase(Type=typeof(B), Value=3)]
+                [TypeCase(Type=typeof(A), TagValue=4)]
+                [TypeCase(Type=typeof(B), TagValue=3)]
                 public partial struct MyUnion
                 {
                 }
@@ -436,10 +436,10 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase]
+                    [TagCase]
                     public static partial MyUnion A(int x);
 
-                    [UnionCase]
+                    [TagCase]
                     public static partial MyUnion B(string y, float z);
                 }
 
@@ -471,8 +471,8 @@ namespace UnionTests
                 using UnionTypes;
 
                 [TagUnion]
-                [UnionCase(Name="A")]
-                [UnionCase(Name="B")]
+                [TagCase(Name="A")]
+                [TagCase(Name="B")]
                 public partial struct MyUnion
                 {
                 }
@@ -505,8 +505,8 @@ namespace UnionTests
                 using UnionTypes;
 
                 [TagUnion]
-                [UnionCase(Name="A", FactoryName="MakeA")]
-                [UnionCase(Name="B", FactoryName="MakeB")]
+                [TagCase(Name="A", FactoryName="MakeA")]
+                [TagCase(Name="B", FactoryName="MakeB")]
                 public partial struct MyUnion
                 {
                 }
@@ -539,8 +539,8 @@ namespace UnionTests
                 using UnionTypes;
 
                 [TagUnion]
-                [UnionCase(Name="A", FactoryName="A", FactoryIsProperty=false)]
-                [UnionCase(Name="B", FactoryName="B", FactoryIsProperty=false)]
+                [TagCase(Name="A", FactoryName="A", FactoryIsProperty=false)]
+                [TagCase(Name="B", FactoryName="B", FactoryIsProperty=false)]
                 public partial struct MyUnion
                 {
                 }
@@ -566,7 +566,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTagUnion_OverrideCaseNames()
+        public void TestTagUnion_CaseNames()
         {
             TestUnion(
                 """
@@ -575,10 +575,10 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Name="A")]
+                    [TagCase(Name="A")]
                     public static partial MyUnion MakeA(int x);
 
-                    [UnionCase(Name="B")]
+                    [TagCase(Name="B")]
                     public static partial MyUnion MakeB(string y, float z);
                 }
 
@@ -603,7 +603,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTagUnion_OverrideAccessorNames()
+        public void TestTagUnion_AccessorNames()
         {
             TestUnion(
                 """
@@ -612,10 +612,10 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(AccessorName="StuffForA")]
+                    [TagCase(AccessorName="StuffForA")]
                     public static partial MyUnion A(int x);
 
-                    [UnionCase(AccessorName="StuffForB")]
+                    [TagCase(AccessorName="StuffForB")]
                     public static partial MyUnion B(string y, float z);
                 }
 
@@ -640,7 +640,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTagUnion_OverTagValues()
+        public void TestTagUnion_TagValues()
         {
             TestUnion(
                 """
@@ -649,10 +649,10 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Value=4)]
+                    [TagCase(TagValue=4)]
                     public static partial MyUnion A(int x);
 
-                    [UnionCase(Value=3)]
+                    [TagCase(TagValue=3)]
                     public static partial MyUnion B(string y, float z);
                 }
 
@@ -686,13 +686,13 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct MyUnion
                 {
-                    [UnionCase(Value=0)]
+                    [TagCase(TagValue=0)]
                     public static partial MyUnion Nobody();
 
-                    [UnionCase]
+                    [TagCase]
                     public static partial MyUnion Student(string name, decimal grade);
 
-                    [UnionCase]
+                    [TagCase]
                     public static partial MyUnion Teacher(string name);
                 }
 
@@ -728,10 +728,10 @@ namespace UnionTests
                 using UnionTypes;
 
                 [TagUnion]
-                [UnionCase(Name="None", Value=0)]
+                [TagCase(Name="None", TagValue=0)]
                 public partial struct Option<T>
                 {
-                    [UnionCase]
+                    [TagCase]
                     public static partial Option<T> Some(T value);
                 }
 
@@ -763,10 +763,10 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct Result<T>
                 {
-                    [UnionCase]
+                    [TagCase]
                     public static partial Result<T> Success(T value);
 
-                    [UnionCase(AccessorName="FailureMessage")]
+                    [TagCase(AccessorName="FailureMessage")]
                     public static partial Result<T> Failure(string message);
                 }
 
@@ -798,10 +798,10 @@ namespace UnionTests
                 public class None : ISingleton<None> { public static None Singleton { get; } = new None(); }
 
                 [TypeUnion]
-                [UnionCase(Type=typeof(None), IsSingleton=true, Value=0)]
+                [TypeCase(Type=typeof(None), IsSingleton=true, TagValue=0)]
                 public partial struct Option<T>
                 {
-                    [UnionCase]
+                    [TypeCase]
                     public static partial Option<T> Some(T value);
                 }
 
@@ -833,10 +833,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct Result<T>
                 {
-                    [UnionCase]
+                    [TypeCase]
                     public static partial Result<T> Success(T value);
 
-                    [UnionCase(Name="Failure", AccessorName="FailureMessage")]
+                    [TypeCase(Name="Failure", AccessorName="FailureMessage")]
                     public static partial Result<T> Failure(string message);
                 }
 
@@ -871,10 +871,10 @@ namespace UnionTests
                     [TypeUnion]
                     public partial struct MyUnion
                     {
-                        [UnionCase]
+                        [TypeCase]
                         public record struct A(int x);
 
-                        [UnionCase]
+                        [TypeCase]
                         public record struct B(string y);
                     }
                 }
@@ -895,10 +895,10 @@ namespace UnionTests
                     [TypeUnion]
                     public partial struct MyUnion
                     {
-                        [UnionCase]
+                        [TypeCase]
                         public record struct A(int x);
 
-                        [UnionCase]
+                        [TypeCase]
                         public record struct B(string y);
                     }
                 }
@@ -921,8 +921,8 @@ namespace UnionTests
                 }
 
                 [TypeUnion]
-                [UnionCase(Type=typeof(OtherNamespace.A))]
-                [UnionCase(Type=typeof(OtherNamespace.B))]
+                [TypeCase(Type=typeof(OtherNamespace.A))]
+                [TypeCase(Type=typeof(OtherNamespace.B))]
                 public partial struct MyUnion
                 {
                 }
@@ -943,8 +943,8 @@ namespace UnionTests
                 }
 
                 [TypeUnion]
-                [UnionCase(Type=typeof(OtherType.A))]
-                [UnionCase(Type=typeof(OtherType.B))]
+                [TypeCase(Type=typeof(OtherType.A))]
+                [TypeCase(Type=typeof(OtherType.B))]
                 public partial struct MyUnion
                 {
                 }
@@ -961,10 +961,10 @@ namespace UnionTests
                 [TagUnion]
                 public partial struct Result<T> where T : class
                 {
-                    [UnionCase]
+                    [TagCase]
                     public static partial Result<T> Success(T value);
 
-                    [UnionCase]
+                    [TagCase]
                     public static partial Result<T> Failure(string reason);
                 }
                 """);
@@ -980,10 +980,10 @@ namespace UnionTests
                 [TypeUnion]
                 public partial struct Result<T> where T : class
                 {
-                    [UnionCase]
+                    [TypeCase]
                     public record struct Success(T value);
 
-                    [UnionCase]
+                    [TypeCase]
                     public record struct Failure(string reason);
                 }
                 """);
@@ -1109,6 +1109,6 @@ namespace UnionTests
             MetadataReference.CreateFromFile(typeof(int).GetTypeInfo().Assembly.Location);
 
         private static readonly MetadataReference UnionTypes =
-            MetadataReference.CreateFromFile(typeof(UnionAttribute).GetTypeInfo().Assembly.Location);
+            MetadataReference.CreateFromFile(typeof(TypeUnionAttribute).GetTypeInfo().Assembly.Location);
     }
 }

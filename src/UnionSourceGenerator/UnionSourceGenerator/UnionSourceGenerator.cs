@@ -271,7 +271,7 @@ namespace UnionTypes.Generators
                 ? vName
                 : null;
 
-            value = attr.TryGetNamedArgument("Value", out var valueArg)
+            value = attr.TryGetNamedArgument("TagValue", out var valueArg)
                 && valueArg.Kind == TypedConstantKind.Primitive
                 && valueArg.Value is int vValue
                 ? vValue
@@ -313,7 +313,7 @@ namespace UnionTypes.Generators
         {
             var cases = new List<UnionCase>();
 
-            foreach (var attr in unionType.GetAttributes("UnionCaseAttribute"))
+            foreach (var attr in unionType.GetAttributes("TypeCaseAttribute"))
             {
                 GetUnionCaseData(attr, 
                     out var caseName, 
@@ -370,7 +370,7 @@ namespace UnionTypes.Generators
             var cases = new List<UnionCase>();
             foreach (var nestedType in nestedTypes)
             {
-                if (nestedType.TryGetAttribute("UnionCaseAttribute", out var attr))
+                if (nestedType.TryGetAttribute("TypeCaseAttribute", out var attr))
                 {
                     GetUnionCaseData(attr, 
                         out var caseName, 
@@ -423,7 +423,7 @@ namespace UnionTypes.Generators
 
             foreach (var method in factoryMethods)
             {
-                if (method.TryGetAttribute("UnionCaseAttribute", out var attr))
+                if (method.TryGetAttribute("TypeCaseAttribute", out var attr))
                 {
                     GetUnionCaseData(attr, 
                         out var caseName, 
@@ -484,7 +484,7 @@ namespace UnionTypes.Generators
 
             foreach (var method in factoryProperties)
             {
-                if (method.TryGetAttribute("UnionCaseAttribute", out var attr))
+                if (method.TryGetAttribute("TypeCaseAttribute", out var attr))
                 {
                     GetUnionCaseData(attr,
                         out var caseName,
@@ -531,7 +531,7 @@ namespace UnionTypes.Generators
         {
             var cases = new List<UnionCase>();
 
-            foreach (var attr in unionSymbol.GetAttributes("UnionCaseAttribute"))
+            foreach (var attr in unionSymbol.GetAttributes("TagCaseAttribute"))
             {
                 GetUnionCaseData(attr, 
                     out var caseName, 
@@ -567,7 +567,6 @@ namespace UnionTypes.Generators
             return cases;
         }
 
-
         private IReadOnlyList<UnionCase> GetTagCasesFromPartialFactoryMethods(
             INamedTypeSymbol unionType, UnionOptions options, List<Diagnostic> diagnostics)
         {
@@ -585,8 +584,8 @@ namespace UnionTypes.Generators
 
             foreach (var method in factoryMethods)
             {
-                // only consider methods with UnionCase attribute
-                if (method.TryGetAttribute("UnionCaseAttribute", out var attr))
+                // only consider methods with TagCase attribute
+                if (method.TryGetAttribute("TagCaseAttribute", out var attr))
                 {
                     GetUnionCaseData(attr, 
                         out var caseName, 
@@ -646,8 +645,8 @@ namespace UnionTypes.Generators
 
             foreach (var property in factoryProperties)
             {
-                // only consider properties with UnionCase attribute
-                if (property.TryGetAttribute("UnionCaseAttribute", out var attr))
+                // only consider properties with TagCase attribute
+                if (property.TryGetAttribute("TagCaseAttribute", out var attr))
                 {
                     GetUnionCaseData(attr,
                         out var caseName,
