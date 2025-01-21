@@ -67,7 +67,7 @@ namespace UnionTypes
         }
     }
 
-    [AttributeUsage(AttributeTargets.Method|AttributeTargets.Struct, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Method|AttributeTargets.Property|AttributeTargets.Struct, AllowMultiple = true)]
     public class UnionCaseAttribute : Attribute
     {
         /// <summary>
@@ -88,11 +88,27 @@ namespace UnionTypes
         public Type? Type { get; set; } = null;
 
         /// <summary>
+        /// True if the type is singleton value and does require storage,
+        /// and the singleton value can be accessed from the type via a static property or field named 'Singleton'.
+        /// </summary>
+        public bool IsSingleton { get; set; } = false;
+
+        /// <summary>
         /// The name of the factory method to construct a union of this case.
-        /// If not specified it is derived from the associated member or case name.
+        /// If not specified it is [FactoryPrefix][CaseName].
         /// </summary>
         public string? FactoryName { get; set; } = null;
 
+        /// <summary>
+        /// True if the factory used to construct a union of this case is a property instead of a method.
+        /// </summary>
+        public bool FactoryIsProperty { get; set; }
+
+        /// <summary>
+        /// The name of the member to access the value of this case.
+        /// If not specified it is [AccessorPrefix][CaseName].
+        /// </summary>
+        public string? AccessorName { get; set; } = null;
 
         public UnionCaseAttribute() 
         { 

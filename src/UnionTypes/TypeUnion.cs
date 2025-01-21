@@ -54,7 +54,7 @@ namespace UnionTypes
     }
 
     /// <summary>
-    /// A helper class for implementions of <see cref="ITypeUnion"/>
+    /// A helper class for for constructing types that implement <see cref="ITypeUnion{TSelf}"/>.
     /// </summary>
     public static class TypeUnion
     {

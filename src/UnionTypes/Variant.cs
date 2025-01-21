@@ -414,7 +414,7 @@ public readonly struct Variant
     /// <summary>
     /// Create a <see cref="Variant"/> from a value.
     /// </summary>
-    public static unsafe Variant CreateFrom<TValue>(TValue value)
+    public static Variant CreateFrom<TValue>(TValue value)
     {
         if (value == null)
             return Null;
@@ -430,9 +430,6 @@ public readonly struct Variant
         variant = CreateFrom(value);
         return true;
     }
-
-    public static bool CanCreateFrom<TValue>(TValue value) =>
-        true;
 
     /// <summary>
     /// True if the variant's value can be converted to the type.
