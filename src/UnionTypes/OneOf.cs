@@ -9,9 +9,9 @@ namespace UnionTypes;
 public interface IOneOf : IClosedTypeUnion
 {
     /// <summary>
-    /// The value of the union.
+    /// The value held by the union.
     /// </summary>
-    object BoxedValue { get; }
+    object Value { get; }
 }
 
 internal interface IOneOf<TSelf> : IOneOf, IClosedTypeUnion<TSelf>
@@ -23,37 +23,36 @@ internal interface IOneOf<TSelf> : IOneOf, IClosedTypeUnion<TSelf>
 internal struct OneOfCore<TOneOf>
     where TOneOf: IOneOf<TOneOf>
 {
-    private readonly int _oneBasedIndex;
+    private readonly int _kind;
     private readonly object _value;
 
-    public OneOfCore(int oneBasedIndex, object value)
+    public OneOfCore(int kind, object value)
     {
-        _oneBasedIndex = oneBasedIndex;
+        _kind = kind;
         _value = value;
     }
 
+    public int Kind => _kind;
     public object Value => _value;
 
     /// <summary>
     /// The type from the union's Types collection that the current value corresponds to.
     /// </summary>
-    public Type GetIndexType()
+    public Type Type
     {
-        var index = GetTypeIndex();
-        if (index >= 0 && index < TOneOf.Types.Count)
-            return TOneOf.Types[index];
-        return typeof(object);
+        get
+        {
+            var index = this.Kind - 1;
+            if (index >= 0 && index < TOneOf.Types.Count)
+                return TOneOf.Types[index];
+            return typeof(object);
+        }
     }
-
-    /// <summary>
-    /// The index into the union's Types collection of the type that the current value corresponds to.
-    /// </summary>
-    public int GetTypeIndex() => _oneBasedIndex - 1;
 
     public bool CanGet<T>()
     {
         return _value is T
-            || TypeUnion.CanCreateFrom(_value, typeof(T));
+            || TypeUnion.CanCreate(_value, typeof(T));
     }
 
     public bool TryGet<T>([NotNullWhen(true)] out T value)
@@ -65,7 +64,7 @@ internal struct OneOfCore<TOneOf>
         }
         else
         {
-            return TypeUnion.TryCreateFrom(_value, out value);
+            return TypeUnion.TryCreate(_value, out value);
         }
     }
 

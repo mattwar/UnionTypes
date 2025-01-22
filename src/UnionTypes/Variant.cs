@@ -66,347 +66,158 @@ public readonly struct Variant
     public VariantKind Kind =>
         GetEncoding().GetKind(in this);
 
-    #region Create
-    public static Variant Create(bool value) =>
-        Encoders.Bool.Encode(value);
-
-    public static Variant Create(bool? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(byte value) =>
-        Encoders.Byte.Encode(value);
-
-    public static Variant Create(byte? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(sbyte value) =>
-        Encoders.SByte.Encode(value);
-
-    public static Variant Create(sbyte? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(short value) =>
-        Encoders.Int16.Encode(value);
-
-    public static Variant Create(short? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(ushort value) =>
-        Encoders.UInt16.Encode(value);
-
-    public static Variant Create(ushort? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(int value) =>
-        Encoders.Int32.Encode(value);
-
-    public static Variant Create(int? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(uint value) =>
-        Encoders.UInt32.Encode(value);
-
-    public static Variant Create(uint? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(long value) =>
-        Encoders.Int64.Encode(value);
-
-    public static Variant Create(long? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(ulong value) =>
-        Encoders.UInt64.Encode(value);
-
-    public static Variant Create(ulong? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(float value) =>
-        Encoders.Single.Encode(value);
-
-    public static Variant Create(float? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(double value) =>
-        Encoders.Double.Encode(value);
-
-    public static Variant Create(double? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(Decimal64 value) =>
-        Encoders.Decimal64.Encode(value);
-
-    public static Variant Create(Decimal64? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(decimal value) =>
-        Encoders.Decimal.Encode(value);
-
-    public static Variant Create(decimal? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(char value) =>
-        Encoders.Char.Encode(value);
-
-    public static Variant Create(char? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(Rune value) =>
-        Encoders.Rune.Encode(value);
-
-    public static Variant Create(Rune? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(string? value) =>
-        (value == null) ? Null : new Variant(value, default);
-
-    public static Variant Create(Guid value) =>
-        new Variant(value, default);
-
-    public static Variant Create(Guid? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(DateTime value) =>
-        Encoders.DateTime.Encode(value);
-
-    public static Variant Create(DateTime? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(DateOnly value) =>
-        Encoders.DateOnly.Encode(value);
-
-    public static Variant Create(DateOnly? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(TimeSpan value) =>
-        Encoders.TimeSpan.Encode(value);
-
-    public static Variant Create(TimeSpan? value) =>
-        (value == null) ? Null : Create(value.Value);
-
-    public static Variant Create(TimeOnly value) =>
-        Encoders.TimeOnly.Encode(value);
-
-    public static Variant Create(TimeOnly? value) =>
-        (value == null) ? Null : Create(value.Value);
-    #endregion
-
-    #region Is tests
-    public bool IsBoolean =>
-        GetEncoding().GetType(this) == typeof(bool);
-
-    public bool IsByte =>
-        GetEncoding().GetType(this) == typeof(byte);
-
-    public bool IsSByte =>
-        GetEncoding().GetType(this) == typeof(sbyte);
-
-    public bool IsInt16 =>
-        GetEncoding().GetType(this) == typeof(short);
-
-    public bool IsUInt16 =>
-        GetEncoding().GetType(this) == typeof(ushort);
-
-    public bool IsInt32 =>
-        GetEncoding().GetType(this) == typeof(int);
-
-    public bool IsUInt32 =>
-        GetEncoding().GetType(this) == typeof(uint);
-
-    public bool IsInt64 =>
-        GetEncoding().GetType(this) == typeof(long);
-
-    public bool IsUInt64 =>
-        GetEncoding().GetType(this) == typeof(ulong);
-
-    public bool IsSingle =>
-        GetEncoding().GetType(this) == typeof(float);
-
-    public bool IsDouble =>
-        GetEncoding().GetType(this) == typeof(double);
-
-    public bool IsDecimal =>
-    GetEncoding().GetType(this) == typeof(decimal);
-
-    public bool IsDecimal64 =>
-        GetEncoding().GetType(this) == typeof(Decimal64);
-
-    public bool IsChar =>
-        GetEncoding().GetType(this) == typeof(char);
-
-    public bool IsRune =>
-        GetEncoding().GetType(this) == typeof(Rune);
-
-    public bool IsString =>
-        _reference is string;
-
-    public bool IsGuid =>
-        _reference is Guid;
-
-    public bool IsDateTime =>
-        GetEncoding().GetType(this) == typeof(DateTime);
-
-    public bool IsDateOnly =>
-        GetEncoding().GetType(this) == typeof(DateOnly);
-
-    public bool IsTimeSpan =>
-        GetEncoding().GetType(this) == typeof(TimeSpan);
-
-    public bool IsTimeOnly =>
-        GetEncoding().GetType(this) == typeof(TimeOnly);
-
-    public bool IsOther =>
-        _reference != null;
-    #endregion
-
-    #region TryGet
-    public bool TryGet(out bool value) =>
-        Encoders.Bool.TryDecode(this, out value);
-
-    public bool TryGet(out byte value) =>
-        Encoders.Byte.TryDecode(this, out value);
-
-    public bool TryGet(out sbyte value) =>
-        Encoders.SByte.TryDecode(this, out value);
-
-    public bool TryGet(out short value) =>
-        Encoders.Int16.TryDecode(this, out value);
-
-    public bool TryGet(out ushort value) =>
-        Encoders.UInt16.TryDecode(this, out value);
-
-    public bool TryGet(out int value) =>
-        Encoders.Int32.TryDecode(this, out value);
-
-    public bool TryGet(out uint value) =>
-        Encoders.UInt32.TryDecode(this, out value);
-
-    public bool TryGet(out long value) =>
-        Encoders.Int64.TryDecode(this, out value);
-
-    public bool TryGet(out ulong value) =>
-        Encoders.UInt64.TryDecode(this, out value);
-
-    public bool TryGet(out float value) =>
-        Encoders.Single.TryDecode(this, out value);
-
-    public bool TryGet(out double value) =>
-        Encoders.Double.TryDecode(this, out value);
-
-    public bool TryGet(out Decimal64 value) =>
-        Encoders.Decimal64.TryDecode(this, out value);
-
-    public bool TryGet(out decimal value) =>
-        Encoders.Decimal.TryDecode(this, out value);
-
-    public bool TryGet(out char value) =>
-        Encoders.Char.TryDecode(this, out value);
-
-    public bool TryGet(out Rune value) =>
-        Encoders.Rune.TryDecode(this, out value);
-
-    public bool TryGet([NotNullWhen(true)] out string? value)
-    {
-        if (_reference is string sval) { value = sval; return true; }
-        value = default!;
-        return false;
-    }
-
-    public bool TryGet(out Guid value)
-    {
-        if (_reference is Guid guid) { value = guid; return true; }
-        value = default;
-        return false;
-    }
-
-    public bool TryGet(out DateTime value) =>
-        Encoders.DateTime.TryDecode(this, out value);
-
-    public bool TryGet(out DateOnly value) =>
-        Encoders.DateOnly.TryDecode(this, out value);
-
-    public bool TryGet(out TimeSpan value) =>
-        Encoders.TimeSpan.TryDecode(this, out value);
-
-    public bool TryGet(out TimeOnly value) =>
-        Encoders.TimeOnly.TryDecode(this, out value);
-
-    public bool TryGet([NotNullWhen(true)] out object? value)
-    {
-        if (_reference is Encoding encoding) { value = encoding.GetBoxed(this); return true; }
-        if (_reference != null && _reference is not Encoding) { value = _reference; return true; }
-        value = default!;
-        return false;
-    }
-    #endregion
-
-    #region Get
-    public bool GetBoolean() =>
-        TryGet(out bool value) ? value : throw new InvalidCastException();
-
-    public byte GetByte() =>
-        TryGet(out byte value) ? value : throw new InvalidCastException();
-
-    public sbyte GetSByte() =>
-        TryGet(out sbyte value) ? value : throw new InvalidCastException();
-
-    public short GetInt16() =>
-        TryGet(out short value) ? value : throw new InvalidCastException();
-
-    public ushort GetUInt16() =>
-        TryGet(out ushort value) ? value : throw new InvalidCastException();
-
-    public int GetInt32() =>
-        TryGet(out int value) ? value : throw new InvalidCastException();
-
-    public uint GetUInt32() =>
-        TryGet(out uint value) ? value : throw new InvalidCastException();
-
-    public long GetInt64() =>
-        TryGet(out long value) ? value : throw new InvalidCastException();
-
-    public ulong GetUInt64() =>
-        TryGet(out ulong value) ? value : throw new InvalidCastException();
-
-    public float GetSingle() =>
-        TryGet(out float value) ? value : throw new InvalidCastException();
-
-    public double GetDouble() =>
-        TryGet(out double value) ? value : throw new InvalidCastException();
-
-    public Decimal64 GetDecimal64() =>
-        TryGet(out Decimal64 value) ? value : throw new InvalidCastException();
-
-    public decimal GetDecimal() =>
-        TryGet(out decimal value) ? value : throw new InvalidCastException();
-
-    public char GetChar() =>
-        TryGet(out char value) ? value : throw new InvalidCastException();
-
-    public Rune GetRune() =>
-        TryGet(out Rune value) ? value : throw new InvalidCastException();
-
-    public string GetString() =>
-        TryGet(out string? value) ? value : throw new InvalidCastException();
-
-    public Guid GetGuid() =>
-        TryGet(out Guid value) ? value : throw new InvalidCastException();
-
-    public DateTime GetDateTime() =>
-        TryGet(out DateTime value) ? value : throw new InvalidCastException();
-
-    public DateOnly GetDateOnly() =>
-        TryGet(out DateOnly value) ? value : throw new InvalidCastException();
-
-    public TimeSpan GetTimeSpan() =>
-        TryGet(out TimeSpan value) ? value : throw new InvalidCastException();
-
-    public TimeOnly GetTimeOnly() =>
-        TryGet(out TimeOnly value) ? value : throw new InvalidCastException();
-
-    public object GetOther() =>
-        TryGet(out object? value) ? value : throw new InvalidCastException();
-    #endregion
+    public static Variant Create(bool value) => Encoders.Bool.Encode(value);
+    public static Variant Create(bool? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(byte value) => Encoders.Byte.Encode(value);
+    public static Variant Create(byte? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(sbyte value) => Encoders.SByte.Encode(value);
+    public static Variant Create(sbyte? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(short value) => Encoders.Int16.Encode(value);
+    public static Variant Create(short? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(ushort value) => Encoders.UInt16.Encode(value);
+    public static Variant Create(ushort? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(int value) => Encoders.Int32.Encode(value);
+    public static Variant Create(int? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(uint value) => Encoders.UInt32.Encode(value);
+    public static Variant Create(uint? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(long value) => Encoders.Int64.Encode(value);
+    public static Variant Create(long? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(ulong value) => Encoders.UInt64.Encode(value);
+    public static Variant Create(ulong? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(float value) => Encoders.Single.Encode(value);
+    public static Variant Create(float? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(double value) => Encoders.Double.Encode(value);
+    public static Variant Create(double? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(Decimal64 value) => Encoders.Decimal64.Encode(value);
+    public static Variant Create(Decimal64? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(decimal value) => Encoders.Decimal.Encode(value);
+    public static Variant Create(decimal? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(char value) => Encoders.Char.Encode(value);
+    public static Variant Create(char? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(Rune value) => Encoders.Rune.Encode(value);
+    public static Variant Create(Rune? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(string? value) => (value == null) ? Null : new Variant(value, default);
+    public static Variant Create(Guid value) => new Variant(value, default);
+    public static Variant Create(Guid? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(DateTime value) => Encoders.DateTime.Encode(value);
+    public static Variant Create(DateTime? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(DateOnly value) => Encoders.DateOnly.Encode(value);
+    public static Variant Create(DateOnly? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(TimeSpan value) => Encoders.TimeSpan.Encode(value);
+    public static Variant Create(TimeSpan? value) => (value == null) ? Null : Create(value.Value);
+    public static Variant Create(TimeOnly value) => Encoders.TimeOnly.Encode(value);
+    public static Variant Create(TimeOnly? value) => (value == null) ? Null : Create(value.Value);
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Boolean"/>.
+    /// </summary>
+    public bool BooleanValue => Encoders.Bool.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.SByte"/>.
+    /// </summary>
+    public sbyte SByteValue => Encoders.SByte.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Int16"/>.
+    /// </summary>
+    public short Int16Value => Encoders.Int16.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Int32"/>.
+    /// </summary>
+    public int Int32Value => Encoders.Int32.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Int64"/>.
+    /// </summary>
+    public long Int64Value => Encoders.Int64.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Byte"/>.
+    /// </summary>
+    public byte ByteValue => Encoders.Byte.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.UInt16"/>.
+    /// </summary>
+    public ushort UInt16Value => Encoders.UInt16.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.UInt32"/>.
+    /// </summary>
+    public uint UInt32Value => Encoders.UInt32.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.UInt64"/>.
+    /// </summary>
+    public ulong UInt64Value => Encoders.UInt64.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Single"/>.
+    /// </summary>
+    public float SingleValue => Encoders.Single.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Double"/>.
+    /// </summary>
+    public double DoubleValue => Encoders.Double.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Decimal64"/>.
+    /// </summary>
+    public Decimal64 Decimal64Value => Encoders.Decimal64.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Decimal"/>.
+    /// </summary>
+    public decimal DecimalValue => Encoders.Decimal.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Char"/>.
+    /// </summary>
+    public char CharValue => Encoders.Char.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Rune"/>.
+    /// </summary>
+    public Rune RuneValue => Encoders.Rune.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.String"/>.
+    /// </summary>
+    public string StringValue => _reference is string value ? value : default!;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.DateOnly"/>.
+    /// </summary>
+    public DateOnly DateOnlyValue => Encoders.DateOnly.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.TimeOnly"/>.
+    /// </summary>
+    public TimeOnly TimeOnlyValue => Encoders.TimeOnly.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.DateTime"/>.
+    /// </summary>
+    public DateTime DateTimeValue => Encoders.DateTime.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.TimeSpan"/>.
+    /// </summary>
+    public TimeSpan TimeSpanValue => Encoders.TimeSpan.TryDecode(in this, out var value) ? value : default;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Guid"/>.
+    /// </summary>
+    public Guid GuidValue => _reference is Guid value ? value : default!;
+
+    /// <summary>
+    /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Other"/>.
+    /// To get more type specific values without boxing use <see cref="TryGet{T}(out T)"/>.
+    /// </summary>
+    public object OtherValue => TryGet<object>(out var value) ? value : default!;
 
     #endregion
 
@@ -414,7 +225,7 @@ public readonly struct Variant
     /// <summary>
     /// Create a <see cref="Variant"/> from a value.
     /// </summary>
-    public static Variant CreateFrom<TValue>(TValue value)
+    public static Variant Create<TValue>(TValue value)
     {
         if (value == null)
             return Null;
@@ -425,9 +236,9 @@ public readonly struct Variant
     /// <summary>
     /// Create a <see cref="Variant"/> from a value.
     /// </summary>
-    public static bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out Variant variant)
+    public static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out Variant variant)
     {
-        variant = CreateFrom(value);
+        variant = Create(value);
         return true;
     }
 
@@ -447,7 +258,10 @@ public readonly struct Variant
     /// Returns the value as the specified type if the value is of the specified type, otherwise throws <see cref="InvalidCastException"/>.
     /// </summary>
     public T Get<T>() =>
-        TryGet<T>(out var value) ? value : throw new InvalidCastException();
+        TryGet<T>(out var value) ? value : throw GetInvalidCast<T>(this);
+
+    private static Exception GetInvalidCast<T>(Variant variant) => 
+        new InvalidCastException($"Cannot convert variant holding type '{variant.Type.Name}' to type '{typeof(T).Name}'");
 
     /// <summary>
     /// Returns the value as the specified type if the value is of the specified type or the default value of the type if not.
@@ -484,6 +298,7 @@ public readonly struct Variant
     public override int GetHashCode() =>
         GetEncoding().GetHashCode(in this);
 
+
     #endregion
 
     #region Operators
@@ -509,7 +324,7 @@ public readonly struct Variant
     public static implicit operator Variant(DateOnly value) => Create(value);
     public static implicit operator Variant(TimeOnly value) => Create(value);
     public static implicit operator Variant(DateTime value) => Create(value);
-    public static implicit operator Variant(DateTimeOffset value) => CreateFrom(value);
+    public static implicit operator Variant(DateTimeOffset value) => Create(value);
     public static implicit operator Variant(TimeSpan value) => Create(value);
     public static implicit operator Variant(Guid value) => Create(value);
 
@@ -531,31 +346,31 @@ public readonly struct Variant
     public static implicit operator Variant(DateOnly? value) => Create(value);
     public static implicit operator Variant(TimeOnly? value) => Create(value);
     public static implicit operator Variant(DateTime? value) => Create(value);
-    public static implicit operator Variant(DateTimeOffset? value) => CreateFrom(value);
+    public static implicit operator Variant(DateTimeOffset? value) => Create(value);
     public static implicit operator Variant(TimeSpan? value) => Create(value);
     public static implicit operator Variant(Guid? value) => Create(value);
 
-    public static explicit operator bool(Variant value) => value.GetBoolean();
-    public static explicit operator sbyte(Variant value) => value.GetSByte();
-    public static explicit operator short(Variant value) => value.GetInt16();
-    public static explicit operator int(Variant value) => value.GetInt32();
-    public static explicit operator long(Variant value) => value.GetInt64();
-    public static explicit operator byte(Variant value) => value.GetByte();
-    public static explicit operator ushort(Variant value) => value.GetUInt16();
-    public static explicit operator uint(Variant value) => value.GetUInt32();
-    public static explicit operator ulong(Variant value) => value.GetUInt64();
-    public static explicit operator float(Variant value) => value.GetSingle();
-    public static explicit operator double(Variant value) => value.GetDouble();
-    public static explicit operator Decimal64(Variant value) => value.GetDecimal64();
-    public static explicit operator decimal(Variant value) => value.GetDecimal();
-    public static explicit operator char(Variant value) => value.GetChar();
-    public static explicit operator Rune(Variant value) => value.GetRune();
-    public static explicit operator String(Variant value) => value.GetString();
-    public static explicit operator DateOnly(Variant value) => value.GetDateOnly();
-    public static explicit operator TimeOnly(Variant value) => value.GetTimeOnly();
-    public static explicit operator DateTime(Variant value) => value.GetDateTime();
-    public static explicit operator TimeSpan(Variant value) => value.GetTimeSpan();
-    public static explicit operator Guid(Variant value) => value.GetGuid();
+    public static explicit operator bool(Variant variant) => Encoders.Bool.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<bool>(variant);
+    public static explicit operator sbyte(Variant variant) => Encoders.SByte.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<sbyte>(variant);
+    public static explicit operator short(Variant variant) => Encoders.Int16.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<short>(variant);
+    public static explicit operator int(Variant variant) => Encoders.Int32.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<int>(variant);
+    public static explicit operator long(Variant variant) => Encoders.Int64.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<long>(variant);
+    public static explicit operator byte(Variant variant) => Encoders.Byte.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<byte>(variant);
+    public static explicit operator ushort(Variant variant) => Encoders.UInt16.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<ushort>(variant);
+    public static explicit operator uint(Variant variant) => Encoders.UInt32.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<uint>(variant);
+    public static explicit operator ulong(Variant variant) => Encoders.UInt64.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<ulong>(variant);
+    public static explicit operator float(Variant variant) => Encoders.Single.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<float>(variant);
+    public static explicit operator double(Variant variant) => Encoders.Double.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<double>(variant);
+    public static explicit operator Decimal64(Variant variant) => Encoders.Decimal64.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<Decimal64>(variant);
+    public static explicit operator decimal(Variant variant) => Encoders.Decimal.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<decimal>(variant);
+    public static explicit operator char(Variant variant) => Encoders.Char.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<char>(variant);
+    public static explicit operator Rune(Variant variant) => Encoders.Rune.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<Rune>(variant);
+    public static explicit operator String(Variant variant) => variant._reference is string value ? value : throw GetInvalidCast<string>(variant);
+    public static explicit operator DateOnly(Variant variant) => Encoders.DateOnly.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<DateOnly>(variant);
+    public static explicit operator TimeOnly(Variant variant) => Encoders.TimeOnly.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<TimeOnly>(variant);
+    public static explicit operator DateTime(Variant variant) => Encoders.DateTime.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<DateTime>(variant);
+    public static explicit operator TimeSpan(Variant variant) => Encoders.TimeSpan.TryDecode(in variant, out var value) ? value : throw GetInvalidCast<TimeSpan>(variant);
+    public static explicit operator Guid(Variant variant) => variant._reference is Guid value ? value : throw GetInvalidCast<Guid>(variant);
 
     public static explicit operator bool?(Variant value) => value.IsNull ? default : (bool)value;
     public static explicit operator sbyte?(Variant value) => value.IsNull ? default : (sbyte)value;
@@ -991,7 +806,7 @@ public readonly struct Variant
             }
             else if (value.TryGet<object>(out var obj))
             {
-                return Variant.CreateFrom(obj);
+                return Variant.Create(obj);
             }
             else
             {
@@ -1138,7 +953,7 @@ public readonly struct Variant
         public override bool CanConvertTo(in Variant variant, Type type)
         {
             var decoded = Decode(in variant);
-            return TypeUnion.CanCreateFrom(decoded, type);
+            return TypeUnion.CanCreate(decoded, type);
         }
 
         public override bool TryGet<TOther>(in Variant variant, out TOther value)
@@ -1151,7 +966,7 @@ public readonly struct Variant
             }
             else
             {
-                return TypeUnion.TryCreateFrom(variant, out value);
+                return TypeUnion.TryCreate(variant, out value);
             }
         }
 
@@ -1231,7 +1046,7 @@ public readonly struct Variant
             variant._reference is T;
 
         public override bool CanConvertTo(in Variant variant, Type type) =>
-            TypeUnion.CanCreateFrom(variant._reference, type);
+            TypeUnion.CanCreate(variant._reference, type);
 
         public override bool TryGet<T>(in Variant variant, out T value)
         {
@@ -1242,7 +1057,7 @@ public readonly struct Variant
             }
             else
             {
-                return TypeUnion.TryCreateFrom(variant._reference, out value);
+                return TypeUnion.TryCreate(variant._reference, out value);
             }
         }
 

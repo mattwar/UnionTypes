@@ -29,10 +29,20 @@ namespace UnionTypes
     public interface ITypeUnion<TSelf> : ITypeUnion
         where TSelf : ITypeUnion<TSelf>
     {
-        abstract static bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out TSelf union);
+        /// <summary>
+        /// Creates the union from the specified value, if possible.
+        /// Returns true if the union is created successfully.
+        /// </summary>
+        abstract static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TSelf union);
 
-        virtual static bool CanCreateFrom<TValue>(TValue value) =>
-            TSelf.TryCreateFrom(value, out _);
+        /// <summary>
+        /// Returns true if the unnion 
+        /// </summary>
+        /// <typeparam name="TValue"></typeparam>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        virtual static bool CanCreate<TValue>(TValue value) =>
+            TSelf.TryCreate(value, out _);
     }
 
     public interface IClosedTypeUnion : ITypeUnion
@@ -46,11 +56,6 @@ namespace UnionTypes
         /// The closed set of possible types the union's value may take.
         /// </summary>
         static abstract IReadOnlyList<Type> Types { get; }
-
-        /// <summary>
-        /// The index into the <see cref="Types"/> collection of the type that the current value corresponds to.
-        /// </summary>
-        int TypeIndex { get; }
     }
 
     /// <summary>
@@ -59,20 +64,20 @@ namespace UnionTypes
     public static class TypeUnion
     {
         /// <summary>
-        /// Returns true if the source value can be converted into the target type.
+        /// Returns true if an instance of the specfieid type can be successfully created from the value of type <see cref="T:TValue"/>.
         /// </summary>
-        public static bool CanCreateFrom<TValue>(TValue source, Type unionType)
+        public static bool CanCreate<TValue>(TValue source, Type unionType)
         {
-            return GetFactory(unionType).CanCreateFrom(source);
+            return GetFactory(unionType).CanCreate(source);
         }
 
         /// <summary>
-        /// Returns true if the source value is successfully converted to the target type.
+        /// Returns true if type <see cref="T:TUnion"/> can be successfully created from the value of type <see cref="T:TValue"/>.
         /// </summary>
-        public static bool TryCreateFrom<TValue, TUnion>(TValue source, [NotNullWhen(true)] out TUnion target)
+        public static bool TryCreate<TValue, TUnion>(TValue source, [NotNullWhen(true)] out TUnion target)
         {
             var converter = TypedFactory<TUnion>.GetTypedFactory();
-            return converter.TryCreateFrom(source, out target);
+            return converter.TryCreate(source, out target);
         }
 
         /// <summary>
@@ -131,25 +136,25 @@ namespace UnionTypes
             /// <summary>
             /// Returns true if the value can be converted into the the type converter's target type.
             /// </summary>
-            abstract bool CanCreateFrom<TValue>(TValue value);
+            abstract bool CanCreate<TValue>(TValue value);
         }
 
         private interface ITypeUnionFactory<TType> : ITypeUnionFactory
         {
-            bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out TType instance);
+            bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TType instance);
         }
 
         private class TypeUnionFactory<TType> : ITypeUnionFactory<TType>
             where TType : ITypeUnion<TType>
         {
-            public bool CanCreateFrom<TValue>(TValue value)
+            public bool CanCreate<TValue>(TValue value)
             {
-                return TType.CanCreateFrom(value);
+                return TType.CanCreate(value);
             }
 
-            public bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out TType instance)
+            public bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TType instance)
             {
-                return TType.TryCreateFrom(value, out instance);
+                return TType.TryCreate(value, out instance);
             }
         }
 
@@ -158,12 +163,12 @@ namespace UnionTypes
         /// </summary>
         private class DefaultFactory<TType> : ITypeUnionFactory<TType>
         {
-            public bool CanCreateFrom<TValue>(TValue value)
+            public bool CanCreate<TValue>(TValue value)
             {
                 return value is TType;
             }
 
-            public bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out TType instance)
+            public bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TType instance)
             {
                 if (value is TType tvalue)
                 {
@@ -237,7 +242,7 @@ namespace UnionTypes
                     for (int i = 0; i < types.Count; i++)
                     {
                         if (valType.IsAssignableTo(types[i])
-                            || TypeUnion.CanCreateFrom(underlyingValue, types[i]))
+                            || TypeUnion.CanCreate(underlyingValue, types[i]))
                         {
                             // set fast path for next time
                             SetTypeIndex(valType, i);

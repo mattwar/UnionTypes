@@ -68,90 +68,78 @@ namespace UnionTypes.Generators
                 WriteLine($"private OneOf(OneOfCore<{_oneOfType}> core) => _core = core;");
                 WriteLine($"static {_oneOfType} IOneOf<{_oneOfType}>.Construct(OneOfCore<{_oneOfType}> core) => new {_oneOfType}(core);");
 
-                //WriteLine($"public static bool CanCreateFrom<TValue>(TValue value) => OneOfCore<{_oneOfType}>.CanCreateFrom(value);");
-                WriteLine($"public static bool TryCreateFrom<TValue>(TValue value, [NotNullWhen(true)] out {_oneOfType} union) => OneOfCore<{_oneOfType}>.TryCreateFrom(value, out union);");
-                //WriteLine($"public static {_oneOfType} CreateFrom<TValue>(TValue value) => OneOfCore<{_oneOfType}>.CreateFrom(value);");
+                for (int i = 1; i <= _nTypeArgs; i++)
+                {
+                    WriteLine($"public static {_oneOfType} Create(T{i} value) => new {_oneOfType}(new OneOfCore<{_oneOfType}>({i}, value!));");
+                }
+
+                WriteLine($"public static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out {_oneOfType} union) => OneOfCore<{_oneOfType}>.TryCreateFrom(value, out union);");
+                WriteLine($"public static {_oneOfType} Create<TValue>(TValue value) => TryCreate(value, out var union) ? union : throw new InvalidCastException(\"Invalid type for union.\");");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"public static {_oneOfType} Create{i}(T{i} value) => new {_oneOfType}(new OneOfCore<{_oneOfType}>({i}, value!));");
+                    WriteLine($"/// <summary>The union's value as type <typeparamref name=\"T{i}\"/>.</summary>");
+                    WriteLine($"public T{i} Type{i}Value => _core.GetOrDefault<T{i}>();");
                 }
 
-                for (int i = 1; i <= _nTypeArgs; i++)
-                {
-                    WriteLine("/// <summary>The union's value as type <typeparamref name=\"T1\"/>.</summary>");
-                    WriteLine($"public T{i} Value{i} => _core.Get<T{i}>();");
-                }
-
-                WriteLine("public object BoxedValue => _core.Value;");
-                WriteLine("public Type Type => _core.GetIndexType();");
-                WriteLine("public int TypeIndex => _core.GetTypeIndex();");
+                WriteLine("/// <summary>The type case for the union's value; 1 == T1, 2 == T2, etc.</summary>");
+                WriteLine($"public int Kind => _core.Kind;");
+                WriteLine("public Type Type => _core.Type;");
+                WriteLine("public object Value => _core.Value;");
 
                 var typeList = string.Join(", ", Enumerable.Range(1, nTypeArgs).Select(n => $"typeof(T{n})"));
                 WriteLine($"private static IReadOnlyList<Type> _types = [{typeList}];");
-                WriteLine($"public static IReadOnlyList<Type> Types => _types;");
+                WriteLine($"static IReadOnlyList<Type> IClosedTypeUnion<{_oneOfType}>.Types => _types;");
 
-                //WriteLine($"public bool CanGet<T>() => _core.CanGet<T>();");
                 WriteLine($"public bool TryGet<T>([NotNullWhen(true)] out T value) => _core.TryGet(out value);");
-                //WriteLine($"public T Get<T>() => _core.Get<T>();");
-                //WriteLine("public T GetOrDefault<T>() => _core.GetOrDefault<T>();");
 
+                WriteLine("/// <summary>Returns the ToString() result of the value held by the union.</summary>");
                 WriteLine("public override string ToString() => _core.ToString();");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"public static implicit operator {_oneOfType}(T{i} value) => Create{i}(value);");
+                    WriteLine($"public static implicit operator {_oneOfType}(T{i} value) => Create(value);");
                 }
 
                 // match function
-                Write("public TResult Match<TResult>(");
-                for (int i = 1; i <= _nTypeArgs; i++)
-                {
-                    Write($"Func<T{i}, TResult> match{i}");
-                    Write((i < _nTypeArgs) ? ", " : ")");
-                }
-                WriteLine();
+                var parameters = string.Join(", ", Enumerable.Range(1, _nTypeArgs).Select(i => $"Func<T{i}, TResult> match{i}"));
+                WriteLine($"public TResult Match<TResult>({parameters})");
                 WriteBraceNested(
                     () =>
                     {
-                        WriteLine("switch (TypeIndex)");
+                        WriteLine("switch (this.Kind)");
                         WriteBraceNested(
                             () =>
                             {
                                 for (int i = 1; i <= _nTypeArgs; i++)
                                 {
-                                    WriteLine($"case {i}: return match{i}(Value{i});");
+                                    WriteLine($"case {i}: return match{i}(Type{i}Value);");
                                 }
                                 WriteLine("""default: throw new InvalidOperationException("Invalid union state.");""");
                             });
                     });
 
                 // match action
-                Write("public void Match<TResult>(");
-                for (int i = 1; i <= _nTypeArgs; i++)
-                {
-                    Write($"Action<T{i}> match{i}");
-                    Write((i < _nTypeArgs) ? ", " : ")");
-                }
-                WriteLine();
+                parameters = string.Join(", ", Enumerable.Range(1, _nTypeArgs).Select(i => $"Action<T{i}> match{i}")); 
+                WriteLine($"public void Match<TResult>({parameters})");
                 WriteBraceNested(
                     () =>
                     {
-                        WriteLine("switch (TypeIndex)");
+                        WriteLine("switch (this.Kind)");
                         WriteBraceNested(
                             () =>
                             {
                                 for (int i = 1; i <= _nTypeArgs; i++)
                                 {
-                                    WriteLine($"case {i}: match{i}(Value{i}); break;");
+                                    WriteLine($"case {i}: match{i}(Type{i}Value); break;");
                                 }
                                 WriteLine("""default: throw new InvalidOperationException("Invalid union state.");""");
                             });
                     });
-
             });
         }
 
+#if false
         private void WriteEquality()
         {
             // equals
@@ -219,6 +207,7 @@ namespace UnionTypes.Generators
                 WriteLine("return _value?.ToString() ?? \"\";");
             });
         }
+#endif
     }
 
 #if !T4

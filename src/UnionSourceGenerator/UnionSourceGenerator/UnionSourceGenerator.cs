@@ -238,6 +238,20 @@ namespace UnionTypes.Generators
                 options = options.WithGenerateEquality(generateEquality);
             }
 
+            if (unionAttribute.TryGetNamedArgument("GenerateToString", out arg)
+                && arg.Kind == TypedConstantKind.Primitive
+                && arg.Value is bool generateToString)
+            {
+                options = options.WithGenerateToString(generateToString);
+            }
+
+            if (unionAttribute.TryGetNamedArgument("GenerateMatch", out arg)
+                && arg.Kind == TypedConstantKind.Primitive
+                && arg.Value is bool generateMatch)
+            {
+                options = options.WithGenerateMatch(generateMatch);
+            }
+
             if (unionAttribute.TryGetNamedArgument("TagTypeName", out arg)
                 && arg.Kind == TypedConstantKind.Primitive
                 && arg.Value is string tagTypeName)
@@ -263,6 +277,7 @@ namespace UnionTypes.Generators
             out bool isSingleton,
             out string? factoryName,
             out bool? factoryIsProperty,
+            out bool? factoryIsInternal,
             out string? accessorName)
         {
             name = attr.TryGetNamedArgument("Name", out var nameArg)
@@ -301,6 +316,12 @@ namespace UnionTypes.Generators
                 ? vFactoryIsProperty
                 : null;
 
+            factoryIsInternal = attr.TryGetNamedArgument("FactoryIsInternal", out var factoryIsInternalArg)
+                && factoryIsInternalArg.Kind == TypedConstantKind.Primitive
+                && factoryIsInternalArg.Value is bool vFactoryIsInternal
+                ? vFactoryIsInternal
+                : null;
+
             accessorName = attr.TryGetNamedArgument("AccessorName", out var accessorNameArg)
                 && accessorNameArg.Kind == TypedConstantKind.Primitive
                 && accessorNameArg.Value is string vAccessorName
@@ -322,6 +343,7 @@ namespace UnionTypes.Generators
                     out var isSingleton,
                     out var factoryName,
                     out var factoryIsProperty,
+                    out var factoryIsInternal,
                     out var accessorName
                     );
                 
@@ -334,7 +356,9 @@ namespace UnionTypes.Generators
 
                     var caseType = GetTypeFullName(type);
 
-                    var factoryParameters = isSingleton
+                    var isProperty = factoryIsProperty == true && isSingleton;
+
+                    var factoryParameters = isProperty
                         ? Array.Empty<UnionCaseValue>() 
                         : new[] { GetCaseValue(type, "value") };
 
@@ -345,7 +369,8 @@ namespace UnionTypes.Generators
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
                         factoryIsPartial: false,
-                        factoryIsProperty: factoryIsProperty ?? isSingleton, // default to property if not specified and singleton
+                        factoryIsProperty: isProperty,
+                        factoryAccessibility: factoryIsInternal == true ? "internal" : "public",
                         accessorName: accessorName,
                         isSingleton: isSingleton
                         );
@@ -364,7 +389,8 @@ namespace UnionTypes.Generators
                 .GetTypeMembers()
                 .OfType<INamedTypeSymbol>()
                 .Where(nt => nt.IsRecord
-                    && nt.DeclaredAccessibility == Accessibility.Public)
+                    && (nt.DeclaredAccessibility == Accessibility.Public
+                        || nt.DeclaredAccessibility == Accessibility.Internal))
                 .ToList();
 
             var cases = new List<UnionCase>();
@@ -379,13 +405,16 @@ namespace UnionTypes.Generators
                         out var isSingleton,
                         out var factoryName,
                         out var factoryIsProperty,
+                        factoryIsInternal: out _,
                         out var accessorName);
 
                     if (caseName == null)
                         caseName = nestedType.Name;
 
                     var caseType = GetTypeFullName(nestedType);
-                    var parameters = new[] { GetCaseValue(nestedType, "value") };
+                    var isProperty = factoryIsProperty == true && isSingleton;
+                    var parameters = isProperty ? Array.Empty<UnionCaseValue>() : new[] { GetCaseValue(nestedType, "value") };
+                    var factoryAccessibility = GetAccessibility(nestedType.DeclaredAccessibility);
 
                     var typeCase = new UnionCase(
                         name: caseName,
@@ -394,7 +423,8 @@ namespace UnionTypes.Generators
                         factoryName,
                         factoryParameters: parameters,
                         factoryIsPartial: false,
-                        factoryIsProperty: isSingleton && (factoryIsProperty ?? isSingleton), // property if singleton and requested
+                        factoryIsProperty: isProperty,
+                        factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
                         isSingleton: isSingleton
                         );
@@ -416,6 +446,7 @@ namespace UnionTypes.Generators
                 .OfType<IMethodSymbol>()
                 .Where(m => m.IsPartialDefinition
                          && m.IsStatic
+                         && (m.DeclaredAccessibility == Accessibility.Public || m.DeclaredAccessibility == Accessibility.Internal)
                          && m.TypeParameters.Length == 0
                          && SymbolEqualityComparer.Default.Equals(m.ReturnType, unionType)
                          && m.Parameters.Length == 1)
@@ -432,6 +463,7 @@ namespace UnionTypes.Generators
                         out var isSingleton,
                         factoryName: out var _, // factory name is the factory name
                         factoryIsProperty: out var _,
+                        factoryIsInternal: out var _,
                         out var accessorName
                         );
 
@@ -449,6 +481,7 @@ namespace UnionTypes.Generators
 
                     var factoryName = method.Name;
                     var factoryParameters = GetCaseParameters(method.Parameters);
+                    var factoryAccessibility = GetAccessibility(method.DeclaredAccessibility);
 
                     var typeCase = new UnionCase(
                         name: caseName,
@@ -458,6 +491,7 @@ namespace UnionTypes.Generators
                         factoryParameters: factoryParameters,
                         factoryIsPartial: true,
                         factoryIsProperty: false,
+                        factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
                         isSingleton: isSingleton
                         ); 
@@ -478,13 +512,15 @@ namespace UnionTypes.Generators
             var factoryProperties = unionType.GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => p.GetMethod != null && p.GetMethod.IsPartialDefinition
+                         && p.SetMethod == null
+                         && (p.DeclaredAccessibility == Accessibility.Public || p.DeclaredAccessibility == Accessibility.Internal)
                          && p.IsStatic
                          && SymbolEqualityComparer.Default.Equals(p.Type, unionType))
                 .ToList();
 
-            foreach (var method in factoryProperties)
+            foreach (var prop in factoryProperties)
             {
-                if (method.TryGetAttribute("TypeCaseAttribute", out var attr))
+                if (prop.TryGetAttribute("TypeCaseAttribute", out var attr))
                 {
                     GetUnionCaseData(attr,
                         out var caseName,
@@ -493,6 +529,7 @@ namespace UnionTypes.Generators
                         out var isSingleton,
                         factoryName: out var _, // factory name is the factory name
                         factoryIsProperty: out var _,
+                        factoryIsInternal: out var _,
                         out var accessorName
                         );
 
@@ -501,11 +538,12 @@ namespace UnionTypes.Generators
                     if (caseName == null)
                     {
                         // infer case name from type name or factory name
-                        caseName = namedType?.Name ?? method.Name;
+                        caseName = namedType?.Name ?? prop.Name;
                     }
 
-                    var factoryName = method.Name;
-                    var factoryParameters = GetCaseParameters(method.Parameters);
+                    var factoryName = prop.Name;
+                    var factoryParameters = GetCaseParameters(prop.Parameters);
+                    var factoryAccessibility = GetAccessibility(prop.DeclaredAccessibility);
 
                     var typeCase = new UnionCase(
                         name: caseName,
@@ -515,6 +553,7 @@ namespace UnionTypes.Generators
                         factoryParameters: factoryParameters,
                         factoryIsPartial: true,
                         factoryIsProperty: true,
+                        factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
                         isSingleton: isSingleton
                         );
@@ -540,6 +579,7 @@ namespace UnionTypes.Generators
                     isSingleton: out _,
                     out var factoryName,
                     out var factoryIsProperty,
+                    out var factoryIsInternal,
                     out var accessorName
                     );
                 
@@ -556,12 +596,12 @@ namespace UnionTypes.Generators
                     factoryParameters: null,
                     factoryIsPartial: false,
                     factoryIsProperty: factoryIsProperty ?? true, // default to property if not specified
+                    factoryAccessibility: factoryIsInternal == true ? "internal" : "public",
                     accessorName: accessorName,
                     isSingleton: false
                     );
 
                 cases.Add(tagCase);
-
             }
 
             return cases;
@@ -594,6 +634,7 @@ namespace UnionTypes.Generators
                         isSingleton: out _, // there is no singleton for a tag union
                         factoryName: out _,  // factory is declared
                         factoryIsProperty: out _,
+                        factoryIsInternal: out _,
                         out var accessorName
                         );
                     
@@ -609,6 +650,8 @@ namespace UnionTypes.Generators
                     var factoryParameters =
                         method.Parameters.Select(p => new UnionCaseValue(p.Name, GetTypeFullName(p.Type), GetParameterKind(p.Type))).ToArray();
 
+                    var factoryAccessibility = GetAccessibility(method.DeclaredAccessibility);
+
                     var tagCase =
                         new UnionCase(
                             name: caseName,
@@ -618,6 +661,7 @@ namespace UnionTypes.Generators
                             factoryParameters: factoryParameters,
                             factoryIsPartial: true,
                             factoryIsProperty: false,
+                            factoryAccessibility: factoryAccessibility,
                             accessorName: accessorName,
                             isSingleton: false
                             );
@@ -655,6 +699,7 @@ namespace UnionTypes.Generators
                         isSingleton: out _, // there is no singleton for a tag union
                         factoryName: out _,  // factory is declared
                         factoryIsProperty: out _,
+                        factoryIsInternal: out _,
                         out var accessorName
                         );
 
@@ -666,6 +711,7 @@ namespace UnionTypes.Generators
 
                     // the factory is already specified, so it must use the member name.
                     var factoryName = property.Name;
+                    var factoryAccessibility = GetAccessibility(property.DeclaredAccessibility);
 
                     var tagCase =
                         new UnionCase(
@@ -676,6 +722,7 @@ namespace UnionTypes.Generators
                             factoryParameters: new UnionCaseValue[] { },
                             factoryIsPartial: true,
                             factoryIsProperty: true,
+                            factoryAccessibility: factoryAccessibility,
                             accessorName: accessorName,
                             isSingleton: false
                             );

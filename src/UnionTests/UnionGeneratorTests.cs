@@ -7,6 +7,113 @@ namespace UnionTests
     public class UnionGeneratorTests
     {
         [TestMethod]
+        public void TestTagUnion_Result1()
+        {
+            TestGenerate(
+                new Union(
+                    UnionKind.TagUnion,
+                    "Result",
+                    "Result<TValue>",
+                    "public",
+                    new[]
+                    {
+                        new UnionCase(
+                            name: "Success", 
+                            type: null, 
+                            tagValue: 1, 
+                            factoryName:"Success", 
+                            factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) }, 
+                            accessorName: "SuccessValue"),
+                        new UnionCase(
+                            name: "Failure", 
+                            type: null,
+                            tagValue: 2, 
+                            factoryName: "Failure", 
+                            factoryParameters: new [] { new UnionCaseValue("message", "string", TypeKind.Class) },
+                            accessorName: "FailureMessage")
+                    },
+                    UnionOptions.Default
+                        .WithGenerateMatch(true)
+                        .WithGenerateEquality(true)
+                        .WithGenerateToString(true)
+                    ),
+                namespaceName: "UnionTypes"
+                );
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Result2()
+        {
+            TestGenerate(
+                new Union(
+                    UnionKind.TagUnion,
+                    "Result",
+                    "Result<TValue, TError>",
+                    "public",
+                    new[]
+                    {
+                        new UnionCase(
+                            name: "Success",
+                            type: null,
+                            tagValue: 1,
+                            factoryName:"Success",
+                            factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
+                            accessorName: "SuccessValue"),
+                        new UnionCase(
+                            name: "Failure",
+                            type: null,
+                            tagValue: 2,
+                            factoryName: "Failure",
+                            factoryParameters: new [] { new UnionCaseValue("error", "TError", TypeKind.TypeParameter_Unconstrained) },
+                            accessorName: "FailureValue")
+                    },
+                    UnionOptions.Default
+                        .WithGenerateMatch(true)
+                        .WithGenerateEquality(true)
+                        .WithGenerateToString(true)
+                    ),
+                namespaceName: "UnionTypes"
+                );
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Option()
+        {
+            TestGenerate(
+                new Union(
+                    UnionKind.TagUnion,
+                    "Option",
+                    "Option<TValue>",
+                    "public",
+                    new[]
+                    {
+                        new UnionCase(
+                            name: "None",
+                            type: null,
+                            tagValue: 0,
+                            factoryName:"None",
+                            factoryParameters: null,
+                            factoryIsProperty: true,
+                            accessorName: "IsNone"),
+                        new UnionCase(
+                            name: "Some",
+                            type: null,
+                            tagValue: 1,
+                            factoryName: "Some",
+                            factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
+                            accessorName: "SomeValue")
+                    },
+                    UnionOptions.Default
+                        .WithGenerateMatch(true)
+                        .WithGenerateEquality(true)
+                        .WithGenerateToString(true)
+                    ),
+                namespaceName: "UnionTypes"
+                );
+        }
+
+
+        [TestMethod]
         public void TestTypeUnion_CatOrDog()
         {
             TestGenerate(
@@ -37,7 +144,6 @@ namespace UnionTests
                     ],
                     UnionOptions.Default.WithShareReferenceFields(false)
                     ),
-                expectedText: "",
                 namespaceName: "TestUnions",
                 usings: ["System", "System.Collections.Generic", "UnionTypes"]
                 );
@@ -45,7 +151,6 @@ namespace UnionTests
 
         private void TestGenerate(
             Union union, 
-            string expectedText,
             string? namespaceName = "",
             string[]? usings = null
             )

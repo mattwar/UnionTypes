@@ -41,6 +41,16 @@ namespace UnionTypes
         public bool GenerateEquality { get; set; }
 
         /// <summary>
+        /// Generate Match methods that force handling of all cases.
+        /// </summary>
+        public bool GenerateMatch { get; set; }
+
+        /// <summary>
+        /// Generate pass through implemention of ToString()
+        /// </summary>
+        public bool GenerateToString { get; set; }
+
+        /// <summary>
         /// The type name of the tag enum generated within the union type.
         /// Default is 'Case'.
         /// </summary>
@@ -93,6 +103,11 @@ namespace UnionTypes
         /// True if the factory used to construct a union of this case is a property instead of a method.
         /// </summary>
         public bool FactoryIsProperty { get; set; }
+
+        /// <summary>
+        /// True if the factory should be generated as internal, not public.
+        /// </summary>
+        public bool FactoryIsInternal { get; set; }
 
         /// <summary>
         /// The name of the member to access the value of this case.

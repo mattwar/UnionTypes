@@ -279,7 +279,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTypeUnion_CasesOnType_Types()
+        public void TestTypeUnion_CasesOnType_Type()
         {
             TestUnion(
                 """
@@ -423,6 +423,84 @@ namespace UnionTests
                 {
                     return newText.Contains("A = 4")
                         && newText.Contains("B = 3");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_CasesOnType_IsSingleton()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public class A { public static A Singleton { get; } = new A(); }
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                [TypeCase(Type=typeof(A), IsSingleton=true)]
+                [TypeCase(Type=typeof(B))]
+                public partial struct MyUnion
+                {
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.Create(A.Singleton);
+                        MyUnion unionA2 = A.Singleton;
+                        MyUnion unionB = MyUnion.Create(new B("x", 5.0f));
+                        MyUnion unionB2 = new B("x", 5.0f);
+                        A a = unionA.AValue;
+                        B b = unionB.BValue;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;                
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
+                });
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_CasesOnType_IsSingleton_FactoryIsProperty()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                public class A { public static A Singleton { get; } = new A(); }
+                public record struct B(string y, float z);
+
+                [TypeUnion]
+                [TypeCase(Type=typeof(A), IsSingleton=true, FactoryIsProperty=true)]
+                [TypeCase(Type=typeof(B))]
+                public partial struct MyUnion
+                {
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionA = MyUnion.A;
+                        MyUnion unionA2 = A.Singleton;
+                        MyUnion unionB = MyUnion.Create(new B("x", 5.0f));
+                        MyUnion unionB2 = new B("x", 5.0f);
+                        A a = unionA.AValue;
+                        B b = unionB.BValue;
+                        var correctTagA = unionA.Kind == MyUnion.Case.A;
+                        var correctTagB = unionB.Kind == MyUnion.Case.B;                
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("A = 1")
+                        && newText.Contains("B = 2");
                 });
         }
 
@@ -798,7 +876,7 @@ namespace UnionTests
                 public class None : ISingleton<None> { public static None Singleton { get; } = new None(); }
 
                 [TypeUnion]
-                [TypeCase(Type=typeof(None), IsSingleton=true, TagValue=0)]
+                [TypeCase(Type=typeof(None), IsSingleton=true, TagValue=0, FactoryName="None", FactoryIsProperty=true)]
                 public partial struct Option<T>
                 {
                     [TypeCase]
@@ -810,7 +888,9 @@ namespace UnionTests
                     public void TestMethod()
                     {
                         Option<string> optS = Option<string>.Some("Hello");
-                        Option<string> optN = None.Singleton;
+                        Option<string> optSA = "Hello";
+                        Option<string> optN = Option<string>.None;
+                        Option<string> optNA = None.Singleton;
                         var valS = optS.SomeValue;
                         var valN = optN.NoneValue;
                     }
@@ -949,6 +1029,146 @@ namespace UnionTests
                 {
                 }
                 """);
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_Internal()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion]
+                internal partial struct MyUnion
+                {
+                    [TypeCase]
+                    public record struct A(int x);
+
+                    [TypeCase]
+                    public record struct B(string y);
+                }
+                """,
+                newText => newText.Contains("internal"));
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_Internal_FactoryIsInternal()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                internal record struct A(int x);
+                internal record struct B(string y);
+                                
+                [TypeUnion]
+                [TypeCase(Type=typeof(A), FactoryIsInternal=true)]
+                [TypeCase(Type=typeof(B), FactoryIsInternal=true)]
+                public partial struct MyUnion
+                {
+                }
+                """,
+                newText => newText.Contains("internal"));
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_InternalNestedTypes()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [TypeCase]
+                    internal record struct A(int x);
+
+                    [TypeCase]
+                    internal record struct B(string y);
+                }
+                """,
+                newText => newText.Contains("internal"));
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_InternalFactories()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                record A(int x);
+                record B(string y);
+
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    [TypeCase]
+                    internal static partial MyUnion A(A value);
+
+                    [TypeCase]
+                    internal static partial MyUnion B(B value);
+                }
+                """,
+                newText => newText.Contains("internal"));
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Internal()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                internal partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(string y);
+                }
+                """,
+                newText => newText.Contains("internal"));
+        }
+
+        [TestMethod]
+        public void TestTagUnion_InternalFactories()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    internal static partial MyUnion A(int x);
+
+                    [TagCase]
+                    internal static partial MyUnion B(string y);
+                }
+                """,
+                newText => newText.Contains("internal"));
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Internal_FactoryIsInternal()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                [TagCase(Name="A", FactoryIsInternal=true)]
+                [TagCase(Name="B", FactoryIsInternal=true)]
+                public partial struct MyUnion
+                {
+                }
+                """,
+                newText => newText.Contains("internal"));
         }
 
         [TestMethod]
@@ -1148,49 +1368,133 @@ namespace UnionTests
                 );
         }
 
-
-#if false
-
         [TestMethod]
-        public void TestTypeUnionWithInternalAccessibility()
+        public void TestTagUnion_GenerateEquality()
         {
             TestUnion(
                 """
                 using UnionTypes;
 
-                namespace MyNamespace
+                [TagUnion(GenerateEquality=true)]
+                public partial struct MyUnion
                 {
-                    [Union]
-                    internal partial struct MyUnion
-                    {
-                        public record struct A(int x);
-                        public record struct B(string y);
-                    }
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(string y);
                 }
                 """,
-                newText => newText.Contains("internal partial struct MyUnion"));
+                newText => newText.Contains("bool Equals(")
+                );
         }
 
         [TestMethod]
-        public void TestTypeUnionFromTypesWithInternalAccessibility()
+        public void TestTypeUnion_GenerateEquality()
         {
             TestUnion(
                 """
                 using UnionTypes;
 
-                namespace MyNamespace
+                [TypeUnion(GenerateEquality=true)]
+                public partial struct MyUnion
                 {
-                    [Union]
-                    internal partial struct MyUnion
-                    {
-                        internal record struct A(int x);
-                        internal record struct B(string y);
-                    }
+                    [TypeCase]
+                    public record struct A(int x);
+
+                    [TypeCase]
+                    public record struct B(string y);
                 }
                 """,
-                newText => newText.Contains(" internal static MyUnion Create"));
+                newText => newText.Contains("bool Equals(")
+                );
         }
-#endif
+
+        [TestMethod]
+        public void TestTagUnion_GenerateToString()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(GenerateToString=true)]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(string y);
+                }
+                """,
+                newText => newText.Contains("override string ToString(")
+                );
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_GenerateToString()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion(GenerateToString=true)]
+                public partial struct MyUnion
+                {
+                    [TypeCase]
+                    public record struct A(int x);
+
+                    [TypeCase]
+                    public record struct B(string y);
+                }
+                """,
+                newText => newText.Contains("override string ToString(")
+                );
+        }
+
+        [TestMethod]
+        public void TestTagUnion_GenerateMatch()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion(GenerateMatch=true)]
+                public partial struct MyUnion
+                {
+                    [TagCase]
+                    public static partial MyUnion A(int x);
+
+                    [TagCase]
+                    public static partial MyUnion B(string y, float z);
+                }
+                """,
+                newText => newText.Contains("void Match(")
+                    && newText.Contains("TResult Match<TResult>(")
+                );
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_GenerateMatch()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TypeUnion(GenerateMatch=true)]
+                public partial struct MyUnion
+                {
+                    [TypeCase]
+                    public record struct A(int x);
+
+                    [TypeCase]
+                    public record struct B(string y);
+                }
+                """,
+                newText => newText.Contains("void Match(")
+                    && newText.Contains("TResult Match<TResult>(")
+                );
+        }
 
         private void TestUnion(string sourceText, Func<string, bool>? generatedTextAssertion = null)
         {

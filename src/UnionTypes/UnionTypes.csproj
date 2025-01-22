@@ -7,11 +7,35 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Option.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Link="README.md" />
+    <None Include="Option.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </None>
+  </ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
+    <None Update="Result2_generated.tt">
+      <LastGenOutput>Result2_generated.cs</LastGenOutput>
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+    <None Update="Result1_generated.tt">
+      <LastGenOutput>Result1_generated.cs</LastGenOutput>
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+    <None Update="Option_generated.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Option_generated.cs</LastGenOutput>
+    </None>
     <None Update="OneOf_generated.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>OneOf_generated.cs</LastGenOutput>
@@ -23,6 +47,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Option_generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Option_generated.tt</DependentUpon>
+    </Compile>
     <Compile Update="OneOf.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -32,6 +61,16 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>OneOf_generated.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Result1_generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Result1_generated.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Result2_generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Result2_generated.tt</DependentUpon>
     </Compile>
     <Compile Update="ShapeGenerator.cs">
       <DesignTime>True</DesignTime>

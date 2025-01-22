@@ -1,7 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Reflection;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using UnionTypes;
 
 namespace UnionTests
@@ -12,16 +9,42 @@ namespace UnionTests
         [TestMethod]
         public void TestOneOf2()
         {
-            OneOfTest<OneOf<int, string>>.Test(1, 1, 0);
-            OneOfTest<OneOf<int, string>>.Test("one", "one", 1);
+            TestOneOf2<int, string>(1, 1, 1, typeof(int));
+            TestOneOf2<int, string>("one", "one", 2, typeof(string));
+            TestOneOf2<int, string>(default(OneOf<int, string>), null, 0, typeof(object));
         }
 
         [TestMethod]
         public void TestOneOf3()
         {
-            OneOfTest<OneOf<int, string, double>>.Test(1, 1, 0);
-            OneOfTest<OneOf<int, string, double>>.Test("one", "one", 1);
-            OneOfTest<OneOf<int, string, double>>.Test(1.0, 1.0, 2);
+            TestOneOf3<int, string, double>(1, 1, 1, typeof(int));
+            TestOneOf3<int, string, double>("one", "one", 2, typeof(string));
+            TestOneOf3<int, string, double>(3.0, 3.0, 3, typeof(double));
+        }
+
+        private void TestOneOf2<T1, T2>(
+            OneOf<T1, T2> oneOf, object? expectedValue, int expectedKind, Type expectedType)
+        {
+            Assert.AreEqual(oneOf.Value, expectedValue);
+            Assert.AreEqual(expectedKind, oneOf.Kind);
+            Assert.AreSame(oneOf.Type, expectedType);
+            TestOneOf(oneOf, expectedValue, expectedType);
+        }
+
+        private void TestOneOf3<T1, T2, T3>(
+            OneOf<T1, T2, T3> oneOf, object? expectedValue, int expectedKind, Type expectedType)
+        {
+            Assert.AreEqual(oneOf.Value, expectedValue);
+            Assert.AreEqual(expectedKind, oneOf.Kind);
+            Assert.AreSame(oneOf.Type, expectedType);
+            TestOneOf(oneOf, expectedValue, expectedType);
+        }
+
+        private void TestOneOf<TOneOf>(TOneOf oneOf, object? expectedValue, Type expectedType)
+            where TOneOf : IOneOf, IClosedTypeUnion<TOneOf>
+        {
+            Assert.AreEqual(oneOf.Value, expectedValue);
+            Assert.AreEqual(oneOf.Type, expectedType);
         }
 
         private class OneOfTest<TOneOf>
@@ -29,13 +52,8 @@ namespace UnionTests
         {
             public static OneOfTest<TOneOf> Instance { get; } = new();
 
-            public static void Test<TExpected>(TOneOf oneOf, TExpected expectedValue, int expectedIndex)
+            public static void Test<TExpected>(TOneOf oneOf, TExpected expectedValue, int expectedKind)
             {
-                Assert.AreEqual(oneOf.BoxedValue, expectedValue);
-                Assert.AreEqual(expectedIndex, oneOf.TypeIndex);
-                Assert.AreSame(oneOf.Type, typeof(TExpected));
-                Assert.IsTrue(oneOf.TryGet<TExpected>(out var actualValue));
-                Assert.AreEqual(expectedValue, actualValue);
             }
         }
     }
