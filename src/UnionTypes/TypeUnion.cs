@@ -204,7 +204,7 @@ namespace UnionTypes
                     ImmutableDictionary<Type, int>.Builder builder = ImmutableDictionary.CreateBuilder<Type, int>();
                     for (int i = 0; i < types.Count; i++)
                     {
-                        builder.Add(types[i], i + 1);
+                        builder.Add(types[i], i);
                     }
                     Interlocked.CompareExchange(ref _indexMap, builder.ToImmutable(), null);
                 }

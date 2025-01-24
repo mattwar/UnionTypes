@@ -276,6 +276,11 @@ namespace UnionTypes.Generators
         public string? Type { get; }
 
         /// <summary>
+        /// The kind of the type (if type union).
+        /// </summary>
+        public TypeKind TypeKind { get; }
+
+        /// <summary>
         /// True if the type is a singleton.
         /// </summary>
         public bool IsSingleton { get; }
@@ -313,10 +318,16 @@ namespace UnionTypes.Generators
         /// The name of the accessor property for this case.
         /// </summary>
         public string? AccessorName { get; }
+
+        /// <summary>
+        /// True if the case has an accessor property.
+        /// </summary>
+        public bool HasAccessor { get; }
  
         public UnionCase(
             string name,
             string? type,
+            TypeKind typeKind,
             int tagValue,
             string? factoryName,
             IReadOnlyList<UnionCaseValue>? factoryParameters = null,
@@ -324,6 +335,7 @@ namespace UnionTypes.Generators
             bool factoryIsProperty = false,
             string? factoryAccessibility = null,
             string? accessorName = null,
+            bool hasAccessor = true,
             bool isSingleton = false)
         {
             this.Name = name;
@@ -335,7 +347,9 @@ namespace UnionTypes.Generators
             this.FactoryIsProperty = factoryIsProperty;
             this.FactoryAccessibility = factoryAccessibility;
             this.AccessorName = accessorName;
+            this.HasAccessor = hasAccessor;
             this.IsSingleton = isSingleton;
+            this.TypeKind = typeKind;
         }
     }
 
@@ -429,6 +443,11 @@ namespace UnionTypes.Generators
         /// class containing zero or more values
         /// </summary>
         Class,
+
+        /// <summary>
+        /// A class that has only one instance
+        /// </summary>
+        Singleton,
 
         /// <summary>
         /// An interface
@@ -551,6 +570,11 @@ namespace UnionTypes.Generators
             /// The layout for the parameters to the factory method for the case.
             /// </summary>
             public IReadOnlyList<CaseValueLayout> FactoryParameters { get; }
+
+            /// <summary>
+            /// True if the case has an accessor property.
+            /// </summary>
+            public bool HasAccessor => this.FactoryParameters.Count > 0 || this.Case.HasAccessor;
 
             /// <summary>
             /// The type of the case, if the union is a type union.
@@ -1099,6 +1123,7 @@ namespace UnionTypes.Generators
                         }
 
                     case TypeKind.Class:
+                    case TypeKind.Singleton:
                     case TypeKind.Interface:
                     case TypeKind.Object:
                     case TypeKind.TypeParameter_RefConstrained:
@@ -1129,6 +1154,7 @@ namespace UnionTypes.Generators
             switch (kind)
             {
                 case TypeKind.Class:
+                case TypeKind.Singleton:
                 case TypeKind.Interface:
                 case TypeKind.Object:
                 case TypeKind.TypeParameter_Unconstrained:
@@ -1422,18 +1448,22 @@ namespace UnionTypes.Generators
         {
             foreach (var unionCase in union.Cases)
             {
-                if (unionCase.FactoryParameters.Count == 1)
+                if (unionCase.FactoryParameters.Count > 0)
                 {
-                    var param = unionCase.FactoryParameters[0];
-                    WriteLine($"{unionCase.FactoryAccessibility} {param.Type} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                    WriteLine($"/// <summary>Accessible when <see cref=\"{GetTagPropertyName(union)}\"> is <see cref=\"{GetTagTypeName(union)}.{GetCaseTagName(unionCase)}\">.</summary>");
+                    if (unionCase.FactoryParameters.Count == 1)
+                    {
+                        var param = unionCase.FactoryParameters[0];
+                        WriteLine($"{unionCase.FactoryAccessibility} {param.Type} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                    }
+                    else if (unionCase.FactoryParameters.Count > 1)
+                    {
+                        var tupleType = GetTupleTypeExpression(unionCase.FactoryParameters);
+                        var tupleConstruction = GetTupleConstructionExpression(union, unionCase.FactoryParameters);
+                        WriteLine($"{unionCase.FactoryAccessibility} {tupleType} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
+                    }
                 }
-                else if (unionCase.FactoryParameters.Count > 1)
-                {
-                    var tupleType = GetTupleTypeExpression(unionCase.FactoryParameters);
-                    var tupleConstruction = GetTupleConstructionExpression(union, unionCase.FactoryParameters);
-                    WriteLine($"{unionCase.FactoryAccessibility} {tupleType} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
-                }
-                else if (unionCase.FactoryParameters.Count == 0)
+                else if (unionCase.HasAccessor)
                 {
                     if (unionCase.Case.IsSingleton && unionCase.Type != null )
                     {
@@ -1460,7 +1490,7 @@ namespace UnionTypes.Generators
             {
                 WriteBlock(() =>
                 {
-                    WriteLine($"public static bool TryCreate<TValue>(TValue value, out {union.Type} union)");
+                    WriteLine($"public static bool TryCreate<TCreate>(TCreate value, out {union.Type} union)");
                     WriteBraceNested(() =>
                     {
                         WriteLine("switch (value)");
@@ -1490,7 +1520,7 @@ namespace UnionTypes.Generators
                         });
 
                         WriteLine();
-                        WriteLine($"var index = TypeUnion.GetTypeIndex<{union.Type}, TValue>(value);");
+                        WriteLine($"var index = TypeUnion.GetTypeIndex<{union.Type}, TCreate>(value);");
                         WriteLine("switch (index)");
                         WriteBraceNested(() =>
                         {
@@ -1502,11 +1532,11 @@ namespace UnionTypes.Generators
                                 {
                                     if (unionCase.Case.FactoryIsProperty)
                                     {
-                                        WriteLine($"case {i} when TypeUnion.TryCreate<TValue, {unionCase.Type}>(value, out _): union = {union.Type}.{GetFactoryName(union, unionCase)}; return true;");
+                                        WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type}>(value, out _): union = {union.Type}.{GetFactoryName(union, unionCase)}; return true;");
                                     }
                                     else
                                     {
-                                        WriteLine($"case {i} when TypeUnion.TryCreate<TValue, {unionCase.Type}>(value, out var v{i}): union = {GetFactoryName(union, unionCase)}(v{i}); return true;");
+                                        WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type}>(value, out var v{i}): union = {GetFactoryName(union, unionCase)}(v{i}); return true;");
                                     }
                                 }
                             }
@@ -1546,7 +1576,7 @@ namespace UnionTypes.Generators
 
                 WriteBlock(() =>
                 {
-                    WriteLine($"public bool TryGet<TValue>([NotNullWhen(true)] out TValue value)");
+                    WriteLine($"public bool TryGet<TGet>([NotNullWhen(true)] out TGet value)");
                     WriteBraceNested(() =>
                     {
                         WriteLine("switch (this.Kind)");
@@ -1558,13 +1588,13 @@ namespace UnionTypes.Generators
                                     WriteLine($"case {GetTagValueExpression(union, unionCase)}:");
                                     WriteNested(() =>
                                     {
-                                        WriteLine($"if (this.{GetCaseValueAccessExpression(union, unionCase)} is TValue tv{unionCase.Name})");
+                                        WriteLine($"if ({GetCaseValueAccessExpression(union, unionCase)} is TGet tv{unionCase.Name})");
                                         WriteBraceNested(() =>
                                         {
                                             WriteLine($"value = tv{unionCase.Name};");
                                             WriteLine("return true;");
                                         });
-                                        WriteLine($"return TypeUnion.TryCreate(this.{GetCaseValueAccessExpression(union, unionCase)}, out value);");
+                                        WriteLine($"return TypeUnion.TryCreate({GetCaseValueAccessExpression(union, unionCase)}, out value);");
                                     });
                                 }
                             });
@@ -1616,11 +1646,11 @@ namespace UnionTypes.Generators
                                         if (unionCase.FactoryParameters.Count == 1
                                             && IsPossibleReference(unionCase.FactoryParameters[0].Kind))
                                         {
-                                            WriteLineNested($"return object.Equals(this.{GetCaseValueAccessExpression(union, unionCase)}, other.{GetCaseValueAccessExpression(union, unionCase)});");
+                                            WriteLineNested($"return object.Equals({GetCaseValueAccessExpression(union, unionCase)}, {GetCaseValueAccessExpression(union, unionCase, "other")});");
                                         }
                                         else
                                         {
-                                            WriteLineNested($"return this.{GetCaseValueAccessExpression(union, unionCase)}.Equals(other.{GetCaseValueAccessExpression(union, unionCase)});");
+                                            WriteLineNested($"return {GetCaseValueAccessExpression(union, unionCase)}.Equals({GetCaseValueAccessExpression(union, unionCase, "other")});");
                                         }
                                     }
                                 }
@@ -1676,11 +1706,11 @@ namespace UnionTypes.Generators
                                     }
                                     else if (unionCase.FactoryParameters.Count == 1 && IsPossibleReference(unionCase.FactoryParameters[0].Kind))
                                     {
-                                        WriteLineNested($"return this.{GetCaseValueAccessExpression(union, unionCase)}?.GetHashCode() ?? 0;");
+                                        WriteLineNested($"return {GetCaseValueAccessExpression(union, unionCase)}?.GetHashCode() ?? 0;");
                                     }
                                     else
                                     {
-                                        WriteLineNested($"return this.{GetCaseValueAccessExpression(union, unionCase)}.GetHashCode();");
+                                        WriteLineNested($"return {GetCaseValueAccessExpression(union, unionCase)}.GetHashCode();");
                                     }
                                 }
 
@@ -1730,13 +1760,13 @@ namespace UnionTypes.Generators
                                 }
                                 else if (unionCase.FactoryParameters.Count == 1)
                                 {
-                                    WriteLineNested($"return $\"{unionCase.Name}({{this.{GetCaseValueAccessExpression(union, unionCase)}}})\";");
+                                    WriteLineNested($"return $\"{unionCase.Name}({{{GetCaseValueAccessExpression(union, unionCase)}}})\";");
                                 }
                                 else
                                 {
                                     WriteNested(() =>
                                     {
-                                        WriteLine($"var v_{unionCase.Name} = this.{GetCaseValueAccessExpression(union, unionCase)};");
+                                        WriteLine($"var v_{unionCase.Name} = {GetCaseValueAccessExpression(union, unionCase)};");
                                         var props = string.Join(", ", unionCase.FactoryParameters.Select(p => $"{p.Name}: {{v_{unionCase.Name}.{p.Name}}}"));
                                         WriteLine($$"""return $"{{unionCase.Name}}({{props}})";""");
                                     });
@@ -1744,7 +1774,14 @@ namespace UnionTypes.Generators
                             }
                             else
                             {
-                                WriteLineNested($"return this.{GetCaseValueAccessExpression(union, unionCase)}.ToString() ?? \"\";");
+                                if (IsPossibleReference(unionCase.Case.TypeKind))
+                                {
+                                    WriteLineNested($"return {GetCaseValueAccessExpression(union, unionCase)}?.ToString() ?? \"\";");
+                                }
+                                else
+                                {
+                                    WriteLineNested($"return {GetCaseValueAccessExpression(union, unionCase)}.ToString();");
+                                }
                             }
                         }
 
@@ -1764,18 +1801,22 @@ namespace UnionTypes.Generators
                 ? "public"
                 : "internal";
 
+            var hasDefault = union.Cases.Any(c => c.TagValue == 0);
+
             WriteLineSeparatedBlocks(() =>
             {
                 WriteBlock(() =>
                 {
                     var parameters = union.Cases.Select(c => {
                         var cvType = GetCaseValueTypeExpression(union, c);
-                        return (cvType != null)
+                        return (c.HasAccessor && cvType != null)
                             ? $"Action<{cvType}> when{c.Name}"
                             : $"Action when{c.Name}";
                         }).ToList();
 
-                    parameters.Add("Action? invalid = null");
+                    if (!hasDefault)
+                        parameters.Add("Action? whenInvalid = null");
+
                     var parameterList = string.Join(", ", parameters);
 
                     WriteLine($"{accessibility} void Match({parameterList})");
@@ -1786,9 +1827,9 @@ namespace UnionTypes.Generators
                         {
                             foreach (var unionCase in union.Cases)
                             {
-                                if (GetCaseValueTypeExpression(union, unionCase) != null)
+                                if (unionCase.HasAccessor && GetCaseValueTypeExpression(union, unionCase) != null)
                                 {
-                                    WriteLine($"case {GetTagValueExpression(union, unionCase)} : when{unionCase.Name}(this.{GetCaseValueAccessExpression(union, unionCase)}); break;");
+                                    WriteLine($"case {GetTagValueExpression(union, unionCase)} : when{unionCase.Name}({GetCaseValueAccessExpression(union, unionCase)}); break;");
                                 }
                                 else
                                 {
@@ -1796,7 +1837,14 @@ namespace UnionTypes.Generators
                                 }
                             }
 
-                            WriteLine("default: invalid?.Invoke(); break;");
+                            if (hasDefault)
+                            {
+                                WriteLine("default: throw new InvalidOperationException(\"Invalid union state\");");
+                            }
+                            else
+                            {
+                                WriteLine("default: if (whenInvalid != null) whenInvalid(); else throw new InvalidOperationException(\"Unhandled invalid union state.\"); break;");
+                            }
                         });
                     });
                 });
@@ -1805,15 +1853,17 @@ namespace UnionTypes.Generators
                 {
                     var parameters = union.Cases.Select(c => {
                         var cvType = GetCaseValueTypeExpression(union, c);
-                        return (cvType != null)
+                        return (cvType != null && c.HasAccessor)
                             ? $"Func<{cvType}, TResult> when{c.Name}"
                             : $"Func<TResult> when{c.Name}";
                     }).ToList();
 
-                    parameters.Add("Func<TResult>? invalid = null");
+                    if (!hasDefault)
+                        parameters.Add("Func<TResult>? invalid = null");
+
                     var parameterList = string.Join(", ", parameters);
 
-                    WriteLine($"{accessibility} TResult Match<TResult>({parameterList})");
+                    WriteLine($"{accessibility} TResult Select<TResult>({parameterList})");
                     WriteBraceNested(() =>
                     {
                         WriteLine($"switch ({GetTagPropertyName(union)})");
@@ -1821,7 +1871,7 @@ namespace UnionTypes.Generators
                         {
                             foreach (var unionCase in union.Cases)
                             {
-                                if (GetCaseValueTypeExpression(union, unionCase) != null)
+                                if (unionCase.HasAccessor && GetCaseValueTypeExpression(union, unionCase) != null)
                                 {
                                     WriteLine($"case {GetTagValueExpression(union, unionCase)}: return when{unionCase.Name}({GetCaseValueAccessExpression(union, unionCase)});");
                                 }
@@ -1831,14 +1881,21 @@ namespace UnionTypes.Generators
                                 }
                             }
 
-                            WriteLine("default: return invalid != null ? invalid() : throw new InvalidOperationException(\"Unhandled union state.\");");
+                            if (hasDefault)
+                            {
+                                WriteLine("default: throw new InvalidOperationException(\"Invalid union state\");");
+                            }
+                            else
+                            {
+                                WriteLine("default: return invalid != null ? invalid() : throw new InvalidOperationException(\"Unhandled invalid union state.\");");
+                            }
                         });
                     });
                 });
             });
         }
 
-        #endregion
+#endregion
 
         #region helpers
 
@@ -2019,9 +2076,16 @@ namespace UnionTypes.Generators
         /// <summary>
         /// Gets an expression that accesses the case values from the accessor.
         /// </summary>
-        private static string GetCaseValueAccessExpression(UnionLayout union, UnionCaseLayout unionCase)
+        private static string GetCaseValueAccessExpression(UnionLayout union, UnionCaseLayout unionCase, string prefix = "this")
         {
-            return GetAccessorName(union, unionCase);
+            if (unionCase.HasAccessor)
+            {
+                return $"{prefix}.{GetAccessorName(union, unionCase)}";
+            }
+            else
+            {
+                return GetCaseValueConstructionExpression(union, unionCase);
+            }
         }
 
         /// <summary>
@@ -2116,7 +2180,7 @@ namespace UnionTypes.Generators
             }
         }
 
-        private static IEnumerable<CaseValueLayout> Find(IEnumerable<CaseValueLayout> values, Func<CaseValueLayout, bool> predicate)
+        private static IEnumerable<CaseValueLayout> FindAll(IEnumerable<CaseValueLayout> values, Func<CaseValueLayout, bool> predicate)
         {
             var list = new List<CaseValueLayout>();
             Find(values, list);

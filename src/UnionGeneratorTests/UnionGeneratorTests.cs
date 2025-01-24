@@ -7,46 +7,11 @@ namespace UnionTests
     public class UnionGeneratorTests
     {
         [TestMethod]
-        public void TestTagUnion_Result1()
+        public void TestTagUnion_Result()
         {
             TestGenerate(
                 new Union(
-                    UnionKind.TagUnion,
-                    "Result",
-                    "Result<TValue>",
-                    "public",
-                    new[]
-                    {
-                        new UnionCase(
-                            name: "Success", 
-                            type: null, 
-                            tagValue: 1, 
-                            factoryName:"Success", 
-                            factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) }, 
-                            accessorName: "SuccessValue"),
-                        new UnionCase(
-                            name: "Failure", 
-                            type: null,
-                            tagValue: 2, 
-                            factoryName: "Failure", 
-                            factoryParameters: new [] { new UnionCaseValue("message", "string", TypeKind.Class) },
-                            accessorName: "FailureMessage")
-                    },
-                    UnionOptions.Default
-                        .WithGenerateMatch(true)
-                        .WithGenerateEquality(true)
-                        .WithGenerateToString(true)
-                    ),
-                namespaceName: "UnionTypes"
-                );
-        }
-
-        [TestMethod]
-        public void TestTagUnion_Result2()
-        {
-            TestGenerate(
-                new Union(
-                    UnionKind.TagUnion,
+                    UnionKind.TypeUnion,
                     "Result",
                     "Result<TValue, TError>",
                     "public",
@@ -54,14 +19,16 @@ namespace UnionTests
                     {
                         new UnionCase(
                             name: "Success",
-                            type: null,
+                            type: "TValue",
+                            typeKind: TypeKind.TypeParameter_Unconstrained,
                             tagValue: 1,
                             factoryName:"Success",
                             factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
                             accessorName: "SuccessValue"),
                         new UnionCase(
                             name: "Failure",
-                            type: null,
+                            type: "TError",
+                            typeKind: TypeKind.TypeParameter_Unconstrained,
                             tagValue: 2,
                             factoryName: "Failure",
                             factoryParameters: new [] { new UnionCaseValue("error", "TError", TypeKind.TypeParameter_Unconstrained) },
@@ -81,7 +48,7 @@ namespace UnionTests
         {
             TestGenerate(
                 new Union(
-                    UnionKind.TagUnion,
+                    UnionKind.TypeUnion,
                     "Option",
                     "Option<TValue>",
                     "public",
@@ -89,19 +56,22 @@ namespace UnionTests
                     {
                         new UnionCase(
                             name: "None",
-                            type: null,
+                            type: "UnionTypes.None",
+                            typeKind: TypeKind.Class,
                             tagValue: 0,
                             factoryName:"None",
                             factoryParameters: null,
                             factoryIsProperty: true,
-                            accessorName: "IsNone"),
+                            hasAccessor: false,
+                            isSingleton: true),
                         new UnionCase(
                             name: "Some",
-                            type: null,
+                            type: "TValue",
+                            typeKind: TypeKind.Unknown,
                             tagValue: 1,
                             factoryName: "Some",
                             factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
-                            accessorName: "SomeValue")
+                            accessorName: "Value")
                     },
                     UnionOptions.Default
                         .WithGenerateMatch(true)
@@ -126,6 +96,7 @@ namespace UnionTests
                         new UnionCase(
                             name: "Dog",
                             type: "Dog",
+                            typeKind: TypeKind.DecomposableLocalRecordStruct,
                             tagValue: -1,
                             factoryName:"CreateDog",
                             factoryParameters: [
@@ -135,6 +106,7 @@ namespace UnionTests
                         new UnionCase(
                             name: "Cat",
                             type: "Cat",
+                            typeKind: TypeKind.DecomposableLocalRecordStruct,
                             tagValue: -1,
                             factoryName: "CreateCat",
                             factoryParameters: [

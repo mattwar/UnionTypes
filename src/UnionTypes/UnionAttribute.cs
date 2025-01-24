@@ -115,6 +115,11 @@ namespace UnionTypes
         /// </summary>
         public string? AccessorName { get; set; } = null;
 
+        /// <summary>
+        /// False if the accessor of a case without data should not exist.
+        /// </summary>
+        public bool HasAccessor { get; set; } = true;
+
         public UnionCaseAttribute()
         {
         }

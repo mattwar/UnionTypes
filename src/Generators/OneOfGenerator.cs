@@ -61,49 +61,68 @@ namespace UnionTypes.Generators
             _oneOfType = $"OneOf<{_typeArgList}>";
 
             WriteLine($"public struct {_oneOfType}");
-            WriteLineNested($": IOneOf<{_oneOfType}>");
+            WriteLineNested($": IOneOf<{_oneOfType}>, IEquatable<{_oneOfType}>");
             WriteBraceNested(() =>
             {
-                WriteLine($"private readonly OneOfCore<{_oneOfType}> _core;");
-                WriteLine($"private OneOf(OneOfCore<{_oneOfType}> core) => _core = core;");
-                WriteLine($"static {_oneOfType} IOneOf<{_oneOfType}>.Construct(OneOfCore<{_oneOfType}> core) => new {_oneOfType}(core);");
+                WriteLine("/// <summary>The type case for the union's value; 1 == T1, 2 == T2, etc.</summary>");
+                WriteLine("public int Kind { get; }");
+                WriteLine("/// <summary>The underlying value of the union.</summary>");
+                WriteLine("public object Value { get; }");
+
+                WriteLine($"private OneOf(int kind, object value) {{ this.Kind = kind; this.Value = value; }}");
+                WriteLine($"static {_oneOfType} IOneOf<{_oneOfType}>.Construct(int kind, object value) => new {_oneOfType}(kind, value);");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
-                    WriteLine($"public static {_oneOfType} Create(T{i} value) => new {_oneOfType}(new OneOfCore<{_oneOfType}>({i}, value!));");
+                    WriteLine($"public static {_oneOfType} Create(T{i} value) => new {_oneOfType}({i}, value!);");
                 }
 
-                WriteLine($"public static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out {_oneOfType} union) => OneOfCore<{_oneOfType}>.TryCreateFrom(value, out union);");
+                WriteLine($"public static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out {_oneOfType} union) => OneOf.TryCreate<{_oneOfType}, TValue>(value, out union);");
                 WriteLine($"public static {_oneOfType} Create<TValue>(TValue value) => TryCreate(value, out var union) ? union : throw new InvalidCastException(\"Invalid type for union.\");");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
                     WriteLine($"/// <summary>The union's value as type <typeparamref name=\"T{i}\"/>.</summary>");
-                    WriteLine($"public T{i} Type{i}Value => _core.GetOrDefault<T{i}>();");
+                    WriteLine($"public T{i} Type{i}Value => (this.Value is T{i} value || this.TryGet(out value)) ? value : default!;");
                 }
 
-                WriteLine("/// <summary>The type case for the union's value; 1 == T1, 2 == T2, etc.</summary>");
-                WriteLine($"public int Kind => _core.Kind;");
-                WriteLine("public Type Type => _core.Type;");
-                WriteLine("public object Value => _core.Value;");
+                WriteLine("public Type Type => this.Value?.GetType() ?? typeof(object);");
 
                 var typeList = string.Join(", ", Enumerable.Range(1, nTypeArgs).Select(n => $"typeof(T{n})"));
                 WriteLine($"private static IReadOnlyList<Type> _types = [{typeList}];");
                 WriteLine($"static IReadOnlyList<Type> IClosedTypeUnion<{_oneOfType}>.Types => _types;");
 
-                WriteLine($"public bool TryGet<T>([NotNullWhen(true)] out T value) => _core.TryGet(out value);");
-
+                WriteLine($"public bool TryGet<TValue>([NotNullWhen(true)] out TValue value)");
+                WriteBraceNested(() =>
+                {
+                    WriteLine("if (this.Value is TValue tval) { value = tval; return true; }");
+                    WriteLine("return TypeUnion.TryCreate(this.Value, out value);");
+                });
+            
                 WriteLine("/// <summary>Returns the ToString() result of the value held by the union.</summary>");
-                WriteLine("public override string ToString() => _core.ToString();");
+                WriteLine("public override string ToString() => this.Value?.ToString() ?? \"\";");
 
                 for (int i = 1; i <= _nTypeArgs; i++)
                 {
                     WriteLine($"public static implicit operator {_oneOfType}(T{i} value) => Create(value);");
                 }
 
-                // match function
+                for (int i = 1; i <= _nTypeArgs; i++)
+                {
+                    WriteLine($"public static explicit operator T{i}({_oneOfType} union) => union.Kind == {i} ? union.Type{i}Value : throw new InvalidCastException();");
+                }
+
+                // IEquality
+                WriteLine($"public bool Equals({_oneOfType} other) => object.Equals(this.Value, other.Value);");
+                WriteLine($"public bool Equals<TValue>(TValue value) => (value is {_oneOfType} other || TryCreate(value, out other)) && Equals(other);");
+                WriteLine($"public override bool Equals(object? obj) => Equals<object?>(obj);");
+                WriteLine($"public override int GetHashCode() => this.Value?.GetHashCode() ?? 0;");
+                WriteLine($"public static bool operator ==({_oneOfType} a, {_oneOfType} b) => a.Equals(b);");
+                WriteLine($"public static bool operator !=({_oneOfType} a, {_oneOfType} b) => !a.Equals(b);");
+
+                // select
                 var parameters = string.Join(", ", Enumerable.Range(1, _nTypeArgs).Select(i => $"Func<T{i}, TResult> match{i}"));
-                WriteLine($"public TResult Match<TResult>({parameters})");
+                WriteLine($"public TResult Select<TResult>({parameters})");
                 WriteBraceNested(
                     () =>
                     {
@@ -119,7 +138,7 @@ namespace UnionTypes.Generators
                             });
                     });
 
-                // match action
+                // match
                 parameters = string.Join(", ", Enumerable.Range(1, _nTypeArgs).Select(i => $"Action<T{i}> match{i}")); 
                 WriteLine($"public void Match<TResult>({parameters})");
                 WriteBraceNested(
@@ -138,76 +157,6 @@ namespace UnionTypes.Generators
                     });
             });
         }
-
-#if false
-        private void WriteEquality()
-        {
-            // equals
-            WriteLine("public override bool Equals(object? obj)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return obj is object other && Equals<object>(other);");
-            });
-            WriteLine();
-
-            // GetHashCode
-            WriteLine("public override int GetHashCode()");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return _value?.GetHashCode() ?? 0;");
-            });
-            WriteLine();
-
-            // IEquatable
-            WriteLine($"public bool Equals({_oneOfType} other)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return object.Equals(_value, other._value);");
-            });
-            WriteLine();
-
-            // operators
-            WriteLine($"public static bool operator ==({_oneOfType} oneOf, ITypeUnion? other)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return object.Equals(oneOf._value, other?.Get<object>());");
-            });
-            WriteLine();
-            WriteLine($"public static bool operator !=({_oneOfType} oneOf, ITypeUnion? other)");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return !object.Equals(oneOf._value, other?.Get<object>());");
-            });
-            WriteLine();
-
-            for (int i = 1; i <= _nTypeArgs; i++)
-            {
-                WriteLine($"public static bool operator ==({_oneOfType} oneOf, T{i} other)");
-                WriteBraceNested(() =>
-                {
-                    WriteLine("return object.Equals(oneOf._value, other);");
-                });
-                WriteLine();
-                WriteLine($"public static bool operator !=({_oneOfType} oneOf, T{i} other)");
-                WriteBraceNested(() =>
-                {
-                    WriteLine("return !object.Equals(oneOf._value, other);");
-                });
-
-                if (i < _nTypeArgs)
-                    WriteLine();
-            }
-        }
-
-        private void WriteMiscMethods()
-        {
-            WriteLine("public override string ToString()");
-            WriteBraceNested(() =>
-            {
-                WriteLine("return _value?.ToString() ?? \"\";");
-            });
-        }
-#endif
     }
 
 #if !T4

@@ -8,7 +8,7 @@
 <#@ include file="..\Generators\UnionGenerator.cs" #>
 <#= UnionGenerator.Generate(
     new Union(
-        UnionKind.TagUnion,
+        UnionKind.TypeUnion,
         "Option",
         "Option<TValue>",
         "public",
@@ -16,19 +16,22 @@
         {
             new UnionCase(
                 name: "Some", 
-                type: null,
+                type: "TValue",
+                typeKind: TypeKind.TypeParameter_Unconstrained,
                 tagValue: 1, 
                 factoryName: "Some", 
                 factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
-                accessorName: "SomeValue"),
+                accessorName: "Value"),
             new UnionCase(
                 name: "None", 
-                type: null, 
+                type: "UnionTypes.None", 
+                typeKind: TypeKind.Class,
                 tagValue: 0, 
                 factoryName:"None", 
                 factoryParameters: null, 
                 factoryIsProperty: true, 
-                accessorName: "IsNone")
+                hasAccessor: false,
+                isSingleton: true)
         },
         UnionOptions.Default
             .WithGenerateMatch(true)

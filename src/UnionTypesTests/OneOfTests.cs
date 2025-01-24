@@ -22,6 +22,15 @@ namespace UnionTests
             TestOneOf3<int, string, double>(3.0, 3.0, 3, typeof(double));
         }
 
+        [TestMethod]
+        public void TestEquality()
+        {
+            OneOf<int, string> value = 1;
+            if (value == 2 || 1 == value)
+            {
+            }
+        }
+
         private void TestOneOf2<T1, T2>(
             OneOf<T1, T2> oneOf, object? expectedValue, int expectedKind, Type expectedType)
         {

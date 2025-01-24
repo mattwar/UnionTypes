@@ -1470,7 +1470,7 @@ namespace UnionTests
                 }
                 """,
                 newText => newText.Contains("void Match(")
-                    && newText.Contains("TResult Match<TResult>(")
+                    && newText.Contains("TResult Select<TResult>(")
                 );
         }
 
@@ -1492,7 +1492,7 @@ namespace UnionTests
                 }
                 """,
                 newText => newText.Contains("void Match(")
-                    && newText.Contains("TResult Match<TResult>(")
+                    && newText.Contains("TResult Select<TResult>(")
                 );
         }
 

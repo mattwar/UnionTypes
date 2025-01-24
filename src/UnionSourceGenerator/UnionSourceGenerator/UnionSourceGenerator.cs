@@ -278,7 +278,8 @@ namespace UnionTypes.Generators
             out string? factoryName,
             out bool? factoryIsProperty,
             out bool? factoryIsInternal,
-            out string? accessorName)
+            out string? accessorName,
+            out bool? hasAccessor)
         {
             name = attr.TryGetNamedArgument("Name", out var nameArg)
                 && nameArg.Kind == TypedConstantKind.Primitive
@@ -327,6 +328,12 @@ namespace UnionTypes.Generators
                 && accessorNameArg.Value is string vAccessorName
                 ? vAccessorName
                 : null;
+
+            hasAccessor = attr.TryGetNamedArgument("HasAccessor", out var hasAccessorArg)
+                && hasAccessorArg.Kind == TypedConstantKind.Primitive
+                && hasAccessorArg.Value is bool vHasAccessor
+                ? vHasAccessor
+                : true;
         }
 
         private IReadOnlyList<UnionCase> GetTypeCasesFromCaseAttributesOnUnion(
@@ -344,7 +351,8 @@ namespace UnionTypes.Generators
                     out var factoryName,
                     out var factoryIsProperty,
                     out var factoryIsInternal,
-                    out var accessorName
+                    out var accessorName,
+                    out var hasAccessor
                     );
                 
                 if (type != null)
@@ -355,6 +363,7 @@ namespace UnionTypes.Generators
                     }
 
                     var caseType = GetTypeFullName(type);
+                    var caseTypeKind = GetCaseTypeKind(type);
 
                     var isProperty = factoryIsProperty == true && isSingleton;
 
@@ -365,6 +374,7 @@ namespace UnionTypes.Generators
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: caseType,
+                        typeKind: caseTypeKind,
                         tagValue: tagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
@@ -372,6 +382,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: isProperty,
                         factoryAccessibility: factoryIsInternal == true ? "internal" : "public",
                         accessorName: accessorName,
+                        hasAccessor: hasAccessor ?? true,
                         isSingleton: isSingleton
                         );
 
@@ -406,12 +417,14 @@ namespace UnionTypes.Generators
                         out var factoryName,
                         out var factoryIsProperty,
                         factoryIsInternal: out _,
-                        out var accessorName);
+                        out var accessorName,
+                        out var hasAccessor);
 
                     if (caseName == null)
                         caseName = nestedType.Name;
 
                     var caseType = GetTypeFullName(nestedType);
+                    var caseTypeKind = GetCaseTypeKind(nestedType);
                     var isProperty = factoryIsProperty == true && isSingleton;
                     var parameters = isProperty ? Array.Empty<UnionCaseValue>() : new[] { GetCaseValue(nestedType, "value") };
                     var factoryAccessibility = GetAccessibility(nestedType.DeclaredAccessibility);
@@ -419,6 +432,7 @@ namespace UnionTypes.Generators
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: caseType,
+                        typeKind: caseTypeKind,
                         tagValue: tagValue,
                         factoryName,
                         factoryParameters: parameters,
@@ -426,6 +440,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: isProperty,
                         factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
+                        hasAccessor: hasAccessor ?? true,
                         isSingleton: isSingleton
                         );
 
@@ -464,7 +479,8 @@ namespace UnionTypes.Generators
                         factoryName: out var _, // factory name is the factory name
                         factoryIsProperty: out var _,
                         factoryIsInternal: out var _,
-                        out var accessorName
+                        out var accessorName,
+                        out var hasAccessor
                         );
 
                     // parameter type is always the correct type.
@@ -472,6 +488,7 @@ namespace UnionTypes.Generators
                         type = method.Parameters[0].Type;
 
                     var namedType = type as INamedTypeSymbol;
+                    var typeKind = type != null ? GetCaseTypeKind(type) : TypeKind.Unknown;
                     var typeName = namedType != null ? GetTypeFullName(namedType) : null;
                     if (caseName == null)
                     {
@@ -486,6 +503,7 @@ namespace UnionTypes.Generators
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: typeName,
+                        typeKind: typeKind,
                         tagValue: tagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
@@ -493,6 +511,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: false,
                         factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
+                        hasAccessor: hasAccessor ?? true,
                         isSingleton: isSingleton
                         ); 
 
@@ -530,9 +549,11 @@ namespace UnionTypes.Generators
                         factoryName: out var _, // factory name is the factory name
                         factoryIsProperty: out var _,
                         factoryIsInternal: out var _,
-                        out var accessorName
+                        out var accessorName,
+                        out var hasAccessor
                         );
 
+                    var typeKind = type != null ? GetCaseTypeKind(type) : TypeKind.Unknown;
                     var namedType = type as INamedTypeSymbol;
                     var typeName = namedType != null ? GetTypeFullName(namedType) : null;
                     if (caseName == null)
@@ -548,6 +569,7 @@ namespace UnionTypes.Generators
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: typeName,
+                        typeKind: typeKind,
                         tagValue: tagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
@@ -555,6 +577,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: true,
                         factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
+                        hasAccessor: hasAccessor ?? true,
                         isSingleton: isSingleton
                         );
 
@@ -580,7 +603,8 @@ namespace UnionTypes.Generators
                     out var factoryName,
                     out var factoryIsProperty,
                     out var factoryIsInternal,
-                    out var accessorName
+                    out var accessorName,
+                    out var hasAccessor
                     );
                 
                 if (caseName == null)
@@ -591,6 +615,7 @@ namespace UnionTypes.Generators
                 var tagCase = new UnionCase(
                     caseName,
                     type: null,
+                    typeKind: TypeKind.Unknown,
                     tagValue: value,
                     factoryName: factoryName,
                     factoryParameters: null,
@@ -598,6 +623,7 @@ namespace UnionTypes.Generators
                     factoryIsProperty: factoryIsProperty ?? true, // default to property if not specified
                     factoryAccessibility: factoryIsInternal == true ? "internal" : "public",
                     accessorName: accessorName,
+                    hasAccessor: hasAccessor ?? true,
                     isSingleton: false
                     );
 
@@ -635,7 +661,8 @@ namespace UnionTypes.Generators
                         factoryName: out _,  // factory is declared
                         factoryIsProperty: out _,
                         factoryIsInternal: out _,
-                        out var accessorName
+                        out var accessorName,
+                        out var hasAccessor
                         );
                     
                     if (caseName == null)
@@ -656,6 +683,7 @@ namespace UnionTypes.Generators
                         new UnionCase(
                             name: caseName,
                             type: null,
+                            typeKind: TypeKind.Unknown,
                             tagValue: tagValue,
                             factoryName: factoryName,
                             factoryParameters: factoryParameters,
@@ -663,6 +691,7 @@ namespace UnionTypes.Generators
                             factoryIsProperty: false,
                             factoryAccessibility: factoryAccessibility,
                             accessorName: accessorName,
+                            hasAccessor: hasAccessor ?? true,
                             isSingleton: false
                             );
 
@@ -700,7 +729,8 @@ namespace UnionTypes.Generators
                         factoryName: out _,  // factory is declared
                         factoryIsProperty: out _,
                         factoryIsInternal: out _,
-                        out var accessorName
+                        out var accessorName,
+                        out var hasAccessor
                         );
 
                     if (caseName == null)
@@ -717,6 +747,7 @@ namespace UnionTypes.Generators
                         new UnionCase(
                             name: caseName,
                             type: null,
+                            typeKind: TypeKind.Unknown,
                             tagValue: tagValue,
                             factoryName: factoryName,
                             factoryParameters: new UnionCaseValue[] { },
@@ -724,7 +755,8 @@ namespace UnionTypes.Generators
                             factoryIsProperty: true,
                             factoryAccessibility: factoryAccessibility,
                             accessorName: accessorName,
-                            isSingleton: false
+                            isSingleton: false,
+                            hasAccessor: hasAccessor ?? true
                             );
 
                     cases.Add(tagCase);
