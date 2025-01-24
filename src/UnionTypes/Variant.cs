@@ -12,7 +12,7 @@ using System;
 
 #pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type
 
-namespace UnionTypes;
+namespace UnionTypes.Toolkit;
 
 /// <summary>
 /// A union of all reference and value types that does not box small structs.
@@ -542,7 +542,7 @@ public readonly struct Variant
     }
 
     /// <summary>
-    /// An <see cref="VariantEncoder"/> for values that can be stored in the bits field.
+    /// An <see cref="Encoder"/> for values that can be stored in the bits field.
     /// </summary>
     private sealed class BitsEncoder<TValue> : Encoder<TValue>
     {
@@ -917,6 +917,8 @@ public readonly struct Variant
                     return VariantKind.TimeOnly;
                 else if (type == typeof(Rune))
                     return VariantKind.Rune;
+                else if (type == typeof(Decimal64))
+                    return VariantKind.Decimal64;
                 return VariantKind.Other;
         }
     }
@@ -1126,6 +1128,11 @@ public readonly struct Variant
 
         private Decimal64Encoding() { }
 
+        public override VariantKind GetKind(in Variant variant)
+        {
+            return VariantKind.Decimal64;
+        }
+
         public override Decimal64 Decode(in Variant variant)
         {
             return variant._overlapped._decimal64Val;
@@ -1229,6 +1236,7 @@ public enum VariantKind
     Single,
     Double,
     Decimal,
+    Decimal64,
     Char,
     Rune,
     String,

@@ -6,5 +6,5 @@
 <#@ output extension=".cs" #>
 <#@ include file="..\Generators\Generator.cs" #>
 <#@ include file="..\Generators\OneOfGenerator.cs" #>
-<#= OneOfGenerator.Generate(9) #>
+<#= OneOfGenerator.Generate(9, "UnionTypes.Toolkit") #>
 

@@ -1,4 +1,4 @@
-﻿namespace UnionTypes;
+﻿namespace UnionTypes.Toolkit;
 
 public class None : ISingleton<None>
 {

@@ -1449,7 +1449,7 @@ namespace UnionTypes.Generators
             {
                 if (unionCase.FactoryParameters.Count > 0)
                 {
-                    WriteLine($"/// <summary>Accessible when <see cref=\"{GetTagPropertyName(union)}\"> is <see cref=\"{GetTagTypeName(union)}.{GetCaseTagName(unionCase)}\">.</summary>");
+                    WriteLine($"/// <summary>Accessible when <see cref=\"{GetTagPropertyName(union)}\"/> is <see cref=\"{GetTagTypeName(union)}.{GetCaseTagName(unionCase)}\"/>.</summary>");
                     if (unionCase.FactoryParameters.Count == 1)
                     {
                         var param = unionCase.FactoryParameters[0];

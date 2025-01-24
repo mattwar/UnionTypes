@@ -1,5 +1,5 @@
 using System.Text;
-using UnionTypes;
+using UnionTypes.Toolkit;
 
 namespace UnionTests;
 

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public partial struct Result<TValue, TError>
     {

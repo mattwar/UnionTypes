@@ -39,7 +39,7 @@ namespace UnionTests
                         .WithGenerateEquality(true)
                         .WithGenerateToString(true)
                     ),
-                namespaceName: "UnionTypes"
+                namespaceName: "UnionTypes.Toolkit"
                 );
         }
 
@@ -77,7 +77,7 @@ namespace UnionTests
                         .WithGenerateEquality(true)
                         .WithGenerateToString(true)
                     ),
-                namespaceName: "UnionTypes"
+                namespaceName: "UnionTypes.Toolkit"
                 );
         }
 
@@ -116,7 +116,7 @@ namespace UnionTests
                     UnionOptions.Default.WithShareReferenceFields(false)
                     ),
                 namespaceName: "TestUnions",
-                usings: ["System", "System.Collections.Generic", "UnionTypes"]
+                usings: ["System", "System.Collections.Generic", "UnionTypes.Toolkit"]
                 );
         }
 

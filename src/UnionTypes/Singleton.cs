@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public interface ISingleton<TSelf>
         where TSelf : ISingleton<TSelf>

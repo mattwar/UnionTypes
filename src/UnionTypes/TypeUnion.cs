@@ -6,7 +6,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     /// <summary>
     /// A type union holds a single value of one or more different types

@@ -5,9 +5,25 @@
 		<TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <AssemblyName>UnionTypes.Toolkit</AssemblyName>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Version></Version>
+    <Authors>mattwar</Authors>
+    <Description>A collection of common union types and tools to build custom ones.</Description>
+    <PackageProjectUrl>https://github.com/mattwar/UnionTypes.Toolkit</PackageProjectUrl>
+    <PackageReadmeFile>ReadMe.Nuget.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/mattwar/UnionTypes.Toolkit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <IncludeSymbols>True</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Include="..\..\README.md" Link="README.md" />
   </ItemGroup>
 
@@ -16,6 +32,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+    <None Update="ReadMe.Nuget.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Update="Result_generated.tt">
       <LastGenOutput>Result_generated.cs</LastGenOutput>
       <Generator>TextTemplatingFileGenerator</Generator>

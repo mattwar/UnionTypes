@@ -1,5 +1,5 @@
 ﻿using System.Collections.Immutable;
-using UnionTypes;
+using UnionTypes.Toolkit;
 
 namespace UnionTests
 {

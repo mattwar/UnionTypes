@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 #nullable enable
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public struct OneOf<T1, T2>
         : IOneOf<OneOf<T1, T2>>, IEquatable<OneOf<T1, T2>>

@@ -1,4 +1,5 @@
-# UnionTypes
+# UnionTypes.Toolkit
+
 A collection of common union types for C# and a source generator for creating custom union types.
 
 This repo started as an exploration of union types for introduction into C# and the dotnet runtime as part of the C# LDM (Language Design Meeting).
@@ -6,7 +7,7 @@ It is now published (by me) for anyone to use.
 
 ---
 Table of Contents
-- [Download the nuget package](#TBD)
+- [Download the Toolkit](#TBD)
 - [Using the included union types](#Using-the-Included-Union-Types)
 - [Generating Custom Types](#Custom-Union-Types)
 - [What is in the Repo?](#What-is-in-the-Repo?)

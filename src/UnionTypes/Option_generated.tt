@@ -24,7 +24,7 @@
                 accessorName: "Value"),
             new UnionCase(
                 name: "None", 
-                type: "UnionTypes.None", 
+                type: "UnionTypes.Toolkit.None", 
                 typeKind: TypeKind.Class,
                 tagValue: 0, 
                 factoryName:"None", 
@@ -36,6 +36,6 @@
             .WithGenerateEquality(true)
             .WithGenerateToString(true)
         ),
-    namespaceName: "UnionTypes"
+    namespaceName: "UnionTypes.Toolkit"
     )
  #>

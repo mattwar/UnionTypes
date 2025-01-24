@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 
-namespace UnionTypes;
+namespace UnionTypes.Toolkit;
 
 /// <summary>
 /// A decimal value in 64 bits. 
@@ -70,7 +70,7 @@ public readonly struct Decimal64 :
     public byte Scale => (byte)(_bits & 0xF);
 
     /// <summary>
-    /// The unscaled integer magnitude of the <see cref="SmallDecimal"/>.
+    /// The unscaled integer magnitude of the <see cref="Decimal64"/>.
     /// </summary>
     public long Magnitude => _bits >> 4;
 

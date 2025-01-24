@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     /// <summary>
     /// A interface for types that can convert themselves to other types.

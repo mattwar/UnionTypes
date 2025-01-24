@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using UnionTypes;
 #nullable enable
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public partial struct Option<TValue> : IClosedTypeUnion<Option<TValue>>, IEquatable<Option<TValue>>
     {
@@ -18,22 +18,22 @@ namespace UnionTypes
         }
 
         public Case Kind { get; }
-        private readonly TValue _field0;
+        private readonly TValue _data_some_value;
 
-        private Option(Case kind, TValue field0)
+        private Option(Case kind, TValue some_value)
         {
             this.Kind = kind;
-            _field0 = field0;
+            _data_some_value = some_value;
         }
 
-        public static Option<TValue> Some(TValue value) => new Option<TValue>(kind: Option<TValue>.Case.Some, field0: value);
-        public static Option<TValue> None() => new Option<TValue>(kind: Option<TValue>.Case.None, field0: default!);
+        public static Option<TValue> Some(TValue value) => new Option<TValue>(kind: Option<TValue>.Case.Some, some_value: value);
+        public static Option<TValue> None() => new Option<TValue>(kind: Option<TValue>.Case.None, some_value: default!);
 
         public static implicit operator Option<TValue>(TValue value) => Option<TValue>.Some(value);
-        public static implicit operator Option<TValue>(UnionTypes.None value) => Option<TValue>.None();
+        public static implicit operator Option<TValue>(UnionTypes.Toolkit.None value) => Option<TValue>.None();
 
-        /// <summary>Accessible when <see cref="Kind"> is <see cref="Case.Some">.</summary>
-        public TValue Value => this.Kind == Option<TValue>.Case.Some ? _field0 : default!;
+        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Some"/>.</summary>
+        public TValue Value => this.Kind == Option<TValue>.Case.Some ? _data_some_value : default!;
 
         #region ITypeUnion, ITypeUnion<TUnion>, ICloseTypeUnion, ICloseTypeUnion<TUnion> implementation.
         public static bool TryCreate<TCreate>(TCreate value, out Option<TValue> union)
@@ -41,7 +41,7 @@ namespace UnionTypes
             switch (value)
             {
                 case TValue v: union = Option<TValue>.Some(v); return true;
-                case UnionTypes.None v: union = Option<TValue>.None(); return true;
+                case UnionTypes.Toolkit.None v: union = Option<TValue>.None(); return true;
             }
 
             if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))
@@ -53,13 +53,13 @@ namespace UnionTypes
             switch (index)
             {
                 case 0 when TypeUnion.TryCreate<TCreate, TValue>(value, out var vSome): union = Option<TValue>.Some(vSome); return true;
-                case 1 when TypeUnion.TryCreate<TCreate, UnionTypes.None>(value, out var vNone): union = Option<TValue>.None(); return true;
+                case 1 when TypeUnion.TryCreate<TCreate, UnionTypes.Toolkit.None>(value, out var vNone): union = Option<TValue>.None(); return true;
             }
 
             union = default!; return false;
         }
 
-        private static IReadOnlyList<Type> _types = new [] {typeof(TValue), typeof(UnionTypes.None)};
+        private static IReadOnlyList<Type> _types = new [] {typeof(TValue), typeof(UnionTypes.Toolkit.None)};
         static IReadOnlyList<Type> IClosedTypeUnion<Option<TValue>>.Types => _types;
         private int GetTypeIndex()
         {
@@ -84,12 +84,12 @@ namespace UnionTypes
                     }
                     return TypeUnion.TryCreate(this.Value, out value);
                 case Option<TValue>.Case.None:
-                    if (Singleton.GetSingleton<UnionTypes.None>() is TGet tvNone)
+                    if (Singleton.GetSingleton<UnionTypes.Toolkit.None>() is TGet tvNone)
                     {
                         value = tvNone;
                         return true;
                     }
-                    return TypeUnion.TryCreate(Singleton.GetSingleton<UnionTypes.None>(), out value);
+                    return TypeUnion.TryCreate(Singleton.GetSingleton<UnionTypes.Toolkit.None>(), out value);
             }
             value = default!; return false;
         }
@@ -138,7 +138,7 @@ namespace UnionTypes
                 case Option<TValue>.Case.Some:
                     return this.Value?.ToString() ?? "";
                 case Option<TValue>.Case.None:
-                    return Singleton.GetSingleton<UnionTypes.None>()?.ToString() ?? "";
+                    return Singleton.GetSingleton<UnionTypes.Toolkit.None>()?.ToString() ?? "";
                 default:
                     return "";
             }

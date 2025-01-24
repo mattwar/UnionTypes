@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public static class Option
     {

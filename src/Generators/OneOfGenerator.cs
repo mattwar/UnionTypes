@@ -13,15 +13,17 @@ namespace UnionTypes.Generators
     public class OneOfGenerator : Generator
     {
         private readonly int _maxTypeArgs;
+        private readonly string _namespaceName;
 
-        private OneOfGenerator(int maxTypeArgs)
+        private OneOfGenerator(int maxTypeArgs, string namespaceName)
         {
             _maxTypeArgs = maxTypeArgs;
+            _namespaceName = namespaceName;
         }
 
-        public static string Generate(int maxTypeArgs)
+        public static string Generate(int maxTypeArgs, string namespaceName)
         {
-            var generator = new OneOfGenerator(maxTypeArgs);
+            var generator = new OneOfGenerator(maxTypeArgs, namespaceName);
             generator.WriteFile();
             return generator.GeneratedText;
         }
@@ -33,11 +35,18 @@ namespace UnionTypes.Generators
             WriteLine("using System.Diagnostics.CodeAnalysis;");
             WriteLine("#nullable enable");
             WriteLine();
-            WriteLine("namespace UnionTypes");
-            WriteBraceNested(() =>
+            if (!string.IsNullOrEmpty(_namespaceName))
+            {
+                WriteLine($"namespace {_namespaceName}");
+                WriteBraceNested(() =>
+                {
+                    WriteOneOfTypes();
+                });
+            }
+            else
             {
                 WriteOneOfTypes();
-            });
+            }
         }
 
         private void WriteOneOfTypes()

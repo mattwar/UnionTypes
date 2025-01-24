@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
-namespace UnionTypes;
+namespace UnionTypes.Toolkit;
 
 public interface IOneOf : IClosedTypeUnion
 {

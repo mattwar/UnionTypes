@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using UnionTypes;
+using UnionTypes.Toolkit;
 
 namespace UnionTests
 {
@@ -14,7 +14,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct MyUnion
@@ -51,7 +51,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct MyUnion
@@ -88,7 +88,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct MyUnion
@@ -125,7 +125,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct MyUnion
@@ -162,7 +162,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -202,7 +202,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -243,7 +243,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -283,7 +283,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -320,7 +320,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -357,7 +357,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -394,7 +394,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct A(int x);
                 public record struct B(string y, float z);
@@ -431,7 +431,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public class A { public static A Singleton { get; } = new A(); }
                 public record struct B(string y, float z);
@@ -470,7 +470,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public class A { public static A Singleton { get; } = new A(); }
                 public record struct B(string y, float z);
@@ -509,7 +509,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -546,7 +546,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 [TagCase(Name="A")]
@@ -580,7 +580,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 [TagCase(Name="A", FactoryName="MakeA")]
@@ -614,7 +614,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 [TagCase(Name="A", FactoryName="A", FactoryIsProperty=false)]
@@ -648,7 +648,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -685,7 +685,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -722,7 +722,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -759,7 +759,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -803,7 +803,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -848,7 +848,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 [TagCase(Name="None", TagValue=0)]
@@ -881,7 +881,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct Result<T>
@@ -916,7 +916,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public class None : ISingleton<None> { public static None Singleton { get; } = new None(); }
 
@@ -953,7 +953,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct Result<T>
@@ -989,7 +989,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 namespace MyNamespace
                 {
@@ -1013,7 +1013,7 @@ namespace UnionTests
             TestUnion(
                 """
                 global using System;
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 namespace MyNamespace
                 {
@@ -1037,7 +1037,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 namespace OtherNamespace
                 {
@@ -1059,7 +1059,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public static class OtherType
                 {
@@ -1081,7 +1081,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 internal partial struct MyUnion
@@ -1101,7 +1101,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 internal record struct A(int x);
                 internal record struct B(string y);
@@ -1121,7 +1121,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct MyUnion
@@ -1141,7 +1141,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 record A(int x);
                 record B(string y);
@@ -1164,7 +1164,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 internal partial struct MyUnion
@@ -1184,7 +1184,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct MyUnion
@@ -1204,7 +1204,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 [TagCase(Name="A", FactoryIsInternal=true)]
@@ -1221,7 +1221,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion]
                 public partial struct Result<T> where T : class
@@ -1240,7 +1240,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion]
                 public partial struct Result<T> where T : class
@@ -1259,7 +1259,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(ShareReferenceFields=false)]
                 public partial struct MyUnion
@@ -1289,7 +1289,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(OverlapStructs=false, ShareSameTypeFields=false)]
                 public partial struct MyUnion
@@ -1319,7 +1319,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(OverlapStructs=false)]
                 public partial struct MyUnion
@@ -1349,7 +1349,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 public record struct AData(int x, string y);
                 public record struct BData(long x, string y);
@@ -1374,7 +1374,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(TagTypeName="Tag")]
                 public partial struct MyUnion
@@ -1396,7 +1396,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(TagPropertyName="Tag")]
                 public partial struct MyUnion
@@ -1418,7 +1418,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(GenerateEquality=true)]
                 public partial struct MyUnion
@@ -1439,7 +1439,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion(GenerateEquality=true)]
                 public partial struct MyUnion
@@ -1460,7 +1460,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(GenerateToString=true)]
                 public partial struct MyUnion
@@ -1481,7 +1481,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion(GenerateToString=true)]
                 public partial struct MyUnion
@@ -1502,7 +1502,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TagUnion(GenerateMatch=true)]
                 public partial struct MyUnion
@@ -1524,7 +1524,7 @@ namespace UnionTests
         {
             TestUnion(
                 """
-                using UnionTypes;
+                using UnionTypes.Toolkit;
 
                 [TypeUnion(GenerateMatch=true)]
                 public partial struct MyUnion

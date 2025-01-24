@@ -1,4 +1,4 @@
-﻿using UnionTypes;
+﻿using UnionTypes.Toolkit;
 
 namespace UnionTests
 {

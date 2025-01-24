@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using UnionTypes;
 #nullable enable
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public partial struct Result<TValue, TError> : IClosedTypeUnion<Result<TValue, TError>>, IEquatable<Result<TValue, TError>>
     {
@@ -18,26 +18,26 @@ namespace UnionTypes
         }
 
         public Case Kind { get; }
-        private readonly TValue _field0;
-        private readonly TError _field1;
+        private readonly TValue _data_success_value;
+        private readonly TError _data_failure_error;
 
-        private Result(Case kind, TValue field0, TError field1)
+        private Result(Case kind, TValue success_value, TError failure_error)
         {
             this.Kind = kind;
-            _field0 = field0;
-            _field1 = field1;
+            _data_success_value = success_value;
+            _data_failure_error = failure_error;
         }
 
-        public static Result<TValue, TError> Success(TValue value) => new Result<TValue, TError>(kind: Result<TValue, TError>.Case.Success, field0: value, field1: default!);
-        public static Result<TValue, TError> Failure(TError error) => new Result<TValue, TError>(kind: Result<TValue, TError>.Case.Failure, field0: default!, field1: error);
+        public static Result<TValue, TError> Success(TValue value) => new Result<TValue, TError>(kind: Result<TValue, TError>.Case.Success, success_value: value, failure_error: default!);
+        public static Result<TValue, TError> Failure(TError error) => new Result<TValue, TError>(kind: Result<TValue, TError>.Case.Failure, success_value: default!, failure_error: error);
 
         public static implicit operator Result<TValue, TError>(TValue value) => Result<TValue, TError>.Success(value);
         public static implicit operator Result<TValue, TError>(TError value) => Result<TValue, TError>.Failure(value);
 
-        /// <summary>Accessible when <see cref="Kind"> is <see cref="Case.Success">.</summary>
-        public TValue Value => this.Kind == Result<TValue, TError>.Case.Success ? _field0 : default!;
-        /// <summary>Accessible when <see cref="Kind"> is <see cref="Case.Failure">.</summary>
-        public TError Error => this.Kind == Result<TValue, TError>.Case.Failure ? _field1 : default!;
+        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Success"/>.</summary>
+        public TValue Value => this.Kind == Result<TValue, TError>.Case.Success ? _data_success_value : default!;
+        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Failure"/>.</summary>
+        public TError Error => this.Kind == Result<TValue, TError>.Case.Failure ? _data_failure_error : default!;
 
         #region ITypeUnion, ITypeUnion<TUnion>, ICloseTypeUnion, ICloseTypeUnion<TUnion> implementation.
         public static bool TryCreate<TCreate>(TCreate value, out Result<TValue, TError> union)

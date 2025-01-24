@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace UnionTypes
+namespace UnionTypes.Toolkit
 {
     public abstract class UnionAttributeBase : Attribute
     {
