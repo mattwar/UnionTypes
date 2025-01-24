@@ -771,6 +771,10 @@ namespace UnionTypes.Generators
             if (!type.IsReferenceType)
                 return false;
 
+            // must have at least one constructor
+            if (namedType.Constructors.Length == 0)
+                return false;
+
             // type must have no non-private constructors
             if (!namedType.Constructors.All(c => c.DeclaredAccessibility == Accessibility.Private))
                 return false;
