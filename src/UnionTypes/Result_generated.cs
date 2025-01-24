@@ -44,8 +44,8 @@ namespace UnionTypes
         {
             switch (value)
             {
-                case TValue v: union = Success(v); return true;
-                case TError v: union = Failure(v); return true;
+                case TValue v: union = Result<TValue, TError>.Success(v); return true;
+                case TError v: union = Result<TValue, TError>.Failure(v); return true;
             }
 
             if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))
@@ -56,8 +56,8 @@ namespace UnionTypes
             var index = TypeUnion.GetTypeIndex<Result<TValue, TError>, TCreate>(value);
             switch (index)
             {
-                case 0 when TypeUnion.TryCreate<TCreate, TValue>(value, out var v0): union = Success(v0); return true;
-                case 1 when TypeUnion.TryCreate<TCreate, TError>(value, out var v1): union = Failure(v1); return true;
+                case 0 when TypeUnion.TryCreate<TCreate, TValue>(value, out var vSuccess): union = Result<TValue, TError>.Success(vSuccess); return true;
+                case 1 when TypeUnion.TryCreate<TCreate, TError>(value, out var vFailure): union = Result<TValue, TError>.Failure(vFailure); return true;
             }
 
             union = default!; return false;

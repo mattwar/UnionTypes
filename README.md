@@ -402,6 +402,29 @@ You can use either the factory or direct assignement with the singleton.
     Pet pet2 = Unknown.Singleton;
 ```
 
+### Declaring a Union Case without an Accessor.
+
+If a type case is a singleton type or a tag case has no values, you can omit the generation of the
+accessor property by setting `HasAccess=false` in the `TypeCase` or `TagCase` attribute.
+
+For example, normally a tag union will generate `Is` properties for cases without values.
+
+```CSharp
+    [TagUnion]
+    [TagCase(Type=typeof(Cat, HasAccessor=false)]
+    public struct Pet
+    {
+        [TagCase(HasAccessor=false)]
+        public static partial Pet Dog();
+
+        [TagCase]
+        public static partial Pet Bird(int numberOfThingsItSays);
+    }
+```
+
+Now only the bird case as a value accessor, since its the only one with values.
+
+
 ### Declaring a Type Union with Nested Types.
 
 If your partial type declaration includes nested types that you want to be cases of the union,
@@ -494,8 +517,14 @@ A project that builds the Roslyn source generator for building custom union type
 - *UnionSourceGenerator.Targets*  
 A project that builds the nuget package "UnionSourceGenerator_x.x.x.nupkg" that contains the source generator for custom union types.
 
-- *UnionTests*  
-A project with tests for verifying the correctness of generating and using union types.
+- *UnionTypesTests*  
+A project with tests for verifying the correctness of all predefined union types.
+
+- *UnionGeneratorTests*  
+A project with tests for verifying the correctness of the union generators as T4 template generators.
+
+- *UnionSourceGeneratorTests*  
+A project with tests for verifying the correctness of the union source generator as compiler plug-in.
 
 - *TryUnions*  
 A seperate project with its own solution `TryUnions.sln` for experimenting with unpublished changes.

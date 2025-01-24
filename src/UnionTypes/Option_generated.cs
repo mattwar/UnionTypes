@@ -27,10 +27,10 @@ namespace UnionTypes
         }
 
         public static Option<TValue> Some(TValue value) => new Option<TValue>(kind: Option<TValue>.Case.Some, field0: value);
-        public static Option<TValue> None => new Option<TValue>(kind: Option<TValue>.Case.None, field0: default!);
+        public static Option<TValue> None() => new Option<TValue>(kind: Option<TValue>.Case.None, field0: default!);
 
         public static implicit operator Option<TValue>(TValue value) => Option<TValue>.Some(value);
-        public static implicit operator Option<TValue>(UnionTypes.None value) => Option<TValue>.None;
+        public static implicit operator Option<TValue>(UnionTypes.None value) => Option<TValue>.None();
 
         /// <summary>Accessible when <see cref="Kind"> is <see cref="Case.Some">.</summary>
         public TValue Value => this.Kind == Option<TValue>.Case.Some ? _field0 : default!;
@@ -40,8 +40,8 @@ namespace UnionTypes
         {
             switch (value)
             {
-                case TValue v: union = Some(v); return true;
-                case UnionTypes.None _: union = Option<TValue>.None; return true;
+                case TValue v: union = Option<TValue>.Some(v); return true;
+                case UnionTypes.None v: union = Option<TValue>.None(); return true;
             }
 
             if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))
@@ -52,8 +52,8 @@ namespace UnionTypes
             var index = TypeUnion.GetTypeIndex<Option<TValue>, TCreate>(value);
             switch (index)
             {
-                case 0 when TypeUnion.TryCreate<TCreate, TValue>(value, out var v0): union = Some(v0); return true;
-                case 1 when TypeUnion.TryCreate<TCreate, UnionTypes.None>(value, out _): union = Option<TValue>.None; return true;
+                case 0 when TypeUnion.TryCreate<TCreate, TValue>(value, out var vSome): union = Option<TValue>.Some(vSome); return true;
+                case 1 when TypeUnion.TryCreate<TCreate, UnionTypes.None>(value, out var vNone): union = Option<TValue>.None(); return true;
             }
 
             union = default!; return false;

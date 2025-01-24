@@ -1422,23 +1422,12 @@ namespace UnionTypes.Generators
                 // implicit cast value to union
                 foreach (var unionCase in union.Cases)
                 {
-                    if (unionCase.FactoryAccessibility == "public")
+                    if (unionCase.FactoryAccessibility == "public"
+                        && unionCase.Type != null
+                        && unionCase.Case.TypeKind != TypeKind.Interface
+                        && unionCase.Case.TypeKind != TypeKind.Object)
                     {
-                        if (unionCase.FactoryParameters.Count > 0)
-                        {
-                            var param = unionCase.FactoryParameters[0];
-                            if (param.Kind != TypeKind.Interface
-                                && param.Kind != TypeKind.Object)
-                            {
-                                WriteLine($"public static implicit operator {union.Type}({param.Type} value) => {union.Type}.{GetFactoryName(union, unionCase)}(value);");
-                            }
-                        }
-                        else if (unionCase.Case.IsSingleton
-                            && unionCase.Type != null)
-                        {
-                            // factory has no arguments, but can convert singleton instance into union anyway.
-                            WriteLine($"public static implicit operator {union.Type}({unionCase.Type} value) => {union.Type}.{GetFactoryName(union, unionCase)};");
-                        }
+                        WriteLine($"public static implicit operator {union.Type}({unionCase.Type} value) => {GetFactoryCallExpression(union, unionCase, "value")};");
                     }
                 }
             }
@@ -1500,14 +1489,7 @@ namespace UnionTypes.Generators
                             {
                                 if (unionCase.Type != null)
                                 {
-                                    if (unionCase.Case.FactoryIsProperty)
-                                    {
-                                        WriteLine($"case {unionCase.Type} _: union = {union.Type}.{GetFactoryName(union, unionCase)}; return true;");
-                                    }
-                                    else
-                                    {
-                                        WriteLine($"case {unionCase.Type} v: union = {GetFactoryName(union, unionCase)}(v); return true;");
-                                    }
+                                    WriteLine($"case {unionCase.Type} v: union = {GetFactoryCallExpression(union, unionCase, "v")}; return true;");
                                 }
                             }
                         });
@@ -1530,14 +1512,7 @@ namespace UnionTypes.Generators
                                 var unionCase = union.Cases[i];
                                 if (unionCase.Type != null)
                                 {
-                                    if (unionCase.Case.FactoryIsProperty)
-                                    {
-                                        WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type}>(value, out _): union = {union.Type}.{GetFactoryName(union, unionCase)}; return true;");
-                                    }
-                                    else
-                                    {
-                                        WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type}>(value, out var v{i}): union = {GetFactoryName(union, unionCase)}(v{i}); return true;");
-                                    }
+                                    WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type}>(value, out var v{unionCase.Name}): union = {GetFactoryCallExpression(union, unionCase, $"v{unionCase.Name}")}; return true;");
                                 }
                             }
                         });
@@ -2110,6 +2085,26 @@ namespace UnionTypes.Generators
             {
                 // there is no type.
                 return null;
+            }
+        }
+
+        private static string GetFactoryCallExpression(UnionLayout union, UnionCaseLayout unionCase, string args)
+        {
+            if (unionCase.FactoryParameters.Count == 0
+                && unionCase.Case.IsSingleton)
+            {
+                if (unionCase.Case.FactoryIsProperty)
+                {
+                    return $"{union.Type}.{GetFactoryName(union, unionCase)}";
+                }
+                else
+                {
+                    return $"{union.Type}.{GetFactoryName(union, unionCase)}()";
+                }
+            }
+            else
+            {
+                return $"{union.Type}.{GetFactoryName(union, unionCase)}({args})";
             }
         }
 

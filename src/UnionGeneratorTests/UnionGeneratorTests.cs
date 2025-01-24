@@ -55,23 +55,22 @@ namespace UnionTests
                     new[]
                     {
                         new UnionCase(
-                            name: "None",
-                            type: "UnionTypes.None",
-                            typeKind: TypeKind.Class,
-                            tagValue: 0,
-                            factoryName:"None",
-                            factoryParameters: null,
-                            factoryIsProperty: true,
-                            hasAccessor: false,
-                            isSingleton: true),
-                        new UnionCase(
                             name: "Some",
                             type: "TValue",
                             typeKind: TypeKind.Unknown,
                             tagValue: 1,
                             factoryName: "Some",
                             factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
-                            accessorName: "Value")
+                            accessorName: "Value"),
+                        new UnionCase(
+                            name: "None",
+                            type: "UnionTypes.None",
+                            typeKind: TypeKind.Class,
+                            tagValue: 0,
+                            factoryName:"None",
+                            factoryParameters: null,
+                            hasAccessor: false,
+                            isSingleton: true)
                     },
                     UnionOptions.Default
                         .WithGenerateMatch(true)

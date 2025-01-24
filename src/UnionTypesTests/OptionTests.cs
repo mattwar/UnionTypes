@@ -7,14 +7,14 @@ namespace UnionTests
     public class OptionTests
     {
         [TestMethod]
-        public void Test_DefaultIsNone()
+        public void Test_AssignedDefault()
         {
             Option<int> zed = default;
             Assert.IsTrue(zed.IsNone);
         }
 
         [TestMethod]
-        public void Test_AssignableFromNone()
+        public void Test_AssignedNone()
         {
             Option<int> zed = None.Singleton;
             Assert.AreEqual(Option<int>.Case.None, zed.Kind);
@@ -22,9 +22,33 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void Test_AssignableFromValue()
+        public void Test_NoneFactory()
+        {
+            var zed = Option<int>.None();
+            Assert.AreEqual(Option<int>.Case.None, zed.Kind);
+            Assert.IsTrue(zed.IsNone);
+        }
+
+        [TestMethod]
+        public void Test_AssignedValue()
         {
             Option<int> zed = 10;
+            Assert.AreEqual(Option<int>.Case.Some, zed.Kind);
+            Assert.AreEqual(10, zed.Value);
+        }
+
+        [TestMethod]
+        public void Test_SomeFactory()
+        {
+            var zed = Option<int>.Some(10);
+            Assert.AreEqual(Option<int>.Case.Some, zed.Kind);
+            Assert.AreEqual(10, zed.Value);
+        }
+
+        [TestMethod]
+        public void Test_SomeHelper()
+        {
+            var zed = Option.Some(10);
             Assert.AreEqual(Option<int>.Case.Some, zed.Kind);
             Assert.AreEqual(10, zed.Value);
         }

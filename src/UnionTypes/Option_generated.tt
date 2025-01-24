@@ -28,8 +28,6 @@
                 typeKind: TypeKind.Class,
                 tagValue: 0, 
                 factoryName:"None", 
-                factoryParameters: null, 
-                factoryIsProperty: true, 
                 hasAccessor: false,
                 isSingleton: true)
         },
