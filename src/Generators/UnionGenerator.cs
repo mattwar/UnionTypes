@@ -698,7 +698,7 @@ namespace UnionTypes.Generators
             /// <summary>
             /// The name of the field.
             /// </summary>
-            public string Name { get; }
+            public string Name { get; set; }
 
             /// <summary>
             /// The type of this field.
@@ -709,7 +709,7 @@ namespace UnionTypes.Generators
             /// The name of the constructor argument corresponding to this field,
             /// when this is a field of the union type.
             /// </summary>
-            public string? ConstructorArg { get; }
+            public string? ConstructorArg { get; set; }
 
             public DataField(
                 DataKind kind,
@@ -1022,12 +1022,16 @@ namespace UnionTypes.Generators
                 case DataKind.SameTypeSharable:
                 case DataKind.ReferenceSharable:
                 case DataKind.Unique:
-                    field = FindOrAllocateUnionField(
-                        dataKind,
-                        caseValue.Type,
-                        unionFields,
-                        allocatedUnionFields
-                        );
+                    {
+                        string name = CombineName(unionCase.Name, caseValue.Name);
+                        field = FindOrAllocateUnionField(
+                            dataKind,
+                            name,
+                            caseValue.Type,
+                            unionFields,
+                            allocatedUnionFields
+                            );
+                    }
                     break;
 
                 default:
@@ -1045,6 +1049,7 @@ namespace UnionTypes.Generators
 
         private DataField FindOrAllocateUnionField(
             DataKind dataKind,
+            string name,
             string type,
             List<DataField> unionFields,
             HashSet<DataField> allocatedUnionFields)
@@ -1057,6 +1062,8 @@ namespace UnionTypes.Generators
                 {
                     if (dataKind == DataKind.SameTypeSharable && field.Type == type)
                     {
+                        field.ConstructorArg = "shared" + (i + 1);
+                        field.Name = "_data_" + field.ConstructorArg;
                         allocatedUnionFields.Add(field);
                         return field;
                     }
@@ -1068,14 +1075,17 @@ namespace UnionTypes.Generators
                         {
                             field.Type = "object";
                         }
+
+                        field.ConstructorArg = "shared" + (i + 1);
+                        field.Name = "_data_" + field.ConstructorArg;
                         allocatedUnionFields.Add(field);
                         return field;
                     }
                 }
             }
 
-            var newFieldName = "_field" + unionFields.Count;
-            var argName = "field" + unionFields.Count;
+            var argName = LowerName(name);
+            var newFieldName = "_data_" + argName;
             var newField = new DataField(dataKind, newFieldName, type, argName);
 
             unionFields.Add(newField);

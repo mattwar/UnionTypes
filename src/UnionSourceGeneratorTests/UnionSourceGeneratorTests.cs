@@ -799,6 +799,51 @@ namespace UnionTests
         }
 
         [TestMethod]
+        public void TestTagUnion_Sharing()
+        {
+            TestUnion(
+                """
+                using UnionTypes;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    [TagCase(TagValue=0)]
+                    public static partial MyUnion Nobody();
+
+                    [TagCase]
+                    public static partial MyUnion Student(string name, decimal grade);
+
+                    [TagCase]
+                    public static partial MyUnion Teacher(string name, int students);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                        MyUnion unionN = MyUnion.Nobody();
+                        MyUnion unionT = MyUnion.Teacher("Mr. Bob", 5);
+                        MyUnion unionS = MyUnion.Student("Alice", 4.0m);
+                        var n = unionN.IsNobody;
+                        var t = unionT.TeacherValues;
+                        var s = unionS.StudentValues;
+                        var correctTagN = unionN.Kind == MyUnion.Case.Nobody;
+                        var correctTagT = unionT.Kind == MyUnion.Case.Teacher;
+                        var correctTagS = unionS.Kind == MyUnion.Case.Student;
+                    }
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("Nobody = 0")
+                        && newText.Contains("Student = 1")
+                        && newText.Contains("Teacher = 2");
+                });
+        }
+
+
+        [TestMethod]
         public void TestTagUnion_Option()
         {
             TestUnion(
@@ -1231,7 +1276,7 @@ namespace UnionTests
                     if (newText.Contains("OverlappedData"))
                         return false;
 
-                    var fields = GetFields(newText);
+                    var fields = GetDataFields(newText);
                     if (fields.Count != 2)
                         return false;
 
@@ -1261,7 +1306,7 @@ namespace UnionTests
                     if (newText.Contains("OverlappedData"))
                         return false;
 
-                    var fields = GetFields(newText);
+                    var fields = GetDataFields(newText);
                     if (fields.Count != 2)
                         return false;
 
@@ -1280,10 +1325,10 @@ namespace UnionTests
                 public partial struct MyUnion
                 {
                     [TagCase]
-                    public static partial MyUnion A(int x, int y);
+                    public static partial MyUnion A(int x, long y);
 
                     [TagCase]
-                    public static partial MyUnion B(long x, long y);
+                    public static partial MyUnion B(long x, int y);
                 }
                 """,
                 newText =>
@@ -1291,8 +1336,8 @@ namespace UnionTests
                     if (newText.Contains("OverlappedData"))
                         return false;
 
-                    var fields = GetFields(newText);
-                    if (fields.Count != 4)
+                    var fields = GetDataFields(newText);
+                    if (fields.Count != 2)
                         return false;
 
                     return true;
@@ -1320,7 +1365,7 @@ namespace UnionTests
                 }
                 """,
                 newText => !newText.Contains("OverlappedData")
-                        && GetFields(newText).Count == 2
+                        && GetDataFields(newText).Count == 2
                 );
         }
 
@@ -1520,9 +1565,9 @@ namespace UnionTests
             }
         }
 
-        public static HashSet<string> GetFields(string generatedText)
+        public static HashSet<string> GetDataFields(string generatedText)
         {
-            return GetIdentifiers("_field", generatedText);
+            return GetIdentifiers("_data", generatedText);
         }
 
         public static HashSet<string> GetIdentifiers(string namePrefix, string generatedText)
