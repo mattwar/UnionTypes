@@ -133,12 +133,6 @@ namespace UnionTypes.Toolkit
         /// </summary>
         public Type? Type { get; set; } = null;
 
-        /// <summary>
-        /// True if the type is singleton value and does require storage,
-        /// and the singleton value can be accessed from the type via a static property or field named 'Singleton'.
-        /// </summary>
-        public bool IsSingleton { get; set; } = false;
-
         public TypeCaseAttribute()
         {
         }

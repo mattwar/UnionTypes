@@ -1,9 +1,9 @@
 ﻿namespace UnionTypes.Toolkit;
 
-public class None : ISingleton<None>
+public class None
 {
     private None() {}
-    public static None Singleton { get; } = new None();
+    public static readonly None Singleton = new None();
 }
 
 #if false

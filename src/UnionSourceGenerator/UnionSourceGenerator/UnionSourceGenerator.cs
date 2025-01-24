@@ -274,7 +274,6 @@ namespace UnionTypes.Generators
             out string? name, 
             out int value, 
             out ITypeSymbol? type, 
-            out bool isSingleton,
             out string? factoryName,
             out bool? factoryIsProperty,
             out bool? factoryIsInternal,
@@ -298,12 +297,6 @@ namespace UnionTypes.Generators
                 && typeArg.Value is INamedTypeSymbol vType
                 ? vType
                 : null;
-
-            isSingleton = attr.TryGetNamedArgument("IsSingleton", out var isSingletonArg)
-                && isSingletonArg.Kind == TypedConstantKind.Primitive
-                && isSingletonArg.Value is bool vIsSingleton
-                ? vIsSingleton
-                : false;
 
             factoryName = attr.TryGetNamedArgument("FactoryName", out var factoryNameArg)
                 && factoryNameArg.Kind == TypedConstantKind.Primitive
@@ -347,7 +340,6 @@ namespace UnionTypes.Generators
                     out var caseName, 
                     out var tagValue, 
                     out var type, 
-                    out var isSingleton,
                     out var factoryName,
                     out var factoryIsProperty,
                     out var factoryIsInternal,
@@ -362,19 +354,16 @@ namespace UnionTypes.Generators
                         caseName = type.Name;
                     }
 
-                    var caseType = GetTypeFullName(type);
-                    var caseTypeKind = GetCaseTypeKind(type);
-
-                    var isProperty = factoryIsProperty == true && isSingleton;
+                    var caseType = GetValueType(type);
+                    var isProperty = factoryIsProperty == true && caseType.SingletonAccessor != null;
 
                     var factoryParameters = isProperty
                         ? Array.Empty<UnionCaseValue>() 
-                        : new[] { GetCaseValue(type, "value") };
+                        : new[] { GetCaseValue("value", type) };
 
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: caseType,
-                        typeKind: caseTypeKind,
                         tagValue: tagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
@@ -382,8 +371,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: isProperty,
                         factoryAccessibility: factoryIsInternal == true ? "internal" : "public",
                         accessorName: accessorName,
-                        hasAccessor: hasAccessor ?? true,
-                        isSingleton: isSingleton
+                        hasAccessor: hasAccessor ?? true
                         );
 
                     cases.Add(typeCase);
@@ -413,7 +401,6 @@ namespace UnionTypes.Generators
                         out var caseName, 
                         out var tagValue, 
                         type: out _, // type is the nested record
-                        out var isSingleton,
                         out var factoryName,
                         out var factoryIsProperty,
                         factoryIsInternal: out _,
@@ -423,16 +410,14 @@ namespace UnionTypes.Generators
                     if (caseName == null)
                         caseName = nestedType.Name;
 
-                    var caseType = GetTypeFullName(nestedType);
-                    var caseTypeKind = GetCaseTypeKind(nestedType);
-                    var isProperty = factoryIsProperty == true && isSingleton;
-                    var parameters = isProperty ? Array.Empty<UnionCaseValue>() : new[] { GetCaseValue(nestedType, "value") };
+                    var caseType = GetValueType(nestedType);
+                    var isProperty = factoryIsProperty == true && caseType.SingletonAccessor != null;
+                    var parameters = isProperty ? Array.Empty<UnionCaseValue>() : new[] { GetCaseValue("value", nestedType) };
                     var factoryAccessibility = GetAccessibility(nestedType.DeclaredAccessibility);
 
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: caseType,
-                        typeKind: caseTypeKind,
                         tagValue: tagValue,
                         factoryName,
                         factoryParameters: parameters,
@@ -440,8 +425,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: isProperty,
                         factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
-                        hasAccessor: hasAccessor ?? true,
-                        isSingleton: isSingleton
+                        hasAccessor: hasAccessor ?? true
                         );
 
                     cases.Add(typeCase);
@@ -475,7 +459,6 @@ namespace UnionTypes.Generators
                         out var caseName, 
                         out var tagValue, 
                         out var type, 
-                        out var isSingleton,
                         factoryName: out var _, // factory name is the factory name
                         factoryIsProperty: out var _,
                         factoryIsInternal: out var _,
@@ -487,13 +470,12 @@ namespace UnionTypes.Generators
                     if (method.Parameters.Length == 1)
                         type = method.Parameters[0].Type;
 
-                    var namedType = type as INamedTypeSymbol;
-                    var typeKind = type != null ? GetCaseTypeKind(type) : TypeKind.Unknown;
-                    var typeName = namedType != null ? GetTypeFullName(namedType) : null;
+                    var caseType = type != null ? GetValueType(type) : null;
+
                     if (caseName == null)
                     {
                         // infer case name from type name or factory name.
-                        caseName = namedType?.Name ?? method.Name;
+                        caseName = type is INamedTypeSymbol namedType ? namedType.Name : method.Name;
                     }
 
                     var factoryName = method.Name;
@@ -502,8 +484,7 @@ namespace UnionTypes.Generators
 
                     var typeCase = new UnionCase(
                         name: caseName,
-                        type: typeName,
-                        typeKind: typeKind,
+                        type: caseType,
                         tagValue: tagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
@@ -511,8 +492,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: false,
                         factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
-                        hasAccessor: hasAccessor ?? true,
-                        isSingleton: isSingleton
+                        hasAccessor: hasAccessor ?? true
                         ); 
 
                     cases.Add(typeCase);
@@ -545,7 +525,6 @@ namespace UnionTypes.Generators
                         out var caseName,
                         out var tagValue,
                         out var type,
-                        out var isSingleton,
                         factoryName: out var _, // factory name is the factory name
                         factoryIsProperty: out var _,
                         factoryIsInternal: out var _,
@@ -553,13 +532,11 @@ namespace UnionTypes.Generators
                         out var hasAccessor
                         );
 
-                    var typeKind = type != null ? GetCaseTypeKind(type) : TypeKind.Unknown;
-                    var namedType = type as INamedTypeSymbol;
-                    var typeName = namedType != null ? GetTypeFullName(namedType) : null;
+                    var caseType = type != null ? GetValueType(type) : null;
                     if (caseName == null)
                     {
                         // infer case name from type name or factory name
-                        caseName = namedType?.Name ?? prop.Name;
+                        caseName = type is INamedTypeSymbol namedType ? namedType.Name : prop.Name;
                     }
 
                     var factoryName = prop.Name;
@@ -568,8 +545,7 @@ namespace UnionTypes.Generators
 
                     var typeCase = new UnionCase(
                         name: caseName,
-                        type: typeName,
-                        typeKind: typeKind,
+                        type: caseType,
                         tagValue: tagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
@@ -577,8 +553,7 @@ namespace UnionTypes.Generators
                         factoryIsProperty: true,
                         factoryAccessibility: factoryAccessibility,
                         accessorName: accessorName,
-                        hasAccessor: hasAccessor ?? true,
-                        isSingleton: isSingleton
+                        hasAccessor: hasAccessor ?? true
                         );
 
                     cases.Add(typeCase);
@@ -599,7 +574,6 @@ namespace UnionTypes.Generators
                     out var caseName, 
                     out var value, 
                     type: out _,  // there is no type for a tag union
-                    isSingleton: out _,
                     out var factoryName,
                     out var factoryIsProperty,
                     out var factoryIsInternal,
@@ -615,7 +589,6 @@ namespace UnionTypes.Generators
                 var tagCase = new UnionCase(
                     caseName,
                     type: null,
-                    typeKind: TypeKind.Unknown,
                     tagValue: value,
                     factoryName: factoryName,
                     factoryParameters: null,
@@ -623,8 +596,7 @@ namespace UnionTypes.Generators
                     factoryIsProperty: factoryIsProperty ?? true, // default to property if not specified
                     factoryAccessibility: factoryIsInternal == true ? "internal" : "public",
                     accessorName: accessorName,
-                    hasAccessor: hasAccessor ?? true,
-                    isSingleton: false
+                    hasAccessor: hasAccessor ?? true
                     );
 
                 cases.Add(tagCase);
@@ -657,7 +629,6 @@ namespace UnionTypes.Generators
                         out var caseName, 
                         out var tagValue, 
                         type: out _,    // there is no type for a tag union
-                        isSingleton: out _, // there is no singleton for a tag union
                         factoryName: out _,  // factory is declared
                         factoryIsProperty: out _,
                         factoryIsInternal: out _,
@@ -675,7 +646,7 @@ namespace UnionTypes.Generators
                     var factoryName = method.Name;
 
                     var factoryParameters =
-                        method.Parameters.Select(p => new UnionCaseValue(p.Name, GetTypeFullName(p.Type), GetParameterKind(p.Type))).ToArray();
+                        method.Parameters.Select(p => new UnionCaseValue(p.Name, GetValueType(p.Type))).ToArray();
 
                     var factoryAccessibility = GetAccessibility(method.DeclaredAccessibility);
 
@@ -683,7 +654,6 @@ namespace UnionTypes.Generators
                         new UnionCase(
                             name: caseName,
                             type: null,
-                            typeKind: TypeKind.Unknown,
                             tagValue: tagValue,
                             factoryName: factoryName,
                             factoryParameters: factoryParameters,
@@ -691,8 +661,7 @@ namespace UnionTypes.Generators
                             factoryIsProperty: false,
                             factoryAccessibility: factoryAccessibility,
                             accessorName: accessorName,
-                            hasAccessor: hasAccessor ?? true,
-                            isSingleton: false
+                            hasAccessor: hasAccessor ?? true
                             );
 
                     cases.Add(tagCase);
@@ -725,7 +694,6 @@ namespace UnionTypes.Generators
                         out var caseName,
                         out var tagValue,
                         type: out _,    // there is no type for a tag union
-                        isSingleton: out _, // there is no singleton for a tag union
                         factoryName: out _,  // factory is declared
                         factoryIsProperty: out _,
                         factoryIsInternal: out _,
@@ -747,7 +715,6 @@ namespace UnionTypes.Generators
                         new UnionCase(
                             name: caseName,
                             type: null,
-                            typeKind: TypeKind.Unknown,
                             tagValue: tagValue,
                             factoryName: factoryName,
                             factoryParameters: new UnionCaseValue[] { },
@@ -755,7 +722,6 @@ namespace UnionTypes.Generators
                             factoryIsProperty: true,
                             factoryAccessibility: factoryAccessibility,
                             accessorName: accessorName,
-                            isSingleton: false,
                             hasAccessor: hasAccessor ?? true
                             );
 
@@ -773,15 +739,75 @@ namespace UnionTypes.Generators
 
         private UnionCaseValue GetCaseValue(IParameterSymbol parameter)
         {
-            return GetCaseValue(parameter.Type, parameter.Name);
+            return GetCaseValue(parameter.Name, parameter.Type);
         }
 
-        private UnionCaseValue GetCaseValue(ITypeSymbol type, string name)
+        private UnionCaseValue GetCaseValue(string name, ITypeSymbol type, string? singletonAccessor = null)
         {
-            var kind = GetParameterKind(type);
+            var kind = GetTypeKind(type);
             var typeName = GetTypeFullName(type);
+            var vtype = new UnionValueType(typeName, kind, singletonAccessor);
             var nestedParameters = GetNestedParameters(type);
-            return new UnionCaseValue(name, typeName, kind, nestedParameters);
+            return new UnionCaseValue(name, vtype, nestedParameters);
+        }
+
+        private UnionValueType GetValueType(ITypeSymbol type)
+        {
+            var kind = GetTypeKind(type);
+            var typeName = GetTypeFullName(type);
+            TryGetSingletonAccessor(type, out var accessor);
+            return new UnionValueType(typeName, kind, accessor);
+        }
+
+        private bool TryGetSingletonAccessor(ITypeSymbol type, out string accessor)
+        {
+            accessor = null!;
+
+            // must be a named type
+            if (!(type is INamedTypeSymbol namedType))
+                return false;
+
+            // must be a reference type
+            if (!type.IsReferenceType)
+                return false;
+
+            // type must have no non-private constructors
+            if (!namedType.Constructors.All(c => c.DeclaredAccessibility == Accessibility.Private))
+                return false;
+
+            foreach (var member in type.GetMembers())
+            {
+                if (member.DeclaredAccessibility == Accessibility.Private)
+                    continue;
+
+                switch (member)
+                {
+                    case IPropertySymbol p:
+                        // cannot have members that return this type that are not the singleton accessor
+                        if (SymbolEqualityComparer.Default.Equals(p.Type, type))
+                            return false;
+                        break;
+                    case IMethodSymbol p:
+                        // cannot have members that return this type that are not the singleton accessor
+                        if (SymbolEqualityComparer.Default.Equals(p.ReturnType, type))
+                            return false;
+                        break;
+                    case IFieldSymbol f:
+                        if (f.DeclaredAccessibility == Accessibility.Public
+                            && f.IsStatic
+                            && f.IsReadOnly
+                            && SymbolEqualityComparer.Default.Equals(f.Type, type))
+                        {
+                            // cannot have more than one public static field
+                            if (accessor != null)
+                                return false;
+                            accessor = f.Name;
+                        }
+                        break;
+                }
+            }
+
+            return accessor != null;
         }
 
         private IReadOnlyList<UnionCaseValue> GetNestedParameters(ITypeSymbol caseSymbol)
@@ -813,10 +839,10 @@ namespace UnionTypes.Generators
                 }
             }
 
-            return GetParameterKind(type);
+            return GetTypeKind(type);
         }
 
-        private static TypeKind GetParameterKind(ITypeSymbol type)
+        private static TypeKind GetTypeKind(ITypeSymbol type)
         {
             switch (type.TypeKind)
             {

@@ -19,19 +19,17 @@ namespace UnionTests
                     {
                         new UnionCase(
                             name: "Success",
-                            type: "TValue",
-                            typeKind: TypeKind.TypeParameter_Unconstrained,
+                            new UnionValueType("TValue", TypeKind.TypeParameter_Unconstrained),
                             tagValue: 1,
                             factoryName:"Success",
-                            factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
+                            factoryParameters: new [] { new UnionCaseValue("value", new UnionValueType("TValue", TypeKind.TypeParameter_Unconstrained)) },
                             accessorName: "SuccessValue"),
                         new UnionCase(
                             name: "Failure",
-                            type: "TError",
-                            typeKind: TypeKind.TypeParameter_Unconstrained,
+                            new UnionValueType("TError", TypeKind.TypeParameter_Unconstrained),
                             tagValue: 2,
                             factoryName: "Failure",
-                            factoryParameters: new [] { new UnionCaseValue("error", "TError", TypeKind.TypeParameter_Unconstrained) },
+                            factoryParameters: new [] { new UnionCaseValue("error", new UnionValueType("TError", TypeKind.TypeParameter_Unconstrained)) },
                             accessorName: "FailureValue")
                     },
                     UnionOptions.Default
@@ -56,21 +54,18 @@ namespace UnionTests
                     {
                         new UnionCase(
                             name: "Some",
-                            type: "TValue",
-                            typeKind: TypeKind.Unknown,
+                            type: null,
                             tagValue: 1,
                             factoryName: "Some",
-                            factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
+                            factoryParameters: new [] { new UnionCaseValue("value", new UnionValueType("TValue", TypeKind.TypeParameter_Unconstrained)) },
                             accessorName: "Value"),
                         new UnionCase(
                             name: "None",
-                            type: "UnionTypes.None",
-                            typeKind: TypeKind.Class,
+                            type: null,
                             tagValue: 0,
                             factoryName:"None",
                             factoryParameters: null,
-                            hasAccessor: false,
-                            isSingleton: true)
+                            hasAccessor: false)
                     },
                     UnionOptions.Default
                         .WithGenerateMatch(true)
@@ -85,6 +80,9 @@ namespace UnionTests
         [TestMethod]
         public void TestTypeUnion_CatOrDog()
         {
+            var dogType = new UnionValueType("Dog", TypeKind.DecomposableLocalRecordStruct);
+            var catType = new UnionValueType("Cat", TypeKind.DecomposableLocalRecordStruct);
+
             TestGenerate(
                 new Union(
                     UnionKind.TypeUnion,
@@ -94,23 +92,19 @@ namespace UnionTests
                     [
                         new UnionCase(
                             name: "Dog",
-                            type: "Dog",
-                            typeKind: TypeKind.DecomposableLocalRecordStruct,
+                            type: dogType,
                             tagValue: -1,
                             factoryName:"CreateDog",
                             factoryParameters: [
-                                new UnionCaseValue("dog", "Dog", TypeKind.DecomposableLocalRecordStruct,
-                                    [new UnionCaseValue("name", "string", TypeKind.Class)])
+                                new UnionCaseValue("dog", dogType, [new UnionCaseValue("name", UnionValueType.String)])
                                 ]),
                         new UnionCase(
                             name: "Cat",
-                            type: "Cat",
-                            typeKind: TypeKind.DecomposableLocalRecordStruct,
+                            type: catType,
                             tagValue: -1,
                             factoryName: "CreateCat",
                             factoryParameters: [
-                                new UnionCaseValue("cat", "Cat", TypeKind.DecomposableLocalRecordStruct,
-                                    [new UnionCaseValue("name", "string", TypeKind.Class)])
+                                new UnionCaseValue("cat", catType, [new UnionCaseValue("name", UnionValueType.String)])
                                 ]),
                     ],
                     UnionOptions.Default.WithShareReferenceFields(false)
@@ -132,7 +126,6 @@ namespace UnionTests
                 );
 
             var actualText = generator.GenerateFile(union);
-            //Assert.AreEqual(expectedText, actualText);
         }
     }
 }

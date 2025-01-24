@@ -16,19 +16,15 @@
         {
             new UnionCase(
                 name: "Success",
-                type: "TValue",
-                typeKind: TypeKind.TypeParameter_Unconstrained,
                 tagValue: 1,
                 factoryName:"Success",
-                factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
+                factoryParameters: new [] { new UnionCaseValue("value", new UnionValueType("TValue", TypeKind.TypeParameter_Unconstrained)) },
                 accessorName: "Value"),
             new UnionCase(
                 name: "Failure",
-                type: "TError",
-                typeKind: TypeKind.TypeParameter_Unconstrained,
                 tagValue: 2,
                 factoryName: "Failure",
-                factoryParameters: new [] { new UnionCaseValue("error", "TError", TypeKind.TypeParameter_Unconstrained) },
+                factoryParameters: new [] { new UnionCaseValue("error", new UnionValueType("TError", TypeKind.TypeParameter_Unconstrained)) },
                 accessorName: "Error")
         },
         UnionOptions.Default

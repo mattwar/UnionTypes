@@ -427,17 +427,17 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTypeUnion_CasesOnType_IsSingleton()
+        public void TestTypeUnion_CasesOnType_Singleton()
         {
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                public class A { public static A Singleton { get; } = new A(); }
+                public class A { private A(){} public static readonly A Value = new A(); }
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [TypeCase(Type=typeof(A), IsSingleton=true)]
+                [TypeCase(Type=typeof(A))]
                 [TypeCase(Type=typeof(B))]
                 public partial struct MyUnion
                 {
@@ -447,8 +447,8 @@ namespace UnionTests
                 {
                     public void TestMethod()
                     {
-                        MyUnion unionA = MyUnion.Create(A.Singleton);
-                        MyUnion unionA2 = A.Singleton;
+                        MyUnion unionA = MyUnion.Create(A.Value);
+                        MyUnion unionA2 = A.Value;
                         MyUnion unionB = MyUnion.Create(new B("x", 5.0f));
                         MyUnion unionB2 = new B("x", 5.0f);
                         A a = unionA.AValue;
@@ -466,17 +466,17 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTypeUnion_CasesOnType_IsSingleton_FactoryIsProperty()
+        public void TestTypeUnion_CasesOnType_Singleton_FactoryIsProperty()
         {
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                public class A { public static A Singleton { get; } = new A(); }
+                public class A { private A() {} public static readonly A Singleton = new A(); }
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [TypeCase(Type=typeof(A), IsSingleton=true, FactoryIsProperty=true)]
+                [TypeCase(Type=typeof(A), FactoryIsProperty=true)]
                 [TypeCase(Type=typeof(B))]
                 public partial struct MyUnion
                 {
@@ -918,10 +918,10 @@ namespace UnionTests
                 """
                 using UnionTypes.Toolkit;
 
-                public class None : ISingleton<None> { public static None Singleton { get; } = new None(); }
+                public class None { private None() {} public static readonly None Singleton = new None(); }
 
                 [TypeUnion]
-                [TypeCase(Type=typeof(None), IsSingleton=true, TagValue=0, FactoryName="None", FactoryIsProperty=true)]
+                [TypeCase(Type=typeof(None), TagValue=0, FactoryName="None", FactoryIsProperty=true)]
                 public partial struct Option<T>
                 {
                     [TypeCase]

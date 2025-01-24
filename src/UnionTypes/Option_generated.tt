@@ -16,20 +16,16 @@
         {
             new UnionCase(
                 name: "Some", 
-                type: "TValue",
-                typeKind: TypeKind.TypeParameter_Unconstrained,
                 tagValue: 1, 
                 factoryName: "Some", 
-                factoryParameters: new [] { new UnionCaseValue("value", "TValue", TypeKind.TypeParameter_Unconstrained) },
+                factoryParameters: new [] { new UnionCaseValue("value", new UnionValueType("TValue", TypeKind.TypeParameter_Unconstrained)) },
                 accessorName: "Value"),
             new UnionCase(
                 name: "None", 
-                type: "UnionTypes.Toolkit.None", 
-                typeKind: TypeKind.Class,
+                type: new UnionValueType("UnionTypes.Toolkit.None", TypeKind.Class, "Singleton"),
                 tagValue: 0, 
                 factoryName:"None", 
-                hasAccessor: false,
-                isSingleton: true)
+                hasAccessor: false)
         },
         UnionOptions.Default
             .WithGenerateMatch(true)

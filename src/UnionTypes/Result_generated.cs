@@ -4,12 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-using UnionTypes;
 #nullable enable
 
 namespace UnionTypes.Toolkit
 {
-    public partial struct Result<TValue, TError> : IClosedTypeUnion<Result<TValue, TError>>, IEquatable<Result<TValue, TError>>
+    public partial struct Result<TValue, TError> : IEquatable<Result<TValue, TError>>
     {
         public enum Case
         {
@@ -34,12 +33,6 @@ namespace UnionTypes.Toolkit
         public static implicit operator Result<TValue, TError>(TValue value) => Result<TValue, TError>.Success(value);
         public static implicit operator Result<TValue, TError>(TError value) => Result<TValue, TError>.Failure(value);
 
-        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Success"/>.</summary>
-        public TValue Value => this.Kind == Result<TValue, TError>.Case.Success ? _data_success_value : default!;
-        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Failure"/>.</summary>
-        public TError Error => this.Kind == Result<TValue, TError>.Case.Failure ? _data_failure_error : default!;
-
-        #region ITypeUnion, ITypeUnion<TUnion>, ICloseTypeUnion, ICloseTypeUnion<TUnion> implementation.
         public static bool TryCreate<TCreate>(TCreate value, out Result<TValue, TError> union)
         {
             switch (value)
@@ -48,33 +41,13 @@ namespace UnionTypes.Toolkit
                 case TError v: union = Result<TValue, TError>.Failure(v); return true;
             }
 
-            if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))
-            {
-                return TryCreate(uvalue, out union);
-            }
-
-            var index = TypeUnion.GetTypeIndex<Result<TValue, TError>, TCreate>(value);
-            switch (index)
-            {
-                case 0 when TypeUnion.TryCreate<TCreate, TValue>(value, out var vSuccess): union = Result<TValue, TError>.Success(vSuccess); return true;
-                case 1 when TypeUnion.TryCreate<TCreate, TError>(value, out var vFailure): union = Result<TValue, TError>.Failure(vFailure); return true;
-            }
-
             union = default!; return false;
         }
 
-        private static IReadOnlyList<Type> _types = new [] {typeof(TValue), typeof(TError)};
-        static IReadOnlyList<Type> IClosedTypeUnion<Result<TValue, TError>>.Types => _types;
-        private int GetTypeIndex()
-        {
-            switch (Kind)
-            {
-                case Result<TValue, TError>.Case.Success: return 0;
-                case Result<TValue, TError>.Case.Failure: return 1;
-                default: return -1;
-            }
-        }
-        Type ITypeUnion.Type { get { var index = this.GetTypeIndex(); return index >= 0 && index < _types.Count ? _types[index] : typeof(object); } }
+        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Success"/>.</summary>
+        public TValue Value => this.Kind == Result<TValue, TError>.Case.Success ? _data_success_value : default!;
+        /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Failure"/>.</summary>
+        public TError Error => this.Kind == Result<TValue, TError>.Case.Failure ? _data_failure_error : default!;
 
         public bool TryGet<TGet>([NotNullWhen(true)] out TGet value)
         {
@@ -86,18 +59,17 @@ namespace UnionTypes.Toolkit
                         value = tvSuccess;
                         return true;
                     }
-                    return TypeUnion.TryCreate(this.Value, out value);
+                    break;
                 case Result<TValue, TError>.Case.Failure:
                     if (this.Error is TGet tvFailure)
                     {
                         value = tvFailure;
                         return true;
                     }
-                    return TypeUnion.TryCreate(this.Error, out value);
+                    break;
             }
             value = default!; return false;
         }
-        #endregion
 
         public bool Equals(Result<TValue, TError> other)
         {
