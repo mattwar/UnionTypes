@@ -24,12 +24,11 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
-    <None Include="..\..\README.md" Link="README.md" />
   </ItemGroup>
 
-	<ItemGroup>
-		<PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
-	</ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Collections.Immutable" Version="9.0.1" />
+  </ItemGroup>
 
 	<ItemGroup>
     <None Update="ReadMe.Nuget.md">
@@ -64,10 +63,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Option_generated.tt</DependentUpon>
     </Compile>
-    <Compile Update="OneOf.cs">
+    <Compile Update="IOneOf.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
-      <DependentUpon>OneOf.tt</DependentUpon>
     </Compile>
     <Compile Update="OneOf_generated.cs">
       <DesignTime>True</DesignTime>

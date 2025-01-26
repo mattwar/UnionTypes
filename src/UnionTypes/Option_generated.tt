@@ -28,6 +28,7 @@
                 hasAccessor: false)
         },
         UnionOptions.Default
+            .WithUseToolkit(true)
             .WithGenerateMatch(true)
             .WithGenerateEquality(true)
             .WithGenerateToString(true)

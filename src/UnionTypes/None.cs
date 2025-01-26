@@ -1,33 +1,21 @@
 ﻿namespace UnionTypes.Toolkit;
 
+/// <summary>
+/// This type represents the no-value case for the type <see cref="Option{TValue}"/>.
+/// You may use it in your own type union for the same purpose.
+/// </summary>
 public class None
 {
     private None() {}
     public static readonly None Singleton = new None();
 }
 
-#if false
-public class Nothing : ISingleton<Nothing>
-{
-    private Nothing() { }
-    public static Nothing Singleton { get; } = new Nothing();
-}
-
-public class Null : ISingleton<Null>
-{
-    private Null() { }
-    public static Null Singleton { get; } = new Null();
-}
-
-public class Unknown : ISingleton<Unknown>
-{
-    private Unknown() { }
-    public static Unknown Singleton { get; } = new Unknown();
-}
-
-public class Undefined : ISingleton<Undefined>
+/// <summary>
+/// This type can be used to represent the undefined case for any type union
+/// without a default case.
+/// </summary>
+public class Undefined
 {
     private Undefined() { }
-    public static Undefined Singleton { get; } = new Undefined();
+    public static readonly Undefined Singleton = new Undefined();
 }
-#endif

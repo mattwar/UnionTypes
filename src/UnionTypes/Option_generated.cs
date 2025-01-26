@@ -4,11 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using UnionTypes.Toolkit;
 #nullable enable
 
 namespace UnionTypes.Toolkit
 {
-    public partial struct Option<TValue> : IEquatable<Option<TValue>>
+    public partial struct Option<TValue> : IClosedTypeUnion<Option<TValue>>, IEquatable<Option<TValue>>
     {
         public enum Case
         {
@@ -38,8 +39,7 @@ namespace UnionTypes.Toolkit
                 case TValue v: union = Option<TValue>.Some(v); return true;
                 case UnionTypes.Toolkit.None v: union = Option<TValue>.None(); return true;
             }
-
-            union = default!; return false;
+            return TypeUnion.TryCreateFromUnion(value, out union);
         }
 
         /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Some"/>.</summary>
@@ -55,17 +55,34 @@ namespace UnionTypes.Toolkit
                         value = tvSome;
                         return true;
                     }
-                    break;
+                    return TypeUnion.TryCreate(this.Value, out value);
                 case Option<TValue>.Case.None:
                     if (global::UnionTypes.Toolkit.None.Singleton is TGet tvNone)
                     {
                         value = tvNone;
                         return true;
                     }
-                    break;
+                    return TypeUnion.TryCreate(global::UnionTypes.Toolkit.None.Singleton, out value);
             }
-            value = default!; return false;
+            value = default!;
+            return false;
         }
+
+        public Type Type
+        {
+            get
+            {
+                switch (this.Kind)
+                {
+                    case Option<TValue>.Case.Some: return typeof(TValue);
+                    case Option<TValue>.Case.None: return typeof(UnionTypes.Toolkit.None);
+                }
+                return typeof(object);
+            }
+        }
+
+        static IReadOnlyList<Type> IClosedTypeUnion<Option<TValue>>.Types { get; } =
+            new [] { typeof(TValue), typeof(UnionTypes.Toolkit.None) };
 
         public bool Equals(Option<TValue> other)
         {

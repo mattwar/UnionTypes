@@ -20,37 +20,22 @@ namespace UnionTypes.Toolkit
         Type Type { get; }
 
         /// <summary>
-        /// Retrieves the union's value as the specified type.
+        /// Gets the union's value as the specified type.
         /// Returns true if the value is successfully retrieved.
         /// </summary>
         bool TryGet<T>([NotNullWhen(true)] out T value);
     }
 
     public interface ITypeUnion<TSelf> : ITypeUnion
-        where TSelf : ITypeUnion<TSelf>
     {
         /// <summary>
         /// Creates the union from the specified value, if possible.
-        /// Returns true if the union is created successfully.
+        /// Returns true if the union is successfully created from the value.
         /// </summary>
         abstract static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TSelf union);
-
-        /// <summary>
-        /// Returns true if the unnion 
-        /// </summary>
-        /// <typeparam name="TValue"></typeparam>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        virtual static bool CanCreate<TValue>(TValue value) =>
-            TSelf.TryCreate(value, out _);
     }
 
-    public interface IClosedTypeUnion : ITypeUnion
-    {
-    }
-
-    public interface IClosedTypeUnion<TSelf> : IClosedTypeUnion, ITypeUnion<TSelf>
-        where TSelf : IClosedTypeUnion<TSelf>
+    public interface IClosedTypeUnion<TSelf> : ITypeUnion<TSelf>
     {
         /// <summary>
         /// The closed set of possible types the union's value may take.
@@ -66,193 +51,329 @@ namespace UnionTypes.Toolkit
         /// <summary>
         /// Returns true if an instance of the specfieid type can be successfully created from the value of type <see cref="T:TValue"/>.
         /// </summary>
-        public static bool CanCreate<TValue>(TValue source, Type unionType)
+        public static bool CanCreate<TValue>(TValue value, Type unionType)
         {
-            return GetFactory(unionType).CanCreate(source);
+            return GetHelper(unionType).CanCreate(value);
         }
 
         /// <summary>
         /// Returns true if type <see cref="T:TUnion"/> can be successfully created from the value of type <see cref="T:TValue"/>.
         /// </summary>
-        public static bool TryCreate<TValue, TUnion>(TValue source, [NotNullWhen(true)] out TUnion target)
+        public static bool TryCreate<TValue, TUnion>(TValue value, [NotNullWhen(true)] out TUnion union)
         {
-            var converter = TypedFactory<TUnion>.GetTypedFactory();
-            return converter.TryCreate(source, out target);
+            // try creating union from value
+            var unionHelper = GetHelper<TUnion>();
+            if (unionHelper.TryCreate(value, out union))
+                return true;
+
+            if (value is ITypeUnion)
+            {
+                return TryCreateFromUnion(value, out union);
+            }
+
+            return false;
         }
 
         /// <summary>
-        /// Current set of known converters.
+        /// Gets the value as the specified type from the union by calling its TryGet method,
+        /// or by trying to using <see cref="TryCreateFromUnion"/> if the value itself is a union.
         /// </summary>
-        private static ImmutableDictionary<Type, ITypeUnionFactory> _factories =
-            ImmutableDictionary<Type, ITypeUnionFactory>.Empty;
+        public static bool TryGet<TUnion, TValue>(TUnion union, [NotNullWhen(true)] out TValue value)
+        {
+            // try getting the value from the union as the requested type
+            var unionHelper = GetHelper<TUnion>();
+            if (unionHelper.TryGet(union, out value))
+                return true;
+
+            // if the value is also a union, try creating it from the union's value.
+            return TryCreateFromUnion(union, out value);
+        }
+
+        /// <summary>
+        /// Creates the target union from the source union.
+        /// </summary>
+        public static bool TryCreateFromUnion<TSourceUnion, TTargetUnion>(TSourceUnion source, [NotNullWhen(true)] out TTargetUnion target)
+        {
+            var sourceHelper = GetHelper<TTargetUnion>();
+            return sourceHelper.TryCreateFrom(source, out target);
+        }
+
+        public static IReadOnlyList<Type> GetCaseTypes<TUnion>()
+        {
+            return GetHelper<TUnion>().GetCaseTypes();
+        }
+
+        /// <summary>
+        /// Current set of known type union helpers.
+        /// </summary>
+        private static ImmutableDictionary<Type, Helper> _helpers =
+            ImmutableDictionary<Type, Helper>.Empty;
 
         /// <summary>
         /// Gets the current converter for the target type.
         /// </summary>
-        private static ITypeUnionFactory GetFactory(Type targetType)
+        private static Helper GetHelper(Type unionType)
         {
-            if (!_factories.TryGetValue(targetType, out var converter))
+            if (!_helpers.TryGetValue(unionType, out var converter))
             {
-                converter = ImmutableInterlocked.GetOrAdd(ref _factories, targetType, tt => CreateFactory(tt));
+                converter = ImmutableInterlocked.GetOrAdd(ref _helpers, unionType, tt => CreateHelper(tt));
             }
 
             return converter;
         }
 
-        /// <summary>
-        /// Creates the converter for the target type.
-        /// </summary>
-        private static ITypeUnionFactory CreateFactory(Type targetType)
+        private static Helper<TUnion> GetHelper<TUnion>()
         {
-            if (targetType.IsGenericType
-                && targetType.GetInterfaces().Any(iface => iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(ITypeUnion<>)))
+            return (Helper<TUnion>)GetHelper(typeof(TUnion));
+        }
+
+        /// <summary>
+        /// Creates the helper for the type
+        /// </summary>
+        private static Helper CreateHelper(Type unionType)
+        {
+            if (unionType.GetInterfaces().Any(iface =>
+                iface.IsGenericType
+                && iface.GetGenericTypeDefinition() == typeof(IClosedTypeUnion<>)
+                && iface.GenericTypeArguments[0] == unionType))
             {
-                var utc = typeof(TypeUnionFactory<>).MakeGenericType(targetType);
-                return (ITypeUnionFactory?)Activator.CreateInstance(utc)!;
+                var utc = typeof(ClosedTypeUnionTHelper<>).MakeGenericType(unionType);
+                return (Helper?)Activator.CreateInstance(utc)!;
+            }
+            else if (unionType.GetInterfaces().Any(iface => 
+                iface.IsGenericType 
+                && iface.GetGenericTypeDefinition() == typeof(ITypeUnion<>)
+                && iface.GenericTypeArguments[0] == unionType))
+            {
+                var utc = typeof(TypeUnionTHelper<>).MakeGenericType(unionType);
+                return (Helper?)Activator.CreateInstance(utc)!;
+            }
+            else if (unionType.IsAssignableTo(typeof(ITypeUnion)))
+            {
+                var utc = typeof(TypeUnionHelper<>).MakeGenericType(unionType);
+                return (Helper?)Activator.CreateInstance(utc)!;
             }
             else
             {
-                return (ITypeUnionFactory?)Activator.CreateInstance(typeof(DefaultFactory<>).MakeGenericType(targetType))!;
+                return (Helper?)Activator.CreateInstance(typeof(DefaultHelper<>).MakeGenericType(unionType))!;
             }
         }
 
-        private class TypedFactory<TType>
-        {
-            private static ITypeUnionFactory<TType>? _converter;
-
-            internal static ITypeUnionFactory<TType> GetTypedFactory()
-            {
-                if (_converter == null)
-                {
-                    _converter = (ITypeUnionFactory<TType>)GetFactory(typeof(TType));
-                }
-
-                return _converter;
-            }
-        }
-
-        private interface ITypeUnionFactory
+        private abstract class Helper
         {
             /// <summary>
             /// Returns true if the value can be converted into the the type converter's target type.
             /// </summary>
-            abstract bool CanCreate<TValue>(TValue value);
+            public abstract bool CanCreate<TValue>(TValue value);
         }
 
-        private interface ITypeUnionFactory<TType> : ITypeUnionFactory
+        private abstract class Helper<TUnion> : Helper
         {
-            bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TType instance);
-        }
-
-        private class TypeUnionFactory<TType> : ITypeUnionFactory<TType>
-            where TType : ITypeUnion<TType>
-        {
-            public bool CanCreate<TValue>(TValue value)
+            public override bool CanCreate<TValue>(TValue value)
             {
-                return TType.CanCreate(value);
+                return value is TUnion;
             }
 
-            public bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TType instance)
+            public virtual bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TUnion union)
             {
-                return TType.TryCreate(value, out instance);
-            }
-        }
-
-        /// <summary>
-        /// A default type factory that only supports reference conversions.
-        /// </summary>
-        private class DefaultFactory<TType> : ITypeUnionFactory<TType>
-        {
-            public bool CanCreate<TValue>(TValue value)
-            {
-                return value is TType;
-            }
-
-            public bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TType instance)
-            {
-                if (value is TType tvalue)
+                // allow reference conversions only
+                if (value is TUnion tunion)
                 {
-                    instance = tvalue;
+                    union = tunion;
                     return true;
                 }
                 else
                 {
-                    instance = default!;
+                    union = default!;
+                    return false;
+                }
+            }
+
+            public virtual IReadOnlyList<Type> GetCaseTypes()
+            {
+                return Array.Empty<Type>();
+            }
+
+            public virtual bool TryGet<TValue>(TUnion union, [NotNullWhen(true)] out TValue value)
+            {
+                if (union is TValue tvalue)
+                {
+                    value = tvalue;
+                    return true;
+                }
+                else
+                {
+                    value = default!;
+                    return false;
+                }
+            }
+
+            public virtual bool TryCreateFrom<TOther>(TOther other, [NotNullWhen(true)] out TUnion union)
+            {
+                union = default!;
+                return false;
+            }
+        }
+
+        private class TypeUnionHelper<TUnion> : Helper<TUnion>
+            where TUnion : ITypeUnion
+        {
+            public override bool TryGet<TValue>(TUnion union, [NotNullWhen(true)] out TValue value)
+            {
+                return union.TryGet(out value);
+            }
+
+            public override bool TryCreateFrom<TOther>(TOther other, [NotNullWhen(true)] out TUnion union)
+            {
+                // not creatable...
+                union = default!;
+                return false;
+            }
+        }
+
+        private class TypeUnionTHelper<TUnion> : TypeUnionHelper<TUnion>
+            where TUnion : ITypeUnion<TUnion>
+        {
+            public override bool CanCreate<TValue>(TValue value)
+            {
+                return TUnion.TryCreate(value, out _);
+            }
+
+            public override bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TUnion union)
+            {
+                return TUnion.TryCreate(value, out union);
+            }
+
+            public override bool TryCreateFrom<TOther>(TOther other, [NotNullWhen(true)] out TUnion union)
+            {
+                if (other is ITypeUnion u)
+                {
+                    var helper = GetCreateFromHelper<TOther>(u.Type);
+                    return helper.TryCreateFrom(other, out union);
+                }
+                union = default!;
+                return false;
+            }
+
+            private static ImmutableDictionary<Type, CreateFromUnionHelper> _createFromHelpers =
+                ImmutableDictionary<Type, CreateFromUnionHelper>.Empty;
+
+            private static CreateFromUnionHelper<TOther> GetCreateFromHelper<TOther>(Type valueType)
+            {
+                if (!_createFromHelpers.TryGetValue(typeof(TOther), out var helper))
+                {
+                    var tmp = CreateGetUnionHelper<TOther>(valueType);
+                    helper = ImmutableInterlocked.GetOrAdd(ref _createFromHelpers, typeof(TOther), tmp);
+                }
+
+                return (CreateFromUnionHelper<TOther>)helper;
+            }
+
+            private static CreateFromUnionHelper CreateGetUnionHelper<TOther>(Type valueType)
+            {
+                return (CreateFromUnionHelper)Activator.CreateInstance(typeof(CreateFromUnionHelper<,>).MakeGenericType(typeof(TUnion), typeof(TOther), valueType))!;
+            }
+
+            private protected abstract class CreateFromUnionHelper { }
+            private protected abstract class CreateFromUnionHelper<TOther> : CreateFromUnionHelper
+            {
+                public abstract bool TryCreateFrom(TOther other, [NotNullWhen(true)] out TUnion union);
+            }
+
+            private class CreateFromUnionHelper<TOther, TValue> : CreateFromUnionHelper<TOther>
+                where TOther : ITypeUnion
+            {
+                public override bool TryCreateFrom(TOther other, [NotNullWhen(true)] out TUnion union)
+                {
+                    if (other.TryGet(out TValue value) && TUnion.TryCreate(value, out union))
+                        return true;
+                    union = default!;
                     return false;
                 }
             }
         }
 
-        /// <summary>
-        /// Gets the 1-based type index for the value based on the union type's Types property.
-        /// </summary>
-        public static int GetTypeIndex<TUnion, TValue>(TValue value)
+        private class ClosedTypeUnionTHelper<TUnion> : TypeUnionTHelper<TUnion>
             where TUnion : IClosedTypeUnion<TUnion>
         {
-            return ClosedTypeUnion<TUnion>.GetTypeIndex(value);
+            public override bool TryGet<TValue>(TUnion union, [NotNullWhen(true)] out TValue value)
+            {
+                if (union.TryGet(out value))
+                    return true;
+
+                return base.TryGet(union, out value);
+            }
+
+            public override IReadOnlyList<Type> GetCaseTypes()
+            {
+                return TUnion.Types;
+            }
+
+            //private static ImmutableDictionary<Type, int>? _indexMap;
+            //private static ImmutableDictionary<Type, int> GetIndexMap()
+            //{
+            //    if (_indexMap == null)
+            //    {
+            //        var types = TUnion.Types;
+            //        ImmutableDictionary<Type, int>.Builder builder = ImmutableDictionary.CreateBuilder<Type, int>();
+            //        for (int i = 0; i < types.Count; i++)
+            //        {
+            //            builder.Add(types[i], i);
+            //        }
+            //        Interlocked.CompareExchange(ref _indexMap, builder.ToImmutable(), null);
+            //    }
+
+            //    return _indexMap!;
+            //}
+
+            //private static void SetTypeIndex(Type type, int index)
+            //{
+            //    ImmutableInterlocked.Update(ref _indexMap, (map, value) => map!.SetItem(type, index), index);
+            //}
+
+            ///// <summary>
+            ///// Return the index into the TUnion.Types array for the value's corresponding type.
+            ///// </summary>
+            //public override int GetTypeIndex<TValue>(TValue value)
+            //{
+            //    // if value is a union, get its underlying value.
+            //    if (!(value is ITypeUnion u && u.TryGet<object>(out var underlyingValue)))
+            //    {
+            //        underlyingValue = (object?)value;
+            //    }
+
+            //    if (underlyingValue != null)
+            //    {
+            //        var valType = underlyingValue.GetType();
+
+            //        // fast path: look for know type index.
+            //        var map = GetIndexMap();
+            //        if (map.TryGetValue(valType, out var index))
+            //            return index;
+
+            //        // slow path: find first matching type index for value
+            //        var types = TUnion.Types;
+            //        for (int i = 0; i < types.Count; i++)
+            //        {
+            //            if (valType.IsAssignableTo(types[i])
+            //                || TypeUnion.CanCreate(underlyingValue, types[i]))
+            //            {
+            //                // set fast path for next time
+            //                SetTypeIndex(valType, i);
+            //                return i;
+            //            }
+            //        }
+            //    }
+
+            //    return -1;
+            //}
         }
 
-        private static class ClosedTypeUnion<TUnion>
-            where TUnion : IClosedTypeUnion<TUnion>
+        /// <summary>
+        /// A default type factory that only supports reference conversions.
+        /// </summary>
+        private class DefaultHelper<TUnion> : Helper<TUnion>
         {
-            private static ImmutableDictionary<Type, int>? _indexMap;
-            private static ImmutableDictionary<Type, int> GetIndexMap()
-            {
-                if (_indexMap == null)
-                {
-                    var types = TUnion.Types;
-                    ImmutableDictionary<Type, int>.Builder builder = ImmutableDictionary.CreateBuilder<Type, int>();
-                    for (int i = 0; i < types.Count; i++)
-                    {
-                        builder.Add(types[i], i);
-                    }
-                    Interlocked.CompareExchange(ref _indexMap, builder.ToImmutable(), null);
-                }
-
-                return _indexMap!;
-            }
-
-            private static void SetTypeIndex(Type type, int index)
-            {
-                ImmutableInterlocked.Update(ref _indexMap, (map, value) => map!.SetItem(type, index), index);
-            }
-
-            /// <summary>
-            /// Return the index into the TUnion.Types array for the value's corresponding type.
-            /// </summary>
-            public static int GetTypeIndex<TValue>(TValue value)
-            {
-                // if value is a union, get its underlying value.
-                if (!(value is ITypeUnion u && u.TryGet<object>(out var underlyingValue)))
-                {
-                    underlyingValue = (object?)value;
-                }
-
-                if (underlyingValue != null)
-                {
-                    var valType = underlyingValue.GetType();
-
-                    // fast path: look for know type index.
-                    var map = GetIndexMap();
-                    if (map.TryGetValue(valType, out var index))
-                        return index;
-
-                    // slow path: find first matching type index for value
-                    var types = TUnion.Types;
-                    for (int i = 0; i < types.Count; i++)
-                    {
-                        if (valType.IsAssignableTo(types[i])
-                            || TypeUnion.CanCreate(underlyingValue, types[i]))
-                        {
-                            // set fast path for next time
-                            SetTypeIndex(valType, i);
-                            return i;
-                        }
-                    }
-                }
-
-                return -1;
-            }
         }
     }
 }

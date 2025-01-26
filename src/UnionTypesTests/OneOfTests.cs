@@ -7,7 +7,7 @@ namespace UnionTests
     public class OneOfTests
     {
         [TestMethod]
-        public void TestOneOf2()
+        public void Test_OneOf2()
         {
             TestOneOf2<int, string>(1, 1, 1, typeof(int));
             TestOneOf2<int, string>("one", "one", 2, typeof(string));
@@ -15,7 +15,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestOneOf3()
+        public void Test_OneOf3()
         {
             TestOneOf3<int, string, double>(1, 1, 1, typeof(int));
             TestOneOf3<int, string, double>("one", "one", 2, typeof(string));
@@ -23,12 +23,31 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestEquality()
+        public void Test_Equality()
         {
             OneOf<int, string> value = 1;
-            if (value == 2 || 1 == value)
-            {
-            }
+            Assert.IsTrue(1 == value);
+            Assert.IsTrue(value == 1);
+            Assert.IsFalse(value == 2);
+        }
+
+        [TestMethod]
+        public void Test_TryCreate_Union()
+        {
+            OneOf<int, double> a = 1;
+            Assert.IsTrue(OneOf<int, string>.TryCreate(a, out var b));
+            Assert.AreEqual(typeof(int), b.Type);
+        }
+
+        [TestMethod]
+        public void Test_TryGet_Union()
+        {
+            OneOf<int, double> a = 1;
+            Assert.IsTrue(a.TryGet(out OneOf<string, int> b));
+            Assert.AreEqual(1, b.Value);
+            Assert.IsFalse(a.TryGet(out OneOf<string, double> c));
+            Assert.IsTrue(a.TryGet(out Variant v)); // variant should succeed on all values
+            Assert.AreEqual(1, v.Value);
         }
 
         private void TestOneOf2<T1, T2>(

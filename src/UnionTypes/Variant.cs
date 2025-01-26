@@ -40,7 +40,6 @@ public readonly struct Variant
     /// </summary>
     public static readonly Variant Null = default;
 
-    #region Non-generic API
     /// <summary>
     /// True if the value held in this variant is a boxed value type.
     /// </summary>
@@ -66,6 +65,7 @@ public readonly struct Variant
     public VariantKind Kind =>
         GetEncoding().GetKind(in this);
 
+    #region Create
     public static Variant Create(bool value) => Encoders.Bool.Encode(value);
     public static Variant Create(bool? value) => (value == null) ? Null : Create(value.Value);
     public static Variant Create(byte value) => Encoders.Byte.Encode(value);
@@ -108,6 +108,31 @@ public readonly struct Variant
     public static Variant Create(TimeOnly value) => Encoders.TimeOnly.Encode(value);
     public static Variant Create(TimeOnly? value) => (value == null) ? Null : Create(value.Value);
 
+    /// <summary>
+    /// Create a <see cref="Variant"/> from a value.
+    /// </summary>
+    public static Variant Create<TValue>(TValue value)
+    {
+        if (value == null)
+            return Null;
+
+        if (value is ITypeUnion u && u.TryGet(out object obj))
+            return Create(obj);
+
+        return Encoder<TValue>.Instance.Encode(value);
+    }
+
+    /// <summary>
+    /// Create a <see cref="Variant"/> from a value.
+    /// </summary>
+    public static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out Variant variant)
+    {
+        variant = Create(value);
+        return true;
+    }
+    #endregion
+
+    #region Value / Get
     /// <summary>
     /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Boolean"/>.
     /// </summary>
@@ -217,36 +242,7 @@ public readonly struct Variant
     /// The value of the variant when <see cref="Kind"/> is <see cref="VariantKind.Other"/>.
     /// To get more type specific values without boxing use <see cref="TryGet{T}(out T)"/>.
     /// </summary>
-    public object OtherValue => TryGet<object>(out var value) ? value : default!;
-
-    #endregion
-
-    #region generic API
-    /// <summary>
-    /// Create a <see cref="Variant"/> from a value.
-    /// </summary>
-    public static Variant Create<TValue>(TValue value)
-    {
-        if (value == null)
-            return Null;
-
-        return Encoder<TValue>.Instance.Encode(value);
-    }
-
-    /// <summary>
-    /// Create a <see cref="Variant"/> from a value.
-    /// </summary>
-    public static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out Variant variant)
-    {
-        variant = Create(value);
-        return true;
-    }
-
-    /// <summary>
-    /// True if the variant's value can be converted to the type.
-    /// </summary>
-    public bool CanGet<T>() =>
-        GetEncoding().CanConvertTo(in this, typeof(T));
+    public object Value => TryGet<object>(out var value) ? value : default!;
 
     /// <summary>
     /// Returns <see langword="true"/> and the value as the specified type if the value is of the specified type, otherwise returns <see langword="false"/>.
@@ -267,6 +263,8 @@ public readonly struct Variant
     /// Returns the value as the specified type if the value is of the specified type or the default value of the type if not.
     /// </summary>
     public T GetOrDefault<T>() => TryGet<T>(out var value) ? value! : default!;
+
+    #endregion
 
     /// <summary>
     /// Returns the value converted to a string.
@@ -297,9 +295,6 @@ public readonly struct Variant
     /// </summary>
     public override int GetHashCode() =>
         GetEncoding().GetHashCode(in this);
-
-
-    #endregion
 
     #region Operators
     public static bool operator ==(Variant a, Variant b) => a.Equals(b);
@@ -534,11 +529,6 @@ public readonly struct Variant
         /// Decodes the variant back to a typed value.
         /// </summary>
         public abstract bool TryDecode(in Variant variant, [NotNullWhen(true)] out TValue value);
-
-        /// <summary>
-        /// Returns true if the variant is holding an instance of the typed value.
-        /// </summary>
-        public abstract bool IsType(in Variant variant);
     }
 
     /// <summary>
@@ -561,13 +551,6 @@ public readonly struct Variant
         {
             var bits = Unsafe.As<TValue, Bits>(ref value);
             return new Variant(this.Encoding, new OverlappedBits { _bitsVal = bits });
-        }
-
-        public override bool IsType(in Variant variant)
-        {
-            return variant._reference == this.Encoding
-                || variant._reference is TValue
-                || variant.GetEncoding() is VariantEncoding<TValue>;
         }
 
         public override bool TryDecode(in Variant variant, [NotNullWhen(true)] out TValue value)
@@ -603,11 +586,6 @@ public readonly struct Variant
         public override Variant Encode(TValue value)
         {
             return new Variant(value, default);
-        }
-
-        public override bool IsType(in Variant variant)
-        {
-            return variant._reference is TValue;
         }
 
         public override bool TryDecode(in Variant variant, [NotNullWhen(true)] out TValue value)
@@ -653,13 +631,6 @@ public readonly struct Variant
             return new Variant(refValue, new OverlappedBits { _int32Val = _encodingId });
         }
 
-        public override bool IsType(in Variant variant)
-        {
-            return (variant._overlapped._int32Val == _encodingId
-                && !(variant._reference is Encoding))
-                || variant.GetEncoding() is VariantEncoding<TValue>;
-        }
-
         public override bool TryDecode(in Variant variant, [NotNullWhen(true)] out TValue value)
         {
             if (variant._overlapped._int32Val == _encodingId
@@ -702,12 +673,6 @@ public readonly struct Variant
             return _encoder.Encode(value.GetValueOrDefault());
         }
 
-        public override bool IsType(in Variant variant)
-        {
-            // does not match type when null
-            return _encoder.IsType(variant);
-        }
-
         public override bool TryDecode(in Variant variant, [NotNullWhen(true)] out TElement? value)
         {
             // cannot decode when null
@@ -733,13 +698,6 @@ public readonly struct Variant
                 // box it!
                 return new Variant(value, default);
             }
-        }
-
-        public override bool IsType(in Variant variant)
-        {
-            return variant._reference == DecimalAsDecimal64Encoding.Instance
-                || variant._reference is decimal
-                || variant.GetEncoding() is VariantEncoding<decimal>;
         }
 
         public override bool TryDecode(in Variant variant, [NotNullWhen(true)] out decimal value)
@@ -775,11 +733,6 @@ public readonly struct Variant
         public override Variant Encode(Variant variant) =>
             variant;
 
-        public override bool IsType(in Variant variant)
-        {
-            return true;
-        }
-
         public override bool TryDecode(in Variant variant, out Variant value)
         {
             value = variant;
@@ -814,11 +767,6 @@ public readonly struct Variant
             }
         }
 
-        public override bool IsType(in Variant variant)
-        {
-            return variant.CanGet<TUnion>();
-        }
-
         public override bool TryDecode(in Variant variant, out TUnion value)
         {
             // cannot determine constructable union from ITypeUnion, so no fast path here
@@ -838,7 +786,7 @@ public readonly struct Variant
         public abstract VariantKind GetKind(in Variant variant);
         public virtual bool IsNull(in Variant variant) => false;
         public abstract bool IsType<T>(in Variant variant);
-        public abstract bool CanConvertTo(in Variant variant, Type type);
+        public abstract bool CanGet(in Variant variant, Type type);
         public abstract bool TryGet<T>(in Variant variant, out T value);
         public abstract string GetString(in Variant variant);
         public abstract bool IsEqual<T>(in Variant variant, T value);
@@ -952,7 +900,7 @@ public readonly struct Variant
         public override bool IsType<TOther>(in Variant variant) =>
             TryGet<TOther>(in variant, out _);
 
-        public override bool CanConvertTo(in Variant variant, Type type)
+        public override bool CanGet(in Variant variant, Type type)
         {
             var decoded = Decode(in variant);
             return TypeUnion.CanCreate(decoded, type);
@@ -968,7 +916,8 @@ public readonly struct Variant
             }
             else
             {
-                return TypeUnion.TryCreate(variant, out value);
+                // if TOther is a type union, try creating it from the variant's value.
+                return TypeUnion.TryCreate(variant.Value, out value);
             }
         }
 
@@ -1047,7 +996,7 @@ public readonly struct Variant
         public override bool IsType<T>(in Variant variant) =>
             variant._reference is T;
 
-        public override bool CanConvertTo(in Variant variant, Type type) =>
+        public override bool CanGet(in Variant variant, Type type) =>
             TypeUnion.CanCreate(variant._reference, type);
 
         public override bool TryGet<T>(in Variant variant, out T value)
@@ -1059,6 +1008,7 @@ public readonly struct Variant
             }
             else
             {
+                // if T is a type union, try creating it from the variant's value.
                 return TypeUnion.TryCreate(variant._reference, out value);
             }
         }
@@ -1223,27 +1173,27 @@ public readonly struct Variant
 
 public enum VariantKind
 {
-    Null = 0,
-    Boolean,
-    Byte,
-    SByte,
-    Int16,
-    UInt16,
-    Int32,
-    UInt32,
-    Int64,
-    UInt64,
-    Single,
-    Double,
-    Decimal,
-    Decimal64,
-    Char,
-    Rune,
-    String,
-    Guid,
-    DateTime,
-    DateOnly,
-    TimeSpan,
-    TimeOnly,
-    Other
+    Null        = 0,
+    Boolean     = 1,
+    Byte        = 2,
+    SByte       = 3,
+    Int16       = 4,
+    UInt16      = 5,
+    Int32       = 6,
+    UInt32      = 7,
+    Int64       = 8,
+    UInt64      = 9,
+    Single      = 10,
+    Double      = 11,
+    Decimal     = 12,
+    Decimal64   = 13,
+    Char        = 14,
+    Rune        = 15,
+    String      = 16,
+    Guid        = 17,
+    DateTime    = 18,
+    DateOnly    = 19,
+    TimeSpan    = 20,
+    TimeOnly    = 21,
+    Other       = 22
 }

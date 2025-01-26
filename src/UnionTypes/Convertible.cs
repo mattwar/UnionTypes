@@ -87,13 +87,6 @@ namespace UnionTypes.Toolkit
                 }
                 else if (ifaces.Any(iface =>
                     iface.IsGenericType
-                    && iface.GetGenericTypeDefinition() == typeof(IClosedTypeUnion<>)
-                    && iface.GetGenericArguments()[0] == typeof(TType)))
-                {
-                    return (IConverter<TType>)Activator.CreateInstance(typeof(ClosedTypeUnionTConverter<>).MakeGenericType(typeof(TType))!)!;
-                }
-                else if (ifaces.Any(iface =>
-                    iface.IsGenericType
                     && iface.GetGenericTypeDefinition() == typeof(ITypeUnion<>)
                     && iface.GetGenericArguments()[0] == typeof(TType)))
                 {
@@ -396,21 +389,9 @@ namespace UnionTypes.Toolkit
                 if (TUnion.TryCreate(source, out target))
                     return true;
 
-                return false;
-            }
-        }
-
-        private class ClosedTypeUnionTConverter<TUnion> : TypeUnionConverter<TUnion>
-            where TUnion : IClosedTypeUnion<TUnion>
-        {
-            public override bool TryConvertFrom<TSource>(TSource source, [NotNullWhen(true)] out TUnion target)
-            {
-                // try creating from source directly.
-                if (TUnion.TryCreate(source, out target))
-                    return true;
-
                 // try converting to known case types and creating from that.
-                foreach (var tcase in TUnion.Types)
+                var types = TypeUnion.GetCaseTypes<TUnion>();
+                foreach (var tcase in types)
                 {
                     var creator = GetCaseConvertCreator<TSource>(tcase);
                     if (creator.TryCreate(source, out target))

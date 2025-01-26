@@ -28,6 +28,7 @@
                 accessorName: "Error")
         },
         UnionOptions.Default
+            .WithUseToolkit(true)
             .WithGenerateMatch(true)
             .WithGenerateEquality(true)
             .WithGenerateToString(true)

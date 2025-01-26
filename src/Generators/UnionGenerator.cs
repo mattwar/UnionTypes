@@ -109,11 +109,6 @@ namespace UnionTypes.Generators
         public bool DecomposeForeignStructs { get; }
 
         /// <summary>
-        /// Generate ITypeUnion interface members.
-        /// </summary>
-        public bool GenerateInterface { get; }
-
-        /// <summary>
         /// Generate pass-through equality for the union type.
         /// </summary>
         public bool GenerateEquality { get; }
@@ -127,6 +122,11 @@ namespace UnionTypes.Generators
         /// Generate Match methods that force handling of all cases.
         /// </summary>
         public bool GenerateMatch { get; }
+
+        /// <summary>
+        /// Use toolkit API's to enhance the union type.
+        /// </summary>
+        public bool UseToolkit { get; }
 
         /// <summary>
         /// The name of the generated tag enum.
@@ -145,10 +145,10 @@ namespace UnionTypes.Generators
             bool overlapForeignStructs,
             bool decomposeStructs,
             bool decomposeForeignStructs,
-            bool generateInterface,
             bool generateEquality,
             bool generateToString,
             bool generateMatch,
+            bool useToolkit,
             string tagTypeName,
             string tagPropertyName)
         {
@@ -161,6 +161,7 @@ namespace UnionTypes.Generators
             this.GenerateEquality = generateEquality;
             this.GenerateToString = generateToString;
             this.GenerateMatch = generateMatch;
+            this.UseToolkit = useToolkit;
             this.TagTypeName = tagTypeName;
             this.TagPropertyName = tagPropertyName;
         }
@@ -183,9 +184,6 @@ namespace UnionTypes.Generators
         public UnionOptions WithOverlapForeignStructs(bool overlap) =>
             With(overlapForeignStructs: overlap);
 
-        public UnionOptions WithGenerateInterface(bool generate) =>
-            With();
-
         public UnionOptions WithGenerateEquality(bool generate) =>
             With(generateEquality: generate);
 
@@ -194,6 +192,9 @@ namespace UnionTypes.Generators
 
         public UnionOptions WithGenerateMatch(bool generate) =>
             With(generateMatch: generate);
+
+        public UnionOptions WithUseToolkit(bool use) =>
+            With(useToolkit: use);
 
         public UnionOptions WithTagTypeName(string name) =>
             With(tagTypeName: name);
@@ -208,10 +209,10 @@ namespace UnionTypes.Generators
             bool? overlapForeignStructs = null,
             bool? decomposeStructs = null,
             bool? decomposeForeignStructs = null,
-            bool? generateInterface = null,
             bool? generateEquality = null,
             bool? generateToString = null,
             bool? generateMatch = null,
+            bool? useToolkit = null,
             string? tagTypeName = null,
             string? tagPropertyName = null)
         {
@@ -221,10 +222,10 @@ namespace UnionTypes.Generators
             var newDecomposeStructs = decomposeStructs ?? this.DecomposeStructs;
             var newDecomposeForeignStructs = decomposeForeignStructs ?? this.DecomposeForeignStructs;
             var newOverlapForeignStructs = overlapForeignStructs ?? this.OverlapForeignStructs;
-            var newGenerateInterface = generateInterface ?? this.GenerateInterface;
             var newGenerateEquality = generateEquality ?? this.GenerateEquality;
             var newGenerateToString = generateToString ?? this.GenerateToString;
             var newGenerateMatch = generateMatch ?? this.GenerateMatch;
+            var newUseToolkit = useToolkit ?? this.UseToolkit;
             var newTagTypeName = tagTypeName ?? this.TagTypeName;
             var newTagPropertyName = tagPropertyName ?? this.TagPropertyName;
 
@@ -234,10 +235,10 @@ namespace UnionTypes.Generators
                 || newDecomposeStructs != this.DecomposeStructs
                 || newDecomposeForeignStructs != this.DecomposeForeignStructs
                 || newOverlapForeignStructs != this.OverlapForeignStructs
-                || newGenerateInterface != this.GenerateInterface
                 || newGenerateEquality != this.GenerateEquality
                 || newGenerateToString != this.GenerateToString
                 || newGenerateMatch != this.GenerateMatch
+                || newUseToolkit != this.UseToolkit
                 || newTagTypeName != this.TagTypeName
                 || newTagPropertyName != this.TagPropertyName)
             {
@@ -248,10 +249,10 @@ namespace UnionTypes.Generators
                     overlapForeignStructs: newOverlapForeignStructs,
                     decomposeStructs: newDecomposeStructs,
                     decomposeForeignStructs: newDecomposeForeignStructs,
-                    generateInterface : newGenerateInterface,
                     generateEquality: newGenerateEquality,
                     generateToString: newGenerateToString,
                     generateMatch: newGenerateMatch,
+                    useToolkit: newUseToolkit,
                     tagTypeName: newTagTypeName,
                     tagPropertyName: newTagPropertyName
                     );
@@ -268,10 +269,10 @@ namespace UnionTypes.Generators
                 overlapForeignStructs: true, 
                 decomposeStructs: true,
                 decomposeForeignStructs: true,
-                generateInterface: true,
                 generateEquality: false,
                 generateToString: false,
                 generateMatch: false,
+                useToolkit: true,
                 tagTypeName: "Case",
                 tagPropertyName: "Kind"
                 );
@@ -525,6 +526,8 @@ namespace UnionTypes.Generators
             _namespace = namespaceName;
             _usings = usings;
         }
+
+        public static string ToolkitNamespace = "UnionTypes.Toolkit";
 
         public static string Generate()
         {
@@ -890,9 +893,6 @@ namespace UnionTypes.Generators
                 cases.Add(info);
             }
 
-            // order by tag value
-            //cases.Sort((a, b) => a.TagValue.CompareTo(b.TagValue));
-
             return new UnionLayout(
                 union,
                 cases,
@@ -1226,9 +1226,9 @@ namespace UnionTypes.Generators
         {
             var allUsings = new List<string>(_defaultUsings);
 
-            if (unions.Any(u => u.Options.GenerateInterface))
+            if (unions.Any(u => u.Options.UseToolkit))
             {
-                allUsings.Add("using UnionTypes.Toolkit;");
+                allUsings.Add($"using {ToolkitNamespace};");
             }
 
             if (_usings != null)
@@ -1283,7 +1283,7 @@ namespace UnionTypes.Generators
             {
                 var interfaces = new List<string>();
 
-                if (union.Options.GenerateInterface)
+                if (union.Options.UseToolkit)
                     interfaces.Add($"IClosedTypeUnion<{union.TypeName}>");
 
                 if (union.Options.GenerateEquality)
@@ -1487,71 +1487,43 @@ namespace UnionTypes.Generators
 
         private void WriteAccessorProperties(UnionLayout union)
         {
-            foreach (var unionCase in union.Cases)
+            WriteLineSeparatedBlocks(() =>
             {
-                if (unionCase.FactoryParameters.Count > 0)
+                foreach (var unionCase in union.Cases)
                 {
-                    WriteLine($"/// <summary>Accessible when <see cref=\"{GetTagPropertyName(union)}\"/> is <see cref=\"{GetTagTypeName(union)}.{GetCaseTagName(unionCase)}\"/>.</summary>");
-                    if (unionCase.FactoryParameters.Count == 1)
+                    WriteBlock(() =>
                     {
-                        var param = unionCase.FactoryParameters[0];
-                        WriteLine($"{unionCase.FactoryAccessibility} {param.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
-                    }
-                    else if (unionCase.FactoryParameters.Count > 1)
-                    {
-                        var tupleType = GetTupleTypeExpression(unionCase.FactoryParameters);
-                        var tupleConstruction = GetTupleConstructionExpression(union, unionCase.FactoryParameters);
-                        WriteLine($"{unionCase.FactoryAccessibility} {tupleType} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
-                    }
+                        if (unionCase.FactoryParameters.Count > 0)
+                        {
+                            WriteLine($"/// <summary>Accessible when <see cref=\"{GetTagPropertyName(union)}\"/> is <see cref=\"{GetTagTypeName(union)}.{GetCaseTagName(unionCase)}\"/>.</summary>");
+                            if (unionCase.FactoryParameters.Count == 1)
+                            {
+                                var param = unionCase.FactoryParameters[0];
+                                WriteLine($"{unionCase.FactoryAccessibility} {param.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                            }
+                            else if (unionCase.FactoryParameters.Count > 1)
+                            {
+                                var tupleType = GetTupleTypeExpression(unionCase.FactoryParameters);
+                                var tupleConstruction = GetTupleConstructionExpression(union, unionCase.FactoryParameters);
+                                WriteLine($"{unionCase.FactoryAccessibility} {tupleType} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
+                            }
+                        }
+                        else if (unionCase.HasAccessor)
+                        {
+                            if (unionCase.Type != null && unionCase.Type.IsSingleton)
+                            {
+                                // access singleton property/field
+                                WriteLine($"{unionCase.FactoryAccessibility} {unionCase.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                            }
+                            else
+                            {
+                                // there is no data to get, just return bool 
+                                WriteLine($"{unionCase.FactoryAccessibility} bool {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)};");
+                            }
+                        }
+                    });
                 }
-                else if (unionCase.HasAccessor)
-                {
-                    if (unionCase.Type != null && unionCase.Type.IsSingleton)
-                    {
-                        // access singleton property/field
-                        WriteLine($"{unionCase.FactoryAccessibility} {unionCase.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
-                    }
-                    else
-                    {
-                        // there is no data to get, just return bool 
-                        WriteLine($"{unionCase.FactoryAccessibility} bool {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)};");
-                    }
-                }
-            }
-        }
-
-        private void WriteITypeUnionMembers(UnionLayout union)
-        {
-            if (union.Kind != UnionKind.TypeUnion)
-                return;
-
-            if (!union.Options.GenerateInterface)
-                return;
-
-            WriteLine("#region ITypeUnion, ITypeUnion<TUnion>, ICloseTypeUnion, ICloseTypeUnion<TUnion> implementation.");
-
-            var types = union.Cases.Select(c => c.Type?.Name).OfType<string>();
-            var typeList = string.Join(", ", types.Select(t => $"typeof({t})"));
-            WriteLine($"private static IReadOnlyList<Type> _types = new [] {{{typeList}}};");
-            WriteLine($"static IReadOnlyList<Type> IClosedTypeUnion<{union.TypeName}>.Types => _types;");
-
-            WriteLine($"private int GetTypeIndex()");
-            WriteBraceNested(() =>
-            {
-                // translate tag to index
-                WriteLine($"switch ({GetTagPropertyName(union)})");
-                WriteBraceNested(() =>
-                {
-                    for (int i = 0; i < union.Cases.Count; i++)
-                    {
-                        var unionCase = union.Cases[i];
-                        WriteLine($"case {GetTagValueExpression(union, unionCase)}: return {i};");
-                    }
-                    WriteLine("default: return -1;");
-                });
             });
-
-            WriteLine("#endregion");
         }
 
         private void WriteTryCreate(UnionLayout union)
@@ -1574,34 +1546,41 @@ namespace UnionTypes.Generators
                     }
                 });
 
-                if (union.Options.GenerateInterface)
+                if (union.Options.UseToolkit)
                 {
-                    WriteLine();
-                    WriteLine($"if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))");
-                    WriteBraceNested(() =>
-                    {
-                        WriteLine("return TryCreate(uvalue, out union);");
-                    });
-
-                    WriteLine();
-                    WriteLine($"var index = TypeUnion.GetTypeIndex<{union.TypeName}, TCreate>(value);");
-                    WriteLine("switch (index)");
-                    WriteBraceNested(() =>
-                    {
-                        // this should be the same order that the case types are listed in the Types property.
-                        for (int i = 0; i < union.Cases.Count; i++)
-                        {
-                            var unionCase = union.Cases[i];
-                            if (unionCase.Type != null)
-                            {
-                                WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type.Name}>(value, out var v{unionCase.Name}): union = {GetFactoryCallExpression(union, unionCase, $"v{unionCase.Name}")}; return true;");
-                            }
-                        }
-                    });
+                    WriteLine("return TypeUnion.TryCreateFromUnion(value, out union);");
+                }
+                else
+                {
+                    WriteLine("union = default!;");
+                    WriteLine("return false;");
                 }
 
-                WriteLine();
-                WriteLine("union = default!; return false;");
+                //if (union.Options.GenerateInterface)
+                //{
+                //    WriteLine();
+                //    WriteLine($"if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))");
+                //    WriteBraceNested(() =>
+                //    {
+                //        WriteLine("return TryCreate(uvalue, out union);");
+                //    });
+
+                //    WriteLine();
+                //    WriteLine($"var index = TypeUnion.GetTypeIndex<{union.TypeName}, TCreate>(value);");
+                //    WriteLine("switch (index)");
+                //    WriteBraceNested(() =>
+                //    {
+                //        // this should be the same order that the case types are listed in the Types property.
+                //        for (int i = 0; i < union.Cases.Count; i++)
+                //        {
+                //            var unionCase = union.Cases[i];
+                //            if (unionCase.Type != null)
+                //            {
+                //                WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type.Name}>(value, out var v{unionCase.Name}): union = {GetFactoryCallExpression(union, unionCase, $"v{unionCase.Name}")}; return true;");
+                //            }
+                //        }
+                //    });
+                //}
             });
         }
 
@@ -1614,34 +1593,76 @@ namespace UnionTypes.Generators
             WriteBraceNested(() =>
             {
                 WriteLine("switch (this.Kind)");
-                WriteBraceNested(
-                    () =>
+                WriteBraceNested(() =>
+                {
+                    foreach (var unionCase in union.Cases)
                     {
-                        foreach (var unionCase in union.Cases)
+                        WriteLine($"case {GetTagValueExpression(union, unionCase)}:");
+                        WriteNested(() =>
                         {
-                            WriteLine($"case {GetTagValueExpression(union, unionCase)}:");
-                            WriteNested(() =>
+                            WriteLine($"if ({GetCaseValueAccessExpression(union, unionCase)} is TGet tv{unionCase.Name})");
+                            WriteBraceNested(() =>
                             {
-                                WriteLine($"if ({GetCaseValueAccessExpression(union, unionCase)} is TGet tv{unionCase.Name})");
-                                WriteBraceNested(() =>
-                                {
-                                    WriteLine($"value = tv{unionCase.Name};");
-                                    WriteLine("return true;");
-                                });
+                                WriteLine($"value = tv{unionCase.Name};");
+                                WriteLine("return true;");
+                            });
 
-                                if (union.Options.GenerateInterface)
+                            if (union.Options.UseToolkit)
+                            {
+                                WriteLine($"return TypeUnion.TryCreate({GetCaseValueAccessExpression(union, unionCase)}, out value);");
+                            }
+                            else
+                            {
+                                WriteLine("break;");
+                            }
+                        });
+                    }
+                });
+
+                WriteLine("value = default!;");
+                WriteLine("return false;");
+            });
+        }
+
+        private void WriteITypeUnionMembers(UnionLayout union)
+        {
+            if (union.Kind != UnionKind.TypeUnion)
+                return;
+
+            if (!union.Options.UseToolkit)
+                return;
+
+            WriteLineSeparatedBlocks(() =>
+            {
+                WriteBlock(() =>
+                {
+                    WriteLine("public Type Type");
+                    WriteBraceNested(() =>
+                    {
+                        WriteLine("get");
+                        WriteBraceNested(() =>
+                        {
+                            WriteLine("switch (this.Kind)");
+                            WriteBraceNested(() =>
+                            {
+                                foreach (var unionCase in union.Cases)
                                 {
-                                    WriteLine($"return TypeUnion.TryCreate({GetCaseValueAccessExpression(union, unionCase)}, out value);");
-                                }
-                                else
-                                {
-                                    WriteLine("break;");
+                                    WriteLine($"case {GetTagValueExpression(union, unionCase)}: return typeof({unionCase.Type!.Name});");
                                 }
                             });
-                        }
-                    });
 
-                WriteLine("value = default!; return false;");
+                            WriteLine("return typeof(object);");
+                        });
+                    });
+                });
+
+                WriteBlock(() =>
+                {
+                    var types = union.Cases.Select(c => c.Type?.Name).OfType<string>();
+                    var typeList = string.Join(", ", types.Select(t => $"typeof({t})"));
+                    WriteLine($"static IReadOnlyList<Type> IClosedTypeUnion<{union.TypeName}>.Types {{ get; }} =");
+                    WriteLineNested($"new [] {{ {typeList} }};");
+                });
             });
         }
 
@@ -1852,7 +1873,7 @@ namespace UnionTypes.Generators
                         }).ToList();
 
                     if (!hasDefault)
-                        parameters.Add("Action? whenInvalid = null");
+                        parameters.Add("Action? undefined = null");
 
                     var parameterList = string.Join(", ", parameters);
 
@@ -1880,7 +1901,7 @@ namespace UnionTypes.Generators
                             }
                             else
                             {
-                                WriteLine("default: if (whenInvalid != null) whenInvalid(); else throw new InvalidOperationException(\"Unhandled invalid union state.\"); break;");
+                                WriteLine("default: if (undefined != null) undefined(); else throw new InvalidOperationException(\"Undefined union state.\"); break;");
                             }
                         });
                     });
@@ -1896,7 +1917,7 @@ namespace UnionTypes.Generators
                     }).ToList();
 
                     if (!hasDefault)
-                        parameters.Add("Func<TResult>? invalid = null");
+                        parameters.Add("Func<TResult>? undefined = null");
 
                     var parameterList = string.Join(", ", parameters);
 
@@ -1924,7 +1945,7 @@ namespace UnionTypes.Generators
                             }
                             else
                             {
-                                WriteLine("default: return invalid != null ? invalid() : throw new InvalidOperationException(\"Unhandled invalid union state.\");");
+                                WriteLine("default: return undefined != null ? undefined() : throw new InvalidOperationException(\"Undefined union state.\");");
                             }
                         });
                     });

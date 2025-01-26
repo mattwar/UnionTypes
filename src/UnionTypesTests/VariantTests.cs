@@ -7,7 +7,7 @@ namespace UnionTests;
 public class VariantTests
 {
     [TestMethod]
-    public void TestGenericCreateAndAccess()
+    public void Test_GenericCreateAndAccess()
     {
         TestGenericCreateAndAccess<bool>(true);
         TestGenericCreateAndAccess<bool>(false);
@@ -201,14 +201,14 @@ public class VariantTests
 
     private void TestGenericCreateAndAccess<T>(T value, bool isBoxed = false)
     {
-        var v = Variant.Create(value);
+        Assert.IsTrue(Variant.TryCreate(value, out var v));
+        var v2 = Variant.Create(value);
 
         if (value == null)
         {
             Assert.AreEqual(typeof(object), v.Type, "Type");
             Assert.IsTrue(v.IsNull, "IsNull");
             Assert.AreEqual(isBoxed, v.IsBoxed, "IsBoxed");
-            Assert.IsFalse(v.CanGet<T>(), "CanGet");
             Assert.IsFalse(v.TryGet<T>(out _), "TryGet");
             Assert.ThrowsException<InvalidCastException>(() => v.Get<T>());
             Assert.AreEqual(default, v.GetOrDefault<T>());
@@ -219,7 +219,6 @@ public class VariantTests
             Assert.AreEqual(nonNullT, v.Type, "Type");
             Assert.IsFalse(v.IsNull, "IsNull");
             Assert.AreEqual(isBoxed, v.IsBoxed, "IsBoxed");
-            Assert.IsTrue(v.CanGet<T>(), "CanGet");
             Assert.IsTrue(v.TryGet<T>(out var actualValue), "TryGet");
             Assert.AreEqual(value, v.Get<T>());
             Assert.AreEqual(value, v.GetOrDefault<T>());
@@ -243,7 +242,7 @@ public class VariantTests
             : type;
 
     [TestMethod]
-    public void TestNonGenericAPI_Int32()
+    public void Test_NonGenericAPI_Int32()
     {
         Variant v = Variant.Create(10);
         var ival = v.Int32Value;
@@ -258,7 +257,7 @@ public class VariantTests
     }
 
     [TestMethod]
-    public void TestNonGenericAPI_String()
+    public void Test_NonGenericAPI_String()
     {
         Variant v = Variant.Create("ten");
         var success = v.TryGet(out string? sval);
@@ -270,73 +269,7 @@ public class VariantTests
     }
 
     [TestMethod]
-    public void TestCanGet()
-    {
-        // non-nullable T
-        TestCanGet<sbyte>(1);
-        TestCanGet<short>(1);
-        TestCanGet<int>(1);
-        TestCanGet<long>(1);
-        TestCanGet<byte>(1);
-        TestCanGet<ushort>(1);
-        TestCanGet<uint>(1);
-        TestCanGet<ulong>(1);
-        TestCanGet<float>(1.0f);
-        TestCanGet<double>(1.0);
-        TestCanGet<Decimal64>(1);
-        TestCanGet<decimal>(1.0m);
-        TestCanGet<char>('1');
-        TestCanGet<Rune>(new Rune('1'));
-        TestCanGet<DateOnly>(new DateOnly(1, 2, 3));
-        TestCanGet<TimeOnly>(new TimeOnly(1, 2));
-        TestCanGet<DateTime>(DateTime.Now);
-        TestCanGet<TimeSpan>(TimeSpan.FromMinutes(1));
-        TestCanGet<Guid>(Guid.NewGuid());
-        TestCanGet<string>("string");
-        TestCanGet<ReferenceType>(new ReferenceType("one", 1));
-        TestCanGet<WrapperStruct>(new WrapperStruct("one"));
-        TestCanGet<SmallStructMixed>(new SmallStructMixed("one", 1));
-        TestCanGet<SmallStructNoRefs>(new SmallStructNoRefs(1, 2));
-        TestCanGet<LargeStructMixed>(new LargeStructMixed("one", 1, "two", 2));
-        TestCanGet<LargeStructNoRefs>(new LargeStructNoRefs(1, 2, 3, 4));
-
-        // nullabe T with non-null value
-        TestCanGet<sbyte?>(1);
-        TestCanGet<short?>(1);
-        TestCanGet<int?>(1);
-        TestCanGet<long?>(1);
-        TestCanGet<byte?>(1);
-        TestCanGet<ushort?>(1);
-        TestCanGet<uint?>(1);
-        TestCanGet<ulong?>(1);
-        TestCanGet<float?>(1.0f);
-        TestCanGet<double?>(1.0);
-        TestCanGet<Decimal64?>(1);
-        TestCanGet<decimal?>(1.0m);
-        TestCanGet<char?>('1');
-        TestCanGet<Rune?>(new Rune('1'));
-        TestCanGet<DateOnly?>(new DateOnly(1, 2, 3));
-        TestCanGet<TimeOnly?>(new TimeOnly(1, 2));
-        TestCanGet<DateTime?>(DateTime.Now);
-        TestCanGet<TimeSpan?>(TimeSpan.FromMinutes(1));
-        TestCanGet<Guid?>(Guid.NewGuid());
-        TestCanGet<string?>("string");
-        TestCanGet<ReferenceType?>(new ReferenceType("one", 1));
-        TestCanGet<WrapperStruct?>(new WrapperStruct("one"));
-        TestCanGet<SmallStructMixed?>(new SmallStructMixed("one", 1));
-        TestCanGet<SmallStructNoRefs?>(new SmallStructNoRefs(1, 2));
-        TestCanGet<LargeStructMixed?>(new LargeStructMixed("one", 1, "two", 2));
-        TestCanGet<LargeStructNoRefs?>(new LargeStructNoRefs(1, 2, 3, 4));
-    }
-
-    private void TestCanGet<T>(T value)
-    {
-        var v = Variant.Create(value);
-        Assert.IsTrue(v.CanGet<T>());
-    }
-
-    [TestMethod]
-    public void GetOrDefault()
+    public void Test_GetOrDefault()
     {
         TestGetOrDefault_NullStruct<sbyte>();
         TestGetOrDefault_NullStruct<short>();
@@ -377,5 +310,33 @@ public class VariantTests
         where T : class
     {
         Assert.AreEqual((T?)null, Variant.Null.GetOrDefault<T?>());
+    }
+
+    [TestMethod]
+    public void Test_Create_Union()
+    {
+        var v = Variant.Create(OneOf<int, string>.Create(1));
+        Assert.AreEqual(typeof(int), v.Type);
+        Assert.AreEqual(VariantKind.Int32, v.Kind);
+        Assert.AreEqual(1, v.Int32Value);
+        Assert.AreNotEqual(1L, v.Int64Value);
+    }
+
+    [TestMethod]
+    public void Test_TryCreate_Union()
+    {
+        Assert.IsTrue(Variant.TryCreate(OneOf<int, string>.Create(1), out var v));
+        Assert.AreEqual(typeof(int), v.Type);
+        Assert.AreEqual(VariantKind.Int32, v.Kind);
+        Assert.AreEqual(1, v.Int32Value);
+        Assert.AreNotEqual(1L, v.Int64Value);
+    }
+
+    [TestMethod]
+    public void Test_TryGet_Union()
+    {
+        var v = Variant.Create(1);
+        Assert.IsTrue(v.TryGet(out OneOf<int, string> u));
+        Assert.AreEqual(1, u.Value);
     }
 }

@@ -4,11 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using UnionTypes.Toolkit;
 #nullable enable
 
 namespace UnionTypes.Toolkit
 {
-    public partial struct Result<TValue, TError> : IEquatable<Result<TValue, TError>>
+    public partial struct Result<TValue, TError> : IClosedTypeUnion<Result<TValue, TError>>, IEquatable<Result<TValue, TError>>
     {
         public enum Case
         {
@@ -40,12 +41,12 @@ namespace UnionTypes.Toolkit
                 case TValue v: union = Result<TValue, TError>.Success(v); return true;
                 case TError v: union = Result<TValue, TError>.Failure(v); return true;
             }
-
-            union = default!; return false;
+            return TypeUnion.TryCreateFromUnion(value, out union);
         }
 
         /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Success"/>.</summary>
         public TValue Value => this.Kind == Result<TValue, TError>.Case.Success ? _data_success_value : default!;
+
         /// <summary>Accessible when <see cref="Kind"/> is <see cref="Case.Failure"/>.</summary>
         public TError Error => this.Kind == Result<TValue, TError>.Case.Failure ? _data_failure_error : default!;
 
@@ -59,17 +60,34 @@ namespace UnionTypes.Toolkit
                         value = tvSuccess;
                         return true;
                     }
-                    break;
+                    return TypeUnion.TryCreate(this.Value, out value);
                 case Result<TValue, TError>.Case.Failure:
                     if (this.Error is TGet tvFailure)
                     {
                         value = tvFailure;
                         return true;
                     }
-                    break;
+                    return TypeUnion.TryCreate(this.Error, out value);
             }
-            value = default!; return false;
+            value = default!;
+            return false;
         }
+
+        public Type Type
+        {
+            get
+            {
+                switch (this.Kind)
+                {
+                    case Result<TValue, TError>.Case.Success: return typeof(TValue);
+                    case Result<TValue, TError>.Case.Failure: return typeof(TError);
+                }
+                return typeof(object);
+            }
+        }
+
+        static IReadOnlyList<Type> IClosedTypeUnion<Result<TValue, TError>>.Types { get; } =
+            new [] { typeof(TValue), typeof(TError) };
 
         public bool Equals(Result<TValue, TError> other)
         {
@@ -120,23 +138,23 @@ namespace UnionTypes.Toolkit
             }
         }
 
-        public void Match(Action<TValue> whenSuccess, Action<TError> whenFailure, Action? whenInvalid = null)
+        public void Match(Action<TValue> whenSuccess, Action<TError> whenFailure, Action? undefined = null)
         {
             switch (Kind)
             {
                 case Result<TValue, TError>.Case.Success : whenSuccess(this.Value); break;
                 case Result<TValue, TError>.Case.Failure : whenFailure(this.Error); break;
-                default: if (whenInvalid != null) whenInvalid(); else throw new InvalidOperationException("Unhandled invalid union state."); break;
+                default: if (undefined != null) undefined(); else throw new InvalidOperationException("Undefined union state."); break;
             }
         }
 
-        public TResult Select<TResult>(Func<TValue, TResult> whenSuccess, Func<TError, TResult> whenFailure, Func<TResult>? invalid = null)
+        public TResult Select<TResult>(Func<TValue, TResult> whenSuccess, Func<TError, TResult> whenFailure, Func<TResult>? undefined = null)
         {
             switch (Kind)
             {
                 case Result<TValue, TError>.Case.Success: return whenSuccess(this.Value);
                 case Result<TValue, TError>.Case.Failure: return whenFailure(this.Error);
-                default: return invalid != null ? invalid() : throw new InvalidOperationException("Unhandled invalid union state.");
+                default: return undefined != null ? undefined() : throw new InvalidOperationException("Undefined union state.");
             }
         }
     }

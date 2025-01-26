@@ -279,7 +279,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTypeUnion_CasesOnType_Type()
+        public void TestTypeUnion()
         {
             TestUnion(
                 """
@@ -1538,6 +1538,58 @@ namespace UnionTests
                 """,
                 newText => newText.Contains("void Match(")
                     && newText.Contains("TResult Select<TResult>(")
+                );
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_NoToolkit()
+        {
+            TestUnion(
+                """
+                // @TypeUnion
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(double x);
+                }
+                """,
+                newText => newText.Contains("Int32 = 1")
+                    && newText.Contains("Double = 2")
+                    && newText.Contains("TryGet")
+                );
+        }
+
+        [TestMethod]
+        public void TestTagUnion_NoToolkit()
+        {
+            TestUnion(
+                """
+                // @TagUnion
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion CreateA(int x);
+                    public static partial MyUnion CreateB(double x);
+                }
+                """,
+                newText => newText.Contains("MyUnion") 
+                    && newText.Contains("A = 1")
+                    && newText.Contains("B = 2")
+                    && !newText.Contains("TryGet")
+                );
+
+            TestUnion(
+                """
+                // @TagUnion
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(int x);
+                    public static partial MyUnion B(double x);
+                }
+                """,
+                newText => newText.Contains("MyUnion")
+                    && newText.Contains("A = 1")
+                    && newText.Contains("B = 2")
+                    && !newText.Contains("TryGet")
                 );
         }
 

@@ -33,6 +33,7 @@ namespace UnionTests
                             accessorName: "FailureValue")
                     },
                     UnionOptions.Default
+                        .WithUseToolkit(true)
                         .WithGenerateMatch(true)
                         .WithGenerateEquality(true)
                         .WithGenerateToString(true)
@@ -61,13 +62,14 @@ namespace UnionTests
                             accessorName: "Value"),
                         new UnionCase(
                             name: "None",
-                            type: null,
+                            type: new UnionValueType("UnionTypes.Toolkit.None", TypeKind.Class, "Singleton"),
                             tagValue: 0,
                             factoryName:"None",
                             factoryParameters: null,
                             hasAccessor: false)
                     },
                     UnionOptions.Default
+                        .WithUseToolkit(true)
                         .WithGenerateMatch(true)
                         .WithGenerateEquality(true)
                         .WithGenerateToString(true)
