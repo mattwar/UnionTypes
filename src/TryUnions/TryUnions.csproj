@@ -2,21 +2,22 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="UnionSourceGenerator" Version="1.0.31">
+    <PackageReference Include="System.Collections.Immutable" Version="9.0.1" />
+    <PackageReference Include="UnionTypes.Toolkit.Generator" Version="0.1.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="UnionTypes">
-      <HintPath>..\UnionTypes\bin\Debug\netstandard2.1\UnionTypes.dll</HintPath>
+    <Reference Include="UnionTypes.Toolkit">
+      <HintPath>..\UnionTypes\bin\Debug\net8.0\UnionTypes.Toolkit.dll</HintPath>
     </Reference>
   </ItemGroup>
 

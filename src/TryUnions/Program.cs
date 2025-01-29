@@ -1,21 +1,12 @@
-﻿global using IntOrString = UnionTypes.OneOf<int, string>;
-using UnionTypes;
+﻿MyUnion x = 3;
 
-Variant a = 100;
-Variant b = 10.0;
+if (x.Kind == MyUnion.Case.A)
+{
+    Console.WriteLine($"A: {x.AValue}");
+}
+else if (x.Kind == MyUnion.Case.B)
+{
+    Console.WriteLine($"B: {x.BValue}");
+}
 
-Console.WriteLine(a == b);
 Console.ReadLine();
-
-
-[Union]
-[UnionTags("A", "B", "C")]
-public partial struct TagUnion
-{
-}
-
-[Union]
-[UnionTypes(typeof(string), typeof(int), typeof(double), typeof(float), typeof(long), typeof(object))]
-public partial struct Variant
-{
-}
