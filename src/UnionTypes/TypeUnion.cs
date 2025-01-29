@@ -9,47 +9,12 @@ using System.Threading;
 namespace UnionTypes.Toolkit
 {
     /// <summary>
-    /// A type union holds a single value of one or more different types
-    /// that need not be from the same inheritance hierarchy.
+    /// Helper functions for interacting with types that implement <see cref="ITypeUnion{TSelf}"/>.
     /// </summary>
-    public interface ITypeUnion
+    public static partial class TypeUnion
     {
         /// <summary>
-        /// The current type of the value held by the union.
-        /// </summary>
-        Type Type { get; }
-
-        /// <summary>
-        /// Gets the union's value as the specified type.
-        /// Returns true if the value is successfully retrieved.
-        /// </summary>
-        bool TryGet<T>([NotNullWhen(true)] out T value);
-    }
-
-    public interface ITypeUnion<TSelf> : ITypeUnion
-    {
-        /// <summary>
-        /// Creates the union from the specified value, if possible.
-        /// Returns true if the union is successfully created from the value.
-        /// </summary>
-        abstract static bool TryCreate<TValue>(TValue value, [NotNullWhen(true)] out TSelf union);
-    }
-
-    public interface IClosedTypeUnion<TSelf> : ITypeUnion<TSelf>
-    {
-        /// <summary>
-        /// The closed set of possible types the union's value may take.
-        /// </summary>
-        static abstract IReadOnlyList<Type> Types { get; }
-    }
-
-    /// <summary>
-    /// A helper class for for constructing types that implement <see cref="ITypeUnion{TSelf}"/>.
-    /// </summary>
-    public static class TypeUnion
-    {
-        /// <summary>
-        /// Returns true if an instance of the specfieid type can be successfully created from the value of type <see cref="T:TValue"/>.
+        /// Returns true if an instance of the specfieid type can be successfully created from the value of type <typeparamref name="TValue"/>.
         /// </summary>
         public static bool CanCreate<TValue>(TValue value, Type unionType)
         {
@@ -57,7 +22,7 @@ namespace UnionTypes.Toolkit
         }
 
         /// <summary>
-        /// Returns true if type <see cref="T:TUnion"/> can be successfully created from the value of type <see cref="T:TValue"/>.
+        /// Returns true if type <typeparamref name="TUnion"/> can be successfully created from the value of type <typeparamref name="TValue"/>.
         /// </summary>
         public static bool TryCreate<TValue, TUnion>(TValue value, [NotNullWhen(true)] out TUnion union)
         {
@@ -75,8 +40,8 @@ namespace UnionTypes.Toolkit
         }
 
         /// <summary>
-        /// Gets the value as the specified type from the union by calling its TryGet method,
-        /// or by trying to using <see cref="TryCreateFromUnion"/> if the value itself is a union.
+        /// Gets the value of the union as the type <typeparamref name="TValue"/> if possible
+        /// or by creating the value from the union's value if the <typeparamref name="TValue"/> is a type union.
         /// </summary>
         public static bool TryGet<TUnion, TValue>(TUnion union, [NotNullWhen(true)] out TValue value)
         {
@@ -90,7 +55,7 @@ namespace UnionTypes.Toolkit
         }
 
         /// <summary>
-        /// Creates the target union from the source union.
+        /// Creates the target union <typeparamref name="TTargetUnion"/> from the source <typeparamref name="TSourceUnion"/>.
         /// </summary>
         public static bool TryCreateFromUnion<TSourceUnion, TTargetUnion>(TSourceUnion source, [NotNullWhen(true)] out TTargetUnion target)
         {
@@ -98,6 +63,9 @@ namespace UnionTypes.Toolkit
             return sourceHelper.TryCreateFrom(source, out target);
         }
 
+        /// <summary>
+        /// Gets the known case types from the union type <typeparamref name="TUnion"/>.
+        /// </summary>
         public static IReadOnlyList<Type> GetCaseTypes<TUnion>()
         {
             return GetHelper<TUnion>().GetCaseTypes();
@@ -308,65 +276,6 @@ namespace UnionTypes.Toolkit
             {
                 return TUnion.Types;
             }
-
-            //private static ImmutableDictionary<Type, int>? _indexMap;
-            //private static ImmutableDictionary<Type, int> GetIndexMap()
-            //{
-            //    if (_indexMap == null)
-            //    {
-            //        var types = TUnion.Types;
-            //        ImmutableDictionary<Type, int>.Builder builder = ImmutableDictionary.CreateBuilder<Type, int>();
-            //        for (int i = 0; i < types.Count; i++)
-            //        {
-            //            builder.Add(types[i], i);
-            //        }
-            //        Interlocked.CompareExchange(ref _indexMap, builder.ToImmutable(), null);
-            //    }
-
-            //    return _indexMap!;
-            //}
-
-            //private static void SetTypeIndex(Type type, int index)
-            //{
-            //    ImmutableInterlocked.Update(ref _indexMap, (map, value) => map!.SetItem(type, index), index);
-            //}
-
-            ///// <summary>
-            ///// Return the index into the TUnion.Types array for the value's corresponding type.
-            ///// </summary>
-            //public override int GetTypeIndex<TValue>(TValue value)
-            //{
-            //    // if value is a union, get its underlying value.
-            //    if (!(value is ITypeUnion u && u.TryGet<object>(out var underlyingValue)))
-            //    {
-            //        underlyingValue = (object?)value;
-            //    }
-
-            //    if (underlyingValue != null)
-            //    {
-            //        var valType = underlyingValue.GetType();
-
-            //        // fast path: look for know type index.
-            //        var map = GetIndexMap();
-            //        if (map.TryGetValue(valType, out var index))
-            //            return index;
-
-            //        // slow path: find first matching type index for value
-            //        var types = TUnion.Types;
-            //        for (int i = 0; i < types.Count; i++)
-            //        {
-            //            if (valType.IsAssignableTo(types[i])
-            //                || TypeUnion.CanCreate(underlyingValue, types[i]))
-            //            {
-            //                // set fast path for next time
-            //                SetTypeIndex(valType, i);
-            //                return i;
-            //            }
-            //        }
-            //    }
-
-            //    return -1;
-            //}
         }
 
         /// <summary>

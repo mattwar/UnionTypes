@@ -8,8 +8,7 @@
     <AssemblyName>UnionTypes.Toolkit</AssemblyName>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Version></Version>
-    <Authors>mattwar</Authors>
+    <Authors>Matt Warren (mattwar)</Authors>
     <Description>A collection of common union types and tools to build custom ones.</Description>
     <PackageProjectUrl>https://github.com/mattwar/UnionTypes.Toolkit</PackageProjectUrl>
     <PackageReadmeFile>ReadMe.Nuget.md</PackageReadmeFile>
