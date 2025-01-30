@@ -2,12 +2,23 @@
 
 A library of common union types for dotnet and a C# source generator for creating custom ones.
 
-This repo started as an exploration of union types for introduction into C# and the dotnet runtime 
+*disclaimer: This repo started as an exploration of union types for introduction into C# and the dotnet runtime 
 as part of the C# LDM (Language Design Meeting).
-It is now published (by me) for anyone to use.
+It is now published (by [me](https://github.com/mattwar)) for anyone to use, but probably mainly me.
+It is not a product of Microsoft, and is not an indicator of what will or will not become a product.*
 
-The term *Union Type* is being used here to mean a generalization of many kinds of unions, 
-sometimes refered to as discriminated unions, sum types, tagged unions, etc.
+---
+Table of Contents
+
+- [Overview](#Overview)
+- [Download the Toolkit and Generator](#Download-the-Toolkit-and-Generator)
+- [Using the Included Union Types](#Using-the-Included-Union-Types)
+- [Generating Custom Union Types](#Custom-Union-Types)
+
+## Overview
+
+The term *Union Type* is used here to refer generally to many kinds of unions, 
+sometimes called discriminated unions, sum types, tagged unions, etc.
 You may already be familiar with union types if you have used discriminated unions in F#, 
 union types in Typescript or even a union structure in C++.
 
@@ -15,11 +26,12 @@ In short, a union type is any type that can exist in one of many explicit states
 Each case may allow the type to hold onto different kinds of data.
 For example, a C# enum is a union type, since each enum value is a unique case of the enum type,
 but it is not a very interesting one because it does not carry any extra data with it.
-A class heirarchy is also a union type, since each derived class is a unique case of the base type,
+A class heirarchy is also a union type, since each derived class is a unique case of the base type
 and each can hold different kinds of data. If a class hierarchy is suitable for your needs, look no further.
 
-This toolkit deals with special kinds of union types that solve problems that are not satisfactorily solved by class hierarchies.
-It focuses on two categories of union types, but there may be others.
+This toolkit deals with special kinds of union types that solve problems that are not satisfactorily solved by class hierarchies alone.
+Primarily these are cases where you are concerned about allocations or footprint (size of data).
+It focuses on two categories of these union types, but there may be others.
 
 - A *Type Union* is any type that can hold or represent a value of one of a set of unique types.
 For instance, if you wanted to have a variable assignable to only either a Cat, Dog or Bird, 
@@ -30,15 +42,18 @@ Just use the base type. However, if its not pratical to have a class hierachy of
 - A *Tag Union* is not limited to a set of unique types, but is instead constrained to a set of uniquely named cases (tags)
 like an enum is, but each case may also carry with it its own unique set of variables. 
 Tag unions (or traditional discriminated unions) originate from languages with a history of not having classes or inheritance.
-Typical usage patterns include constructing the union from cases and values and later matching on the case and deconstructing the values back into local variables.
+Typical usage patterns in those languages include constructing the union from cases and values and later matching on the case and deconstructing the values back into local variables.
 
 The types provided in the library are all presented as type unions to give you the option to interact with the case values outside of the union.
 They each implement the `ITypeUnion` interface that enables conditionally constructing them, accessing their values, and converting them 
 to other type unions. Tag unions share no commonality that would make this possible.
 
-- The `OneOf` type is a family of generic types that can hold a single value constrained to the set of types declared in its type arguments.
-You may already have access to a type like this from another source or by a different name. 
-This is a good choice for most use cases, but has the drawback of boxing value types, which could matter if your application is sensitive to GC pressure.
+The types are provided because they are the ones that the community typically ask for when discussing discriminated unions.
+
+- The `OneOf` type is a family of generic struct types that can hold a single value constrained to the set of types declared in its type arguments.
+You may already have access to a type like this from another source or by a different name.
+This is a good choice for most use cases, when the types you want to include are not already together in a hierarchy and are primarily already reference types,
+but has the drawback of boxing value types, which could matter if your application is sensitive to GC pressure.
 
 - The `Option` type is a type that is often built into languages to represent a value that may or may not be present,
 similar to how some might use a null to represent the absence of a value. 
@@ -46,17 +61,26 @@ The benefit of the Option type is that you won't accidentally deference the null
 Languages with an Option (or Maybe) type typically have monadic operations that ferry the absence of a value back through your code,
 automatically skipping that parts that would depend on the value without requiring your to constantly check.
 This is similar to how the null conditional operator works in C#, but at a grander scale.
+You won't be able to use it that way in C#, at least not today, but you can simulate a bit of it via some of the provided methods.
 
 - The `Result` type is a type that is often built into languages to represent the result of an operation that may fail.
 It represents a value that you return from a function that is either in the success state with its expected value or a failure state with an error.
 Typically, languages that have this type also have monadic operations that ferry the failure through your code
 without requiring you to explicitly unpack them to use the success value, similar to how you experience exceptions working in C#.
-C# does not have a feature like this, but you can simulate it a bit with some of the methods provided.
+C# does not have a feature like this, but you can simulate a bit of it with some of the methods provided.
 
 - The `Variant` type is type union that is not actually constrained.
 It can hold a value of any type, but will not box most primitives and small structs.
 It does this by partially being a type union with a fixed number of known cases, 
-and catch-all case that tries to be smart at runtime but may end up boxing.
+and catch-all case that tries to be smart at runtime but may still end up boxing.
+If is a good choice when you would have otherwise chosen to use `object`, 
+but want to avoid boxing in common scenarios.
+
+If none of none of these types seem suitable for your needs,
+or you'd rather have your own type with its own name that repeatedly type out all the case types
+every time you refer to a `OneOf` type, you can create a custom union type.
+To do this, you can either write the type from scratch following the same patterns
+or you can use the source generator to create them for you.
 
 
 ---
@@ -403,15 +427,15 @@ It does this by analyzing the types involved and generating a layout that avoids
 It cannot be as optimal as the layout of C++ unions, since the runtime does not allow overlapping the same memory with 
 reference and value types, but it does what it can to overlap and reuse fields.
 
-### Contents
 
-[Choosing Between Type Unions and Tag Unions](#Choosing-Between-Type-Unions-and-Tag-Unions)  
-[Declaring a Type Union](#Declaring-a-Type-Union)  
-[Declaring a Tag Union](#Declaring-a-Tag-Union)  
-[Customizing the Generation with Attributes](#Customizing-the-Generation-with-Attributes)  
-[Declaring a Case Factory as a Property](#Declaring-a-Case-Factory-as-a-Property)  
-[Declaring a Case without an Accessor](#Declaring-a-Case-without-an-Accessor)  
-[Assigning Specific Tag Values to Cases](#Assigning-Specific-Tag-Values-to-Cases)  
+- [Choosing Between Type Unions and Tag Unions](#Choosing-Between-Type-Unions-and-Tag-Unions)  
+- [Declaring a Type Union](#Declaring-a-Type-Union)  
+- [Declaring a Tag Union](#Declaring-a-Tag-Union)  
+- [Customizing the Generation with Attributes](#Customizing-the-Generation-with-Attributes)  
+- [Declaring a Case Factory as a Property](#Declaring-a-Case-Factory-as-a-Property)  
+- [Declaring a Case without an Accessor](#Declaring-a-Case-without-an-Accessor)  
+- [Assigning Specific Tag Values to Cases](#Assigning-Specific-Tag-Values-to-Cases)  
+- [Generate Union Types without the Toolkit](#Generating-Union-Types-without-the-Toolkit)
 
 ### Choosing Between Type Unions and Tag Unions
 
@@ -482,7 +506,7 @@ By default the type will have a property named `Kind` that returns an enum named
 The values for each case can be accessed via strongly typed properties called `[case]Value`.
 
 If you enable generation of match functions with `TypeUnion(GenerateMatch=true)` you can write the following instead,
-and skip refering to the kind and value properties, but potentially cause delegate allocations due to capture.
+and skip referring to the kind and value properties, but potentially cause delegate allocations due to capture.
 
 ```CSharp
     pet.Match(
@@ -605,8 +629,6 @@ If the factory is not declare you can also place the `Case` attributes on the un
         public static partial Pet Create(AcmeBird bird);
     }
 ```
-
-
 ### Declaring a Case Factory as a Property
 
 If a tag case has no case values you can omit declaring the factory property and instead place a `Case` attribute for it on the union declaration.
@@ -664,7 +686,6 @@ since the implicit coercion operator is still being generated.
 ```
 
 *For a type to be recognized as a singleton, it must have only private constructors, and declare only one member, a static readonly field that returns an instance of the value.*
-
 
 ### Declaring a Case without an Accessor.
 
@@ -725,5 +746,23 @@ since the tag value will otherwise be zero when it is not yet assigned one of th
 
 *By default, all tag values are assigned postive, non-zero values to avoid being associated with the default state.*
 
+### Generating Union Types without the Toolkit
 
+It is possible to use the generator and not use the toolkit.
+
+Since you wont have access to the `TypeUnion` and `TagUnion` attriutes,
+you can place the `@TypeUnion` or `@TagUnion` annotation inside a comment above the partial type declaration.
+This is enough to trigger the source generator, but you will only get a type generated with the defaults.
+
+```CSharp
+    // @TypeUnion
+    public struct Pet
+    {
+        public static partial MyUnion Create(Cat cat);
+        public static partial MyUnion Create(Dog dog);
+        public static partial MyUnion Create(Bird bird);
+    }
+```
+
+The ability to customize these may be added in the future.
 

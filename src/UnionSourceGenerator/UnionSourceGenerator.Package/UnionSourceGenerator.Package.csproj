@@ -10,10 +10,10 @@
   <PropertyGroup>
     <PackageId>UnionTypes.Toolkit.Generator</PackageId>
     <!-- <PackageVersion>0.1.1.0</PackageVersion> -->
-    <Authors>Matt Warren (mattwar)</Authors>
+    <Authors>Matt Warren</Authors>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <Description>A source generator for generating custom union types.</Description>
-    <PackageReleaseNotes>Summary of changes made in this release of the package.</PackageReleaseNotes>
+    <Description>A C# source generator for generating custom union types.</Description>
+    <PackageReleaseNotes></PackageReleaseNotes>
     <Copyright>Copyright</Copyright>
     <PackageTags>UnionTypes.Toolkit.Generator, analyzers</PackageTags>
     <DevelopmentDependency>true</DevelopmentDependency>
