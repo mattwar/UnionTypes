@@ -405,9 +405,13 @@ reference and value types, but it does what it can to overlap and reuse fields.
 
 ### Contents
 
-[Choosing Between Type Unions and Tag Unions](#Choosing-Between-Type-Unions-and-Tag-Unions)]
-[Declaring a Type Union](#Declaring-a-Type-Union)]
-[Declaring a Tag Union](#Declaring-a-Tag-Union)]]
+[Choosing Between Type Unions and Tag Unions](#Choosing-Between-Type-Unions-and-Tag-Unions)  
+[Declaring a Type Union](#Declaring-a-Type-Union)  
+[Declaring a Tag Union](#Declaring-a-Tag-Union)  
+[Customizing the Generation with Attributes](#Customizing-the-Generation-with-Attributes)  
+[Declaring a Case Factory as a Property](#Declaring-a-Case-Factory-as-a-Property)  
+[Declaring a Case without an Accessor](#Declaring-a-Case-without-an-Accessor)  
+[Assigning Specific Tag Values to Cases](#Assigning-Specific-Tag-Values-to-Cases)  
 
 ### Choosing Between Type Unions and Tag Unions
 
@@ -543,7 +547,7 @@ In addition, some of the generated accessor properties have different names than
 
 You can also generate `Match` functions for tag unions using the `GenerateMatch=true` property in the `TagUnion` attribute.
 
-### Customizing the Generation with Attribute
+### Customizing the Generation with Attributes
 
 You can customize the generated union by setting properties in the `TypeUnion` or `TagUnion` attribute.
 
