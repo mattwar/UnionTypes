@@ -23,9 +23,14 @@
     <PackageProjectUrl>https://github.com/mattwar/UnionTypes.Toolkit</PackageProjectUrl>
     <RepositoryUrl>https://github.com/mattwar/UnionTypes.Toolkit</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Include="..\..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
