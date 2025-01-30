@@ -1364,11 +1364,12 @@ namespace UnionTests
         [TestMethod]
         public void TestTagUnion_GenerateEquality()
         {
+            // default is enabled
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                [TagUnion(GenerateEquality=true)]
+                [TagUnion]
                 public partial struct MyUnion
                 {
                     public static partial MyUnion A(int x);
@@ -1377,37 +1378,66 @@ namespace UnionTests
                 """,
                 newText => newText.Contains("bool Equals(")
                 );
+
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion(GenerateEquality=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(int x);
+                    public static partial MyUnion B(string y);
+                }
+                """,
+                newText => !newText.Contains("bool Equals(")
+                );
+
         }
 
         [TestMethod]
         public void TestTypeUnion_GenerateEquality()
         {
+            // default is enabled
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                [TypeUnion(GenerateEquality=true)]
+                [TypeUnion]
                 public partial struct MyUnion
                 {
-                    [Case]
-                    public record struct A(int x);
-
-                    [Case]
-                    public record struct B(string y);
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
                 }
                 """,
                 newText => newText.Contains("bool Equals(")
                 );
+
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TypeUnion(GenerateEquality=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
+                }
+                """,
+                newText => !newText.Contains("bool Equals(")
+                );
+
         }
 
         [TestMethod]
         public void TestTagUnion_GenerateToString()
         {
+            // default is enabled
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                [TagUnion(GenerateToString=true)]
+                [TagUnion]
                 public partial struct MyUnion
                 {
                     public static partial MyUnion A(int x);
@@ -1416,16 +1446,32 @@ namespace UnionTests
                 """,
                 newText => newText.Contains("override string ToString(")
                 );
+
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion(GenerateToString=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(int x);
+                    public static partial MyUnion B(string y);
+                }
+                """,
+                newText => !newText.Contains("override string ToString(")
+                );
+
         }
 
         [TestMethod]
         public void TestTypeUnion_GenerateToString()
         {
+            // default is enabled
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                [TypeUnion(GenerateToString=true)]
+                [TypeUnion]
                 public partial struct MyUnion
                 {
                     public static partial MyUnion Create(int value);
@@ -1434,16 +1480,31 @@ namespace UnionTests
                 """,
                 newText => newText.Contains("override string ToString(")
                 );
+
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TypeUnion(GenerateToString=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int value);
+                    public static partial MyUnion Create(string value);
+                }
+                """,
+                newText => !newText.Contains("override string ToString(")
+                );
         }
 
         [TestMethod]
         public void TestTagUnion_GenerateMatch()
         {
+            // default is enabled
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                [TagUnion(GenerateMatch=true)]
+                [TagUnion]
                 public partial struct MyUnion
                 {
                     public static partial MyUnion A(int x);
@@ -1453,16 +1514,33 @@ namespace UnionTests
                 newText => newText.Contains("void Match(")
                     && newText.Contains("TResult Select<TResult>(")
                 );
+
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion(GenerateMatch=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(int x);
+                    public static partial MyUnion B(string y, float z);
+                }
+                """,
+                newText => !newText.Contains("void Match(")
+                    && !newText.Contains("TResult Select<TResult>(")
+                );
+
         }
 
         [TestMethod]
         public void TestTypeUnion_GenerateMatch()
         {
+            // default is enabled
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
-                [TypeUnion(GenerateMatch=true)]
+                [TypeUnion]
                 public partial struct MyUnion
                 {
                     public static partial MyUnion Create(int value);
@@ -1471,6 +1549,21 @@ namespace UnionTests
                 """,
                 newText => newText.Contains("void Match(")
                     && newText.Contains("TResult Select<TResult>(")
+                );
+
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TypeUnion(GenerateMatch=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int value);
+                    public static partial MyUnion Create(string value);
+                }
+                """,
+                newText => !newText.Contains("void Match(")
+                    && !newText.Contains("TResult Select<TResult>(")
                 );
         }
 

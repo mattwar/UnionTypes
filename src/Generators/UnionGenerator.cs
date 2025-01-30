@@ -269,9 +269,9 @@ namespace UnionTypes.Generators
                 overlapForeignStructs: false,
                 decomposeStructs: true,
                 decomposeForeignStructs: true,
-                generateEquality: false,
-                generateToString: false,
-                generateMatch: false,
+                generateEquality: true,
+                generateToString: true,
+                generateMatch: true,
                 useToolkit: true,
                 tagTypeName: "Case",
                 tagPropertyName: "Kind"
@@ -1555,32 +1555,6 @@ namespace UnionTypes.Generators
                     WriteLine("union = default!;");
                     WriteLine("return false;");
                 }
-
-                //if (union.Options.GenerateInterface)
-                //{
-                //    WriteLine();
-                //    WriteLine($"if (value is ITypeUnion u && u.TryGet<object>(out var uvalue))");
-                //    WriteBraceNested(() =>
-                //    {
-                //        WriteLine("return TryCreate(uvalue, out union);");
-                //    });
-
-                //    WriteLine();
-                //    WriteLine($"var index = TypeUnion.GetTypeIndex<{union.TypeName}, TCreate>(value);");
-                //    WriteLine("switch (index)");
-                //    WriteBraceNested(() =>
-                //    {
-                //        // this should be the same order that the case types are listed in the Types property.
-                //        for (int i = 0; i < union.Cases.Count; i++)
-                //        {
-                //            var unionCase = union.Cases[i];
-                //            if (unionCase.Type != null)
-                //            {
-                //                WriteLine($"case {i} when TypeUnion.TryCreate<TCreate, {unionCase.Type.Name}>(value, out var v{unionCase.Name}): union = {GetFactoryCallExpression(union, unionCase, $"v{unionCase.Name}")}; return true;");
-                //            }
-                //        }
-                //    });
-                //}
             });
         }
 

@@ -18,6 +18,7 @@ namespace UnionTypes.Generators
         public static readonly string CaseAttributeName = "CaseAttribute";
         public static readonly string TagUnionAnnotation = "@TagUnion";
         public static readonly string TypeUnionAnnotation = "@TypeUnion";
+        public static readonly string ToolkitNamespace = UnionGenerator.ToolkitNamespace;
 
         public void Initialize(GeneratorInitializationContext context)
         {
@@ -282,11 +283,6 @@ namespace UnionTypes.Generators
             }
 
             return Array.Empty<UsingDirectiveSyntax>();
-        }
-
-        private bool RefersToToolkit(UsingDirectiveSyntax usingDirective)
-        {
-            return usingDirective.ToString().Contains("UnionTypes.Toolkit");
         }
 
         private UnionOptions GetOptionsFromUnionAttribute(AttributeData? unionAttribute)

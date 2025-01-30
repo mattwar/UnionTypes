@@ -499,7 +499,7 @@ Switch on the case and access the value via strongly typed properties.
 By default the type will have a property named `Kind` that returns an enum named `Case` with names for each case taken from the case type itself.
 The values for each case can be accessed via strongly typed properties called `[case]Value`.
 
-If you enable generation of match functions with `TypeUnion(GenerateMatch=true)` you can write the following instead,
+Alternatively, you can use the `Match` and `Select` methods instead of a switch statement
 and skip referring to the kind and value properties, but potentially cause delegate allocations due to capture.
 
 ```CSharp
@@ -510,8 +510,7 @@ and skip referring to the kind and value properties, but potentially cause deleg
     );
 ```
 
-If you enable generation of equality functions, the type union will implement `IEquatable<T>`, 
-and you will be able to compare two instances with each other.
+You can also compare two different instances of the same type union for equality without needing to access the values.
 
 ```CSharp
     Pet pet1 = new Cat("Mr Fluffy");
@@ -562,8 +561,7 @@ In addition, some of the generated accessor properties have different names than
 
 *It is possible to customize all the factory and property names.*
 
-
-You can also generate `Match` functions for tag unions using the `GenerateMatch=true` property in the `TagUnion` attribute.
+A tag union also has `Match` and `Select` methods, just like the type union.
 
 ### Customizing the Generation with Attributes
 
@@ -571,17 +569,17 @@ You can customize the generated union by setting properties in the `TypeUnion` o
 
 | Property   | Type | Description   | Default |
 |:-----------|:-----|:--------------|---------|
-| GenerateMatch | bool | Enables generation of `Select` and `Match` methods | false |
-| GenerateEquality | bool | Enables generation of `IEquatable<T>` implementation | false |
-| GenerateToString | bool | Enables generation of `ToString` override | false |
-| TagTypeName | string | The name of the enum type generated for the case values | Case |
-| TagPropertyName | string | The name of the property generated to access the case | Kind |
-| ShareSameTypeFields | bool | Enables reuse of fields with the same type across cases | true |
-| ShareReferenceFields | bool | Enables reuse of reference type fields regardless of type across cases | true |
-| Overlap Structs | bool | Enables overlapping of struct values that are overlappable | true |
-| OverlapForeignStructs | bool | Enables overlapping of structs defined outside the compilation unit. | false |
-| DecomposeStructs | bool | Enables deconstruction of tuple and record structs | true |
-| DecomposeForeignStructs | bool | Enables deconstruction of structs defined outside the compilation unit | true |
+| DecomposeStructs | bool | Enables deconstruction of tuple and record structs to improve field resuse across cases. | true |
+| DecomposeForeignStructs | bool | Enables deconstruction of tuple and record structs defined outside the compilation unit. Metadata for foreign types may be incomplete. Disable this to allow correct storing of custom record structs that have additional data fields not accessible via deconstruction.| true |
+| GenerateEquality | bool | Enables generation of `IEquatable<T>` implementation. | true |
+| GenerateMatch | bool | Enables generation of `Select` and `Match` methods. | true |
+| GenerateToString | bool | Enables generation of `ToString` override. | true |
+| Overlap Structs | bool | Enables overlapping of values that can share the same memory across cases. This incluse primitive structs and structs containing only other overlappable fields. | true |
+| OverlapForeignStructs | bool | Enables overlapping of structs defined outside the compilation unit. This is disabled by default because the metadata for foreign structs may be incomplete. Enable this only if you trust the types involved to truly be overlappable. | false |
+| ShareSameTypeFields | bool | Enables reuse of fields with the same type across cases. | true |
+| ShareReferenceFields | bool | Enables reuse of reference type fields regardless of type across cases. | true |
+| TagTypeName | string | The name of the enum type generated for the case values. | Case |
+| TagPropertyName | string | The name of the property generated to access the case. | Kind |
 
 ```CSharp 
     [TypeUnion(GenerateMatch=true, GenerateEquality=true)]

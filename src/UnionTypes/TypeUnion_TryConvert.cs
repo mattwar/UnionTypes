@@ -544,34 +544,6 @@ namespace UnionTypes.Toolkit
             public override uint ConvertFromLong(long source) => (uint)source;
         }
 
-        private class DateTimeConverter : Int64SubConverter<DateTime>
-        {
-            public static readonly DateTimeConverter Instance = new DateTimeConverter();
-            public override long ConvertToLong(DateTime source) => source.Ticks;
-            public override DateTime ConvertFromLong(long source) => new DateTime(source);
-        }
-
-        private class DateOnlyConverter : Int64SubConverter<DateOnly>
-        {
-            public static readonly DateOnlyConverter Instance = new DateOnlyConverter();
-            public override long ConvertToLong(DateOnly source) => source.ToDateTime(default).Ticks;
-            public override DateOnly ConvertFromLong(long source) => DateOnly.FromDateTime(new DateTime(source));
-        }
-
-        private class TimeSpanConverter : Int64SubConverter<TimeSpan>
-        {
-            public static readonly TimeSpanConverter Instance = new TimeSpanConverter();
-            public override long ConvertToLong(TimeSpan source) => source.Ticks;
-            public override TimeSpan ConvertFromLong(long source) => new TimeSpan(source);
-        }
-
-        private class TimeOnlyConverter : Int64SubConverter<TimeOnly>
-        {
-            public static readonly TimeOnlyConverter Instance = new TimeOnlyConverter();
-            public override long ConvertToLong(TimeOnly source) => source.ToTimeSpan().Ticks;
-            public override TimeOnly ConvertFromLong(long source) => TimeOnly.FromTimeSpan(new TimeSpan(source));
-        }
-
         private class UInt64Converter : Converter<ulong>
         {
             public static readonly UInt64Converter Instance = new UInt64Converter();
@@ -845,6 +817,213 @@ namespace UnionTypes.Toolkit
                 return false;
             }
         }
+
+        private class DateTimeConverter : Converter<DateTime>
+        {
+            public static readonly DateTimeConverter Instance = new DateTimeConverter();
+
+            public override bool TryConvertTo<TTarget>(DateTime source, [NotNullWhen(true)] out TTarget target)
+            {
+                if (source is TTarget tval)
+                {
+                    target = tval;
+                    return true;
+                }
+                else if (typeof(TTarget) == typeof(string))
+                {
+                    target = (TTarget)(object)source.ToString();
+                    return true;
+                }
+                else
+                {
+                    return TypeUnion.TryConvert(source.Ticks, out target);
+                }
+            }
+
+            public override bool TryConvertFrom<TSource>(TSource source, [NotNullWhen(true)] out DateTime target)
+            {
+                switch (source)
+                {
+                    case DateTime dateTime:
+                        target = dateTime;
+                        return true;
+                    case DateOnly dateOnly:
+                        target = dateOnly.ToDateTime(default);
+                        return true;
+                    case TimeSpan timeSpan:
+                        target = new DateTime(timeSpan.Ticks);
+                        return true;
+                    case TimeOnly timeOnly:
+                        target = new DateTime(timeOnly.ToTimeSpan().Ticks);
+                        return true;
+                    case string s when DateTime.TryParse(s, out target):
+                        return true;
+                    default:
+                        if (TypeUnion.TryConvert(source, out long lval))
+                        {
+                            target = new DateTime(lval);
+                            return true;
+                        }
+                        break;
+                }
+                target = default;
+                return true;
+            }
+        }
+
+        private class DateOnlyConverter : Converter<DateOnly>
+        {
+            public static readonly DateOnlyConverter Instance = new DateOnlyConverter();
+
+            public override bool TryConvertTo<TTarget>(DateOnly source, [NotNullWhen(true)] out TTarget target)
+            {
+                if (source is TTarget tval)
+                {
+                    target = tval;
+                    return true;
+                }
+                else if (typeof(TTarget) == typeof(string))
+                {
+                    target = (TTarget)(object)source.ToString();
+                    return true;
+                }
+                else
+                {
+                    return TypeUnion.TryConvert(source.ToDateTime(default).Ticks, out target);
+                }
+            }
+
+            public override bool TryConvertFrom<TSource>(TSource source, [NotNullWhen(true)] out DateOnly target)
+            {
+                switch (source)
+                {
+                    case DateOnly dateOnly:
+                        target = dateOnly;
+                        return true;
+                    case DateTime dateTime:
+                        target = DateOnly.FromDateTime(dateTime);
+                        return true;
+                    case string s when DateOnly.TryParse(s, out target):
+                        return true;
+                    default:
+                        if (TypeUnion.TryConvert(source, out long lval))
+                        {
+                            target = DateOnly.FromDateTime(new DateTime(lval));
+                            return true;
+                        }
+                        break;
+                }
+                target = default!;
+                return false;
+            }
+        }
+
+        private class TimeSpanConverter : Converter<TimeSpan>
+        {
+            public static readonly TimeSpanConverter Instance = new TimeSpanConverter();
+
+            public override bool TryConvertTo<TTarget>(TimeSpan source, [NotNullWhen(true)] out TTarget target)
+            {
+                if (source is TTarget tval)
+                {
+                    target = tval;
+                    return true;
+                }
+                else if (typeof(TTarget) == typeof(string))
+                {
+                    target = (TTarget)(object)source.ToString();
+                    return true;
+                }
+                else
+                {
+                    return TypeUnion.TryConvert(source.Ticks, out target);
+                }
+            }
+
+            public override bool TryConvertFrom<TSource>(TSource source, [NotNullWhen(true)] out TimeSpan target)
+            {
+                switch (source)
+                {
+                    case TimeSpan timeSpan:
+                        target = timeSpan;
+                        return true;
+                    case TimeOnly timeOnly:
+                        target = timeOnly.ToTimeSpan();
+                        return true;
+                    case DateTime dateTime:
+                        target = new TimeSpan(dateTime.Ticks);
+                        return true;
+                    case DateOnly dateOnly:
+                        target = new TimeSpan(dateOnly.ToDateTime(default).Ticks);
+                        return true;
+                    case string s when TimeSpan.TryParse(s, out target):
+                        return true;
+                    default:
+                        if (TypeUnion.TryConvert(source, out long lval))
+                        {
+                            target = new TimeSpan(lval);
+                            return true;
+                        }
+                        break;
+                }
+                target = default;
+                return true;
+            }
+        }
+
+        private class TimeOnlyConverter : Converter<TimeOnly>
+        {
+            public static readonly TimeOnlyConverter Instance = new TimeOnlyConverter();
+            
+            public override bool TryConvertTo<TTarget>(TimeOnly source, [NotNullWhen(true)] out TTarget target)
+            {
+                if (source is TTarget tval)
+                {
+                    target = tval;
+                    return true;
+                }
+                else if (typeof(TTarget) == typeof(string))
+                {
+                    target = (TTarget)(object)source.ToString();
+                    return true;
+                }
+                else
+                {
+                    return TypeUnion.TryConvert(source.ToTimeSpan().Ticks, out target);
+                }
+            }
+
+            public override bool TryConvertFrom<TSource>(TSource source, [NotNullWhen(true)] out TimeOnly target)
+            {
+                switch (source)
+                {
+                    case TimeOnly timeOnly:
+                        target = timeOnly;
+                        return true;
+                    case TimeSpan timeSpan:
+                        target = TimeOnly.FromTimeSpan(timeSpan);
+                        return true;
+                    case DateOnly dateOnly:
+                        target = default;
+                        return true;
+                    case DateTime dateTime:
+                        target = TimeOnly.FromTimeSpan(dateTime.TimeOfDay);
+                        return true;
+                    case string s when TimeOnly.TryParse(s, out target):
+                        return true;
+                    default:
+                        if (TypeUnion.TryConvert(source, out long lval))
+                        {
+                            target = TimeOnly.FromTimeSpan(new TimeSpan(lval));
+                            return true;
+                        }
+                        break;
+                }
+                target = default;
+                return true;
+            }
+        }
+
 
         private class StringConverter : Converter<string>
         {
