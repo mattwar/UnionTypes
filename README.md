@@ -1,45 +1,110 @@
 # UnionTypes.Toolkit
 
-A collection of common union types for C# and a source generator for creating custom union types.
+A library of common union types for dotnet and a C# source generator for creating custom ones.
 
-This repo started as an exploration of union types for introduction into C# and the dotnet runtime as part of the C# LDM (Language Design Meeting).
+This repo started as an exploration of union types for introduction into C# and the dotnet runtime 
+as part of the C# LDM (Language Design Meeting).
 It is now published (by me) for anyone to use.
+
+The term *Union Type* is being used here to mean a generalization of many kinds of unions, 
+sometimes refered to as discriminated unions, sum types, tagged unions, etc.
+You may already be familiar with union types if you have used discriminated unions in F#, 
+union types in Typescript or even a union structure in C++.
+
+In short, a union type is any type that can exist in one of many explicit states or cases.
+Each case may allow the type to hold onto different kinds of data.
+For example, a C# enum is a union type, since each enum value is a unique case of the enum type,
+but it is not a very interesting one because it does not carry any extra data with it.
+A class heirarchy is also a union type, since each derived class is a unique case of the base type,
+and each can hold different kinds of data. If a class hierarchy is suitable for your needs, look no further.
+
+This toolkit deals with special kinds of union types that solve problems that are not satisfactorily solved by class hierarchies.
+It focuses on two categories of union types, but there may be others.
+
+- A *Type Union* is any type that can hold or represent a value of one of a set of unique types.
+For instance, if you wanted to have a variable assignable to only either a Cat, Dog or Bird, 
+you could use a type union to constrain the value to only one of those types.
+If you already have a class hierarchy, for example Pet, of which all those types are derived from, then you don't need anything else. 
+Just use the base type. However, if its not pratical to have a class hierachy of just the types you want to include, then a type union is a good alternative.
+
+- A *Tag Union* is not limited to a set of unique types, but is instead constrained to a set of uniquely named cases (tags)
+like an enum is, but each case may also carry with it its own unique set of variables. 
+Tag unions (or traditional discriminated unions) originate from languages with a history of not having classes or inheritance.
+Typical usage patterns include constructing the union from cases and values and later matching on the case and deconstructing the values back into local variables.
+
+The types provided in the library are all presented as type unions to give you the option to interact with the case values outside of the union.
+They each implement the `ITypeUnion` interface that enables conditionally constructing them, accessing their values, and converting them 
+to other type unions. Tag unions share no commonality that would make this possible.
+
+- The `OneOf` type is a family of generic types that can hold a single value constrained to the set of types declared in its type arguments.
+You may already have access to a type like this from another source or by a different name. 
+This is a good choice for most use cases, but has the drawback of boxing value types, which could matter if your application is sensitive to GC pressure.
+
+- The `Option` type is a type that is often built into languages to represent a value that may or may not be present,
+similar to how some might use a null to represent the absence of a value. 
+The benefit of the Option type is that you won't accidentally deference the null, causing an exception.
+Languages with an Option (or Maybe) type typically have monadic operations that ferry the absence of a value back through your code,
+automatically skipping that parts that would depend on the value without requiring your to constantly check.
+This is similar to how the null conditional operator works in C#, but at a grander scale.
+
+- The `Result` type is a type that is often built into languages to represent the result of an operation that may fail.
+It represents a value that you return from a function that is either in the success state with its expected value or a failure state with an error.
+Typically, languages that have this type also have monadic operations that ferry the failure through your code
+without requiring you to explicitly unpack them to use the success value, similar to how you experience exceptions working in C#.
+C# does not have a feature like this, but you can simulate it a bit with some of the methods provided.
+
+- The `Variant` type is type union that is not actually constrained.
+It can hold a value of any type, but will not box most primitives and small structs.
+It does this by partially being a type union with a fixed number of known cases, 
+and catch-all case that tries to be smart at runtime but may end up boxing.
+
 
 ---
 Table of Contents
-- [Download the Toolkit](#TBD)
-- [Using the included union types](#Using-the-Included-Union-Types)
-- [Generating Custom Types](#Custom-Union-Types)
-- [What is in the Repo?](#What-is-in-the-Repo?)
-- [Debugging the Source Generators](#Debuggin-the-Source-Generators)
 
+- [Download the Toolkit and Generator](#Download-the-Toolkit-and-Generator)
+- [Using the Included Union Types](#Using-the-Included-Union-Types)
+- [Generating Custom Union Types](#Custom-Union-Types)
 
 ---
+
+## Download the Toolkit and Generator
+
+The toolkit is available as a nuget package on nuget.org.  
+[Download Toolkit Here](#TBD)
+
+A separate source generator for generating custom union types is also available as a nuget package.  
+[Download Generator Here](#TDB)
+
 
 ## Using the Included Union Types
 
-The `UnionTypes.dll` includes many predefined union types ready to use.
+The toolkit library includes many predefined union types ready to use.
 
-- [OneOf](#Using-OneOf-Types)
-- [Variant](#Using-Variant-Types)
-- Option
-- Result
+- [OneOf](#Using-the-OneOf-Types)
+- [Option](#Using-the-Option-Type)
+- [Result](#Using-the-Result-Type)
+- [Variant](#Using-the-Variant-Type)
+
+Additional helper classes and interfaces:
+
 - ITypeUnion
+- TypeUnion
 
 ---
-## Using OneOf Types
+## Using the OneOf Types
 
 The `OneOf` type is a series of overloaded generic types.
 Each `OneOf` type is a closed type union, only allowing values of types specified in the type arguments.
 Use them to declare type unions of any class, struct, interface or array types.
 
-*Not supported: refs, ref structs and pointers. That means no `Span<T>.`*
+- Not supported: refs, ref structs and pointers. That means no `Span<T>.`
 
-*When instances of value types (structs in C#) are placed in the union, they are stored by boxing the value, which may cause GC pressure.*
+- When instances of value types (structs in C#) are placed in the union, they are stored by boxing the value, which may cause GC pressure.
 
 ### Creating an Instance
 
-You can create an instance of a `OneOf` type by calling one of the `Create` factory method or via assignment and implicit coercion.
+You can create an instance of a `OneOf` type by calling one of the `Create` factory methods or via assignment.
 
 ```CSharp
     var number = OneOf<int, double>.Create(5);  //  using factory
@@ -88,6 +153,22 @@ Accessing an invalid value property will return default.
         };
 ```
 
+You can also use the `Select` and `Match` methods to check the case and access the value automatically.
+
+```CSharp
+    var isLessThan5 = number.Select(
+        i => i < 5,
+        d => d < 5.0
+    );
+```
+
+```CSharp
+    number.Match(
+        i => Console.WriteLine($"less than 5: {i < 5}"),
+        d => Console.WriteLine($"less than 5.0: {d < 5.0}")
+    );
+```
+
 Lastly, you can access arbitrarilly typed values via the `TryGet<T>` method.
 ```CSharp
     if (number.TryGet<int>(out var intValue)) { ... }
@@ -125,8 +206,9 @@ using the generic `Equals` method.
 OneOf<int, double> number = 5;
 OneOf<int, string> value = 5;
 if (number.Equals(value)) { ... }
+```
 
-### Compare equality between different unions
+#### Compare equality between different unions
 
 ``` CSharp
 OneOf<int, string> value1 = 5;
@@ -135,7 +217,112 @@ var areEqual = value1.Equals(value2);
 ```
 
 ---
-## Using Variant Types
+## Using the Option Type
+
+The `Option<T>` type is a type that can hold a value of type `T` or no value at all.
+
+You create an instance of `Option<T>` by calling the factory method `Some` or by just assigning a value to a variable with that type.
+
+```CSharp
+    var number = Option<int>.Some(5);  //  using factory
+    Option<int> number = 5;            //  using assignment.
+```
+
+You obtain a `Option<T>` instance without a value by calling the the `None` factory, 
+assigning a variable the `None.Singleton` instance or assigning a variable the default state.
+
+```CSharp
+    var noNumber = Option<int>.None();      // using factory
+    Option<int> noNumber = None.Singleton;  // using singleton
+    Option<int> noNumber = default;         // using default
+```
+
+You access the state of the option by checking the `Kind` property and the value using the `Value` property.
+```CSharp
+    switch (number.Kind)
+    {
+        case Option<int>.Case.Some:
+            Console.WriteLine($"Its a value: {number.Value}");
+            break;
+        case Option<int>.Case.None:
+            Console.WriteLine("Its nothing, really.");
+            break;
+    }
+```
+
+You can also use the `Match` and `Select` methods to handle each case.
+
+```CSharp
+    number.Match(
+        value => Console.WriteLine($"Its a value: {value}"),
+        () => Console.WriteLine("Its nothing, really.")
+    );
+```
+
+```CSharp
+    // convert non-values into values
+    var newValue = number.Select(value => value * 2, () => 0);
+```
+
+There is also a `Map` method that allows you to transform the value, only if it currently exists.
+```CSharp
+    var mapped = number.Map(value => value * 2);
+```
+
+---
+## Using the Result Type
+
+The `Result<TValue,TError>` is a union that either holds a success value of type `TValue` or a failure value of type `TError`.
+
+You can construct one using the factory methods `Success` and `Failure`, or by assigning a value or error to a variable of that type.
+
+```CSharp
+    var result = Result<int, Error>.Success(5);  //  using factory
+    Result<int, Error> result = 5;               //  using assignment.
+```
+```CSharp
+    var error = Result<int, string>.Failure(new Error("Whoops"));  //  using factory
+    Result<int, string> error = new Error("Whoops");               //  using assignment.
+```
+
+*Note: If both the value and the error type are the same, then assignment will be ambiguous and you wil need to use the factory methods.*
+
+Like with all the other unions, you can check the case via the `Kind` property and access the succesor or failure values
+using the `Value` and `Error` properties respectively.
+
+```CSharp
+    switch (result.Kind)
+    {
+        case Result<int, Error>.Case.Success:
+            Console.WriteLine($"Success: {result.Value}");
+            break;
+        case Result<int, Error>.Case.Failure:
+            Console.WriteLine($"Failure: {result.Error.Message}");
+            break;
+    }
+```
+
+Alternatively, you can use the `Match` and `Select` methods.
+
+```CSharp
+    result.Match(
+        value => Console.WriteLine($"Success: {value}"),
+        error => Console.WriteLine($"Failure: {error.Message}")
+    );
+```
+```CSharp
+    var mapped = result.Select(value => $"{value * 2}", error => -1);
+```
+
+In addition, there is a `Map` method that allow you to transform the success value 
+only when there is a success value and otherwise maintain the error state.
+
+```CSharp
+    var mapped = result.Map(value => $"{value * 2}");
+```
+
+---
+## Using the Variant Type
 
 The `Variant` type is a type union that is not closed to a fixed number of case types.
 Any value of any type can be assigned or converted into a `Variant`, even the value `null`.
@@ -209,59 +396,71 @@ You can determine if the current value is `null`, by checking the `IsNull` prope
 ---
 ## Custom Union Types
 
-Custom union types can be generated for you from a short `partial struct` definition with some attributes.
+Custom union types can be generated for you using a C# source generator, given a partial type declartion.
 
-You can either generate a *type union* or a *tag union*.
+The source generator generates unions with an efficient storage layout.
+It does this by analyzing the types involved and generating a layout that avoids boxing, and maximizes reuse of the storage space.
+It cannot be as optimal as the layout of C++ unions, since the runtime does not allow overlapping the same memory with 
+reference and value types, but it does what it can to overlap and reuse fields.
 
-- Type unions are types that can hold a single instance of one of a set of unique types.
-For instance, if you wanted to have a variable assignable to only either a Cat, Dog or Bird, you could use a type union to constrain the value to only one of those types.
+### Contents
 
-- Tag unions (aka tagged unions, discriminated unions, sum types, et al) are subtly different. 
-They are not limited to a set of unique types, but instead are limited to a set of uniquely named states (tags) like an enum,
-but each may be carry with it its own unique set of variables.
-If you are like me then you will have noticed that a uniquely named set of variables sounds like a type, like a class or struct in C#.
-But for reasons we pretend that these cases are not types.
+[Choosing Between Type Unions and Tag Unions](#Choosing-Between-Type-Unions-and-Tag-Unions)]
+[Declaring a Type Union](#Declaring-a-Type-Union)]
+[Declaring a Tag Union](#Declaring-a-Tag-Union)]]
 
-The benefit of a type union is that your union type holds onto values that are freely usuable and conveyable outside the union without losing the knowledge of what they represent.
-You can freely start with a custom type union containing a Cat, pull it out and pass it to a function that expects a Cat or put it into a different type union that allows a Cat.
-> Use a type union when the case types are meaningful in your application outside the definition of the union.
+### Choosing Between Type Unions and Tag Unions
 
-The benefit of a tag union is that you can skip the part about defining the individual case types,
-but at the cost of losing the ability to pass around the values outside the union without losing their tag.
-> Use a tag union when use of the cases as types outside the union is not meaningful.
+Both generated type unions and tag unions are very similar.
+Given the same cases and the same fundemental data, the two types will end up structurally identical internally.
+The difference lies in the methods and operators and interfaces provided.
 
-Both type and tag unions share the same generator because they end up being fundementally the same thing under the hood.
-The generated type unions still have tags for efficiency sake, and generated tag unions still allow you to access the case values as one unit via tuples.
+Since a type union is constrained to a set of unique types, it can provide more features than a tag union.
+For a type union, the type is its own case. You can have two different type unions with different sets of types, include the same type,
+and it can easily make sense to have code that can automatically move the values between them on your behalf.
 
-### Why Generate Custom Type Unions?
+This is not possible with a tag union, since multiple cases may contain values of the same type.
+Having the value alone is not enough information to determine the case of a tag union.
+You can certainly extract the value (or values) and use them in a different union, 
+but it requires you to determine that it even makes sense to do so.
 
-Instead of generating a custom union, you could use one of the predefined `OneOf` types.
-The `OneOf` type is a general type union that can hold an instance of any one of the types specified in its type arguments.
-However, the downside of using `OneOf` is that its implementation options are limited. 
-Because the case types are generic, the union must contain either a unique field for each case type or force them all into a single field by boxing any structs.
-This can lead to inefficiencies either way.
-The implementation of `OneOf` provided uses a single field and forces boxing. 
-This may be satisfactory for most cases, but if allocation caused by boxing is a problem you may want to use a custom type union.
+- Use a type union when you want to constrain a variable to a set of types that are not already a class hierarchy,
+and those types are useful in your application beyond just being cases of the union.
+
+- Use a tag union when you when the cases and variables don't make sense in your application outside of the union. 
+  Or you prefer the simplicity of the union without the extra API.
+
 
 ### Declaring a Type Union
-You can declare a type union by declaring a partial struct with a `TypeUnion` attribute and `TypeCase` attributes for each case.
+
+You can declare a type union by declaring a partial struct with a `TypeUnion` attribute,
+and a partial factory method for each case type. 
+
+*Be careful to not declare the type nested inside another type, or as part of a top-level statements file.*
 
 ```CSharp
     [TypeUnion]
-    [TypeCase(Type=typeof(Cat)]
-    [TypeCase(Type=typeof(Dog)]
-    [TypeCase(Type=typeof(Bird)]
     public struct Pet
     {
+        public static partial Pet Create(Cat cat);
+        public static partial Pet Create(Dog dog);
+        public static partial Pet Create(Bird bird);      
     }
 ```
 
-As soon as its declared you can start using the type like this.
+As soon as its declared (and the source generator has successfully run) you can start using the type union.
 
+Assign a value directly to a variable.
 ```CSharp
-    Pet pet = Pet.Create(new Cat("Mr Fluffy")); // call factory method
-    Pet pet = new Cat("Mr Fluffy"); // or use direct assignment
-    ...
+    Pet pet = new Cat("Mr Fluffy");
+```
+Alternatively, use the factory method to create the union.
+```CSharp
+    Cat cat = new Cat("Mr Fluffy");
+    Pet pet = Pet.Create(cat);
+```
+Switch on the case and access the value via strongly typed properties.
+```CSharp
     switch (pet.Kind)
     {
         case Pet.Case.Cat: 
@@ -275,11 +474,10 @@ As soon as its declared you can start using the type like this.
             break;
     }
 ```
+By default the type will have a property named `Kind` that returns an enum named `Case` with names for each case taken from the case type itself.
+The values for each case can be accessed via strongly typed properties called `[case]Value`.
 
-You determine the case via the `Kind` property and can access the value for each case using its corresponding `Value` property.
-A factory exists for each type case, each called `Create` by default, but you can customize it via the attribute or declaring the factory manually.
-
-If you enable generation of `Match` functions via `TypeUnion(GenerateMatch=true)` you can write the following instead,
+If you enable generation of match functions with `TypeUnion(GenerateMatch=true)` you can write the following instead,
 and skip refering to the kind and value properties, but potentially cause delegate allocations due to capture.
 
 ```CSharp
@@ -289,42 +487,34 @@ and skip refering to the kind and value properties, but potentially cause delega
         bird => Console.WriteLine($"Bird's name is {bird.Name}")
     );
 ```
-There is both void returning and value returning versions of `Match`. 
-They are not generated by default.
 
+If you enable generation of equality functions, the type union will implement `IEquatable<T>`, 
+and you will be able to compare two instances with each other.
 
-### Declaring a Tag Union.
+```CSharp
+    Pet pet1 = new Cat("Mr Fluffy");
+    Pet pet2 = new Dog("Spot");
+    if (pet1 == pet2) { ... }
+```
 
-You declare a tag union by declaring a partial struct with a `TagUnion` attribute and `TagCase` attributes for each case
-placed on partial static methods serving as factory methods.
-By default the names of the methods become the names of the tags, and the parameters to the methods
-become the case values.
+### Declaring a Tag Union
+
+You declare a tag union by declaring a partial struct with a `TagUnion` attribute,
+and a partial factory method for each case.
 
 ```CSharp
     [TagUnion]
     public struct Pet
     {
-        [TagCase]
         public static partial Pet Cat(string name, int toys);
-
-        [TagCase]
         public static partial Pet Dog(string name, bool friendly);
-
-        [TagCase]
         public static partial Pet Bird(string name, string[] thingsItSays);
     }
 ```
 
-You use it similarly to how type unions are used. 
-However, you must always construct the tag union via the factory since you have no separate instance to assign
-and you must identify the tag when you create it.
-In addition, some of the generated accessor properties have different names than for type unions.
-
-- If the case has multiple values, the property is named [case]Values and a tuple of all the values are returned.
-- If the case has only one value, then the property is named [case]Value and just that one value is returned.
-- If the case has no values, an Is[case] method is generated instead and returns `bool`.
-
-*It is possible to customize all the factory and property names.*
+You use it similarly to how type unions are used, without some of the additional API like coercion operators,
+generic factories and accessors.
+.
 
 ```CSharp
     Pet pet = Pet.Cat("Mr Fluffy");
@@ -342,26 +532,89 @@ In addition, some of the generated accessor properties have different names than
             break;
     }
 ```
+In addition, some of the generated accessor properties have different names than for type unions.
+
+- If the case has multiple values, the property is named [case]Values and a tuple of all the values are returned.
+- If the case has only one value, then the property is named [case]Value and just that one value is returned.
+- If the case has no values, an Is[case] method is generated instead and returns `bool`.
+
+*It is possible to customize all the factory and property names.*
+
 
 You can also generate `Match` functions for tag unions using the `GenerateMatch=true` property in the `TagUnion` attribute.
 
-### Declaring a Tag Union Case Factory as a Property
+### Customizing the Generation with Attribute
 
-If a tag case has no case values, it's `TagCase` attribute can be placed directly on the union type.
+You can customize the generated union by setting properties in the `TypeUnion` or `TagUnion` attribute.
+
+| Property   | Type | Description   | Default |
+|:-----------|:-----|:--------------|---------|
+| GenerateMatch | bool | Enables generation of `Select` and `Match` methods | false |
+| GenerateEquality | bool | Enables generation of `IEquatable<T>` implementation | false |
+| GenerateToString | bool | Enables generation of `ToString` override | false |
+| TagTypeName | string | The name of the enum type generated for the case values | Case |
+| TagPropertyName | string | The name of the property generated to access the case | Kind |
+| ShareSameTypeFields | bool | Enables reuse of fields with the same type across cases | true |
+| ShareReferenceFields | bool | Enables reuse of reference type fields regardless of type across cases | true |
+| Overlap Structs | bool | Enables overlapping of struct values that are overlappable | true |
+| OverlapForeignStructs | bool | Enables overlapping of structs defined outside the compilation unit | true |
+| DecomposeStructs | bool | Enables deconstruction of tuple and record structs | true |
+| DecomposeForeignStructs | bool | Enables deconstruction of structs defined outside the compilation unit | true |
+
+```CSharp 
+    [TypeUnion(GenerateMatch=true, GenerateEquality=true)]
+    public struct Pet
+    {
+        public static partial Pet Create(Cat cat);
+        public static partial Pet Create(Dog dog);
+        public static partial Pet Create(Bird bird);
+    }
+```
+
+#### Customize Each Case
+
+In order to customize settings for individual you can specify a `Case` attribute on the factory method.
+If the factory is not declare you can also place the `Case` attributes on the union itself.
+
+| Property | Type | Description | Default |
+|:---------|:-----|:------------|:--------|
+| Name | string | The name of the case | Infered from factory or type name |
+| TagValue | int | The corresponding enum value for the case | Incrementally generated |
+| FactoryName | string | The name of the factory if not declared | 
+| FactoryIsProperty | bool | Generates the factory as a property instead of method | false |
+| FactoryIsInternal | bool | Generates the factory as internal instead of public | false |
+| AccessorName | string | The name of the accessor property | [Case]Value |
+| HasAccessor | bool | Generates an accessor property | true |
+| Type | Type | The type of the case | Infered from factory argument |
+
+```CSharp
+    [TypeUnion]
+    public struct Pet
+    {
+        [Case(Name="Cat", TagValue=1, AccessorName="CatThings")]
+        public static partial Pet Create(AbcCat cat);
+
+        [Case(Name="Dog", TagValue=2, AccessorName="DogThings")]
+        public static partial Pet Create(XyzDog dog);
+
+        [Case(Name="Bird", TagValue=3, AccessorName="BirdThings")]
+        public static partial Pet Create(AcmeBird bird);
+    }
+```
+
+
+### Declaring a Case Factory as a Property
+
+If a tag case has no case values you can omit declaring the factory property and instead place a `Case` attribute for it on the union declaration.
 When you do so, the factory is generated as a property instead of a method.
 
 ```CSharp
     [TagUnion]
-    [TagCase(Name="Unknown")]
+    [Case(Name="Unknown")]
     public struct Pet
     {
-        [TagCase]
         public static partial Pet Cat(string name, int toys);
-
-        [TagCase]
         public static partial Pet Dog(string name, bool friendly);
-
-        [TagCase]
         public static partial Pet Bird(string name, string[] thingsItSays);
     }
 ```
@@ -372,22 +625,14 @@ The new `Unknown` state is now defined as a property.
    Pet pet = Pet.Unknown;
 ```
 
-If you would prefer it be generated as a parameterless method instead, you case do so by setting `FactoryIsProperty=false`
-in the `TagCase` attribute.
+If you would prefer it be generated as a parameterless method instead, you case do so by setting `FactoryIsProperty=false`.
 
-
-### Declaring a Type Union case Factory as a Property
-
-If the type used in a type case is a singleton (a type that only ever has one instance), you can have the factory for that case be a property.
-
-If you are using a verion of C# that supports declaring partial properties, 
-you can put the `TypeCase` attribute on a partial property that you declare.
-
-Otherwise, you can place the `TypeCase` property directly on the union with `FactoryIsProperty=true` in the attribute.
+Likewise, if the type used in a type union case is a singleton (a type that only ever has one instance), 
+you can have the factory for that case be a property by placing a `Case` attribute on the type union declaration
+with `FactoryIsProperty=true`.
 
 Normally, if the type used in a type case is a singleton, its factory is still generated by default with a single parameter,
 but with `FactoryIsProperty=true`, it will be generated as a property.
-
 
 ```CSharp
     // Unknown is a singleton
@@ -398,10 +643,10 @@ but with `FactoryIsProperty=true`, it will be generated as a property.
     }
 
     [TypeUnion]
-    [TypeCase(Type=typeof(Unknown), FactoryIsProperty=true)]
-    [TypeCase(Type=typeof(Cat))]
-    [TypeCase(Type=typeof(Dog))]
-    [TypeCase(Type=typeof(Bird))]
+    [Case(Type=typeof(Unknown), FactoryIsProperty=true)]
+    [Case(Type=typeof(Cat))]
+    [Case(Type=typeof(Dog))]
+    [Case(Type=typeof(Bird))]
     public struct Pet
     {
     }
@@ -417,64 +662,26 @@ since the implicit coercion operator is still being generated.
 *For a type to be recognized as a singleton, it must have only private constructors, and declare only one member, a static readonly field that returns an instance of the value.*
 
 
-### Declaring a Union Case without an Accessor.
+### Declaring a Case without an Accessor.
 
-If a type case is a singleton type or a tag case has no values, you can omit the generation of the
-accessor property by setting `HasAccess=false` in the `TypeCase` or `TagCase` attribute.
+If a case of a type union is a singleton type or a case of a tag union has no values, you can omit the generation of the
+accessor property by setting `HasAccess=false` in the `Case` attribute.
 
 For example, normally a tag union will generate `Is` properties for cases without values.
 
 ```CSharp
     [TagUnion]
-    [TagCase(Type=typeof(Cat, HasAccessor=false)]
+    [Case(Type=typeof(Cat, HasAccessor=false)]
     public struct Pet
     {
-        [TagCase(HasAccessor=false)]
+        [Case(HasAccessor=false)]
         public static partial Pet Dog();
 
-        [TagCase]
-        public static partial Pet Bird(int numberOfThingsItSays);
+        public static partial Pet Bird(string name, int numberOfThingsItSays);
     }
 ```
 
 Now only the bird case as a value accessor, since its the only one with values.
-
-
-### Declaring a Type Union with Nested Types.
-
-If your partial type declaration includes nested types that you want to be cases of the union,
-you can alternatively put the `TypeCase` attribute on those types directly and avoid respecifying the type.
-
-```CSharp
-    [TypeUnion]
-    public struct Pet
-    {
-        [TypeCase]
-        public record struct Cat(string Name, int Toys);
-        [TypeCase]
-        public record struct Dog(string Name, bool Friendly);
-        [TypeCase]
-        public record struct Bird(string Name, string[] ThingsItSays);
-    }
-```
-
-### Declaring a Type Union with Factory Methods.
-
-You can also have declare the factory methods for the type union yourself
-if you want the methods to have different names than the default `Create`.
-
-```CSharp
-    [TypeUnion]
-    public struct Pet
-    {
-        [TypeCase]
-        public static partial Pet MakeCat(Cat cat);
-        [TypeCase]
-        public static partial Pet MakeDog(Dog dog);
-        [TypeCase]
-        public static partial Pet MakeBird(Bird bird);
-    }
-```
 
 ### Assigning Specific Tag Values to Cases.
 
@@ -489,16 +696,13 @@ but at least it keeps the code that does handle the old cases from breaking.
 
 ```CSharp
     [TagUnion]
-    [TagCase(Name="Cat", TagValue=1)]
-    [TagCase(Name="Dog", TagValue=2)]
-    [TagCase(Name="Bird", TagValue=3)]
     public struct Pet
     {
-        [TagCase]
+        [Case(TagValue=1)]
         public static partial Pet Cat(string name, int toys);
-        [TagCase]
+        [Case(TagValue=2)]
         public static partial Pet Dog(string name, bool friendly);
-        [TagCase]
+        [Case(TagValue=3)]
         public static partial Pet Bird(string name, string[] thingsItSays);
     }
 ```
@@ -517,47 +721,5 @@ since the tag value will otherwise be zero when it is not yet assigned one of th
 
 *By default, all tag values are assigned postive, non-zero values to avoid being associated with the default state.*
 
----
-## What is in the Repo?
-
-- *UnionTypes*  
-A project building `UnionTypes.Toolkit.dll` containing type definitions, interfaces and custom attributes needed for projects to use and declare union types.
-
-- *Generators*  
-A project defining the core generators for OneOf and custom union types.
-These generators can be used by T4 templates to pre-build union types.
-
-- *UnionSourceGenerator*  
-A project that builds the Roslyn source generator for building custom union types.
-
-- *UnionSourceGenerator.Package*  
-A project that builds the nuget package "UnionSourceGenerator_x.x.x.nupkg" that contains the source generator for custom union types.
-
-- *UnionTypesTests*  
-A project with tests for verifying the correctness of all predefined union types.
-
-- *UnionGeneratorTests*  
-A project with tests for verifying the correctness of the union generators as T4 template generators.
-
-- *UnionSourceGeneratorTests*  
-A project with tests for verifying the correctness of the union source generator as compiler plug-in.
-
-- *TryUnions*  
-A seperate project with its own solution `TryUnions.sln` for experimenting with unpublished changes.
 
 
-## Debugging the Source Generators
-
-For the most part, the source generators are debugged using the tests in the UnionTests project.
-
-If you need to experiment with using the generators, or changes to the generators not yet publish,
-you can configure the `TryUnions` project to use the local build of the source generator.
-
-- Open TryUnions.sln
-- Fix references to point to UnionTypes.dll built by UnionTypes.sln
-- Open Manage Nuget packages for TryUnions project.
-- Create a package source (in settings gear) to point to build directory of UnionSourceGenerator_x.x.x.nupkg package.
-- Switch to new package source in drop down
-- Install UnionSourceGenerator_x.x.x.nupkg.
-- Open program.cs in TryUnions.sln
-- Mess about with defining union types

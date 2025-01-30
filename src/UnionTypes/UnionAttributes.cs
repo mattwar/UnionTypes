@@ -79,7 +79,8 @@ namespace UnionTypes.Toolkit
         }
     }
 
-    public abstract class UnionCaseAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Struct, AllowMultiple = true)]
+    public class CaseAttribute : Attribute
     {
         /// <summary>
         /// The name of the case used in factory methods, accessors and tags.
@@ -120,26 +121,13 @@ namespace UnionTypes.Toolkit
         /// </summary>
         public bool HasAccessor { get; set; } = true;
 
-        public UnionCaseAttribute()
-        {
-        }
-    }
-
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Struct, AllowMultiple = true)]
-    public class TypeCaseAttribute : UnionCaseAttribute
-    {
         /// <summary>
         /// The type of the type union case when it cannot be infered.
         /// </summary>
         public Type? Type { get; set; } = null;
 
-        public TypeCaseAttribute()
+        public CaseAttribute()
         {
         }
-    }
-
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Struct, AllowMultiple = true)]
-    public class TagCaseAttribute : UnionCaseAttribute
-    {
     }
 }
