@@ -242,6 +242,7 @@ You create an instance of `Option<T>` by calling the factory method `Some` or by
 
 ```CSharp
     var number = Option<int>.Some(5);  //  using factory
+    var number = Option.Some(5);       //  using factory and inferring the value type.
     Option<int> number = 5;            //  using assignment.
 ```
 
@@ -578,7 +579,7 @@ You can customize the generated union by setting properties in the `TypeUnion` o
 | ShareSameTypeFields | bool | Enables reuse of fields with the same type across cases | true |
 | ShareReferenceFields | bool | Enables reuse of reference type fields regardless of type across cases | true |
 | Overlap Structs | bool | Enables overlapping of struct values that are overlappable | true |
-| OverlapForeignStructs | bool | Enables overlapping of structs defined outside the compilation unit | true |
+| OverlapForeignStructs | bool | Enables overlapping of structs defined outside the compilation unit. | false |
 | DecomposeStructs | bool | Enables deconstruction of tuple and record structs | true |
 | DecomposeForeignStructs | bool | Enables deconstruction of structs defined outside the compilation unit | true |
 

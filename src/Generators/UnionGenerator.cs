@@ -266,7 +266,7 @@ namespace UnionTypes.Generators
                 shareFields: true, 
                 shareReferenceFields: true, 
                 overlapStructs: true, 
-                overlapForeignStructs: true, 
+                overlapForeignStructs: false,
                 decomposeStructs: true,
                 decomposeForeignStructs: true,
                 generateEquality: false,
