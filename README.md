@@ -87,10 +87,10 @@ or you can use the source generator to create them for you.
 ## Download the Toolkit and Generator
 
 The toolkit is available as a nuget package on nuget.org.  
-[Download Toolkit Here](#TBD)
+[Download Toolkit Here](https://www.nuget.org/packages/UnionTypes.Toolkit)
 
 A separate source generator for generating custom union types is also available as a nuget package.  
-[Download Generator Here](#TDB)
+[Download Generator Here](https://www.nuget.org/packages/UnionTypes.Toolkit.Generator)
 
 ---
 
