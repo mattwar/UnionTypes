@@ -468,7 +468,7 @@ and a partial factory method for each case type.
 
 ```CSharp
     [TypeUnion]
-    public struct Pet
+    public partial struct Pet
     {
         public static partial Pet Create(Cat cat);
         public static partial Pet Create(Dog dog);
@@ -532,7 +532,7 @@ and a partial factory method for each case.
 
 ```CSharp
     [TagUnion]
-    public struct Pet
+    public partial struct Pet
     {
         public static partial Pet Cat(string name, int toys);
         public static partial Pet Dog(string name, bool friendly);
@@ -591,7 +591,7 @@ You can customize the generated union by setting properties in the `TypeUnion` o
 
 ```CSharp 
     [TypeUnion(GenerateMatch=true, GenerateEquality=true)]
-    public struct Pet
+    public partial struct Pet
     {
         public static partial Pet Create(Cat cat);
         public static partial Pet Create(Dog dog);
@@ -617,7 +617,7 @@ If the factory is not declare you can also place the `Case` attributes on the un
 
 ```CSharp
     [TypeUnion]
-    public struct Pet
+    public partial struct Pet
     {
         [Case(Name="Cat", TagValue=1, AccessorName="CatThings")]
         public static partial Pet Create(AbcCat cat);
@@ -637,7 +637,7 @@ When you do so, the factory is generated as a property instead of a method.
 ```CSharp
     [TagUnion]
     [Case(Name="Unknown")]
-    public struct Pet
+    public partial struct Pet
     {
         public static partial Pet Cat(string name, int toys);
         public static partial Pet Dog(string name, bool friendly);
@@ -673,7 +673,7 @@ but with `FactoryIsProperty=true`, it will be generated as a property.
     [Case(Type=typeof(Cat))]
     [Case(Type=typeof(Dog))]
     [Case(Type=typeof(Bird))]
-    public struct Pet
+    public partial struct Pet
     {
     }
 ```
@@ -697,7 +697,7 @@ For example, normally a tag union will generate `Is` properties for cases withou
 ```CSharp
     [TagUnion]
     [Case(Type=typeof(Cat, HasAccessor=false)]
-    public struct Pet
+    public partial struct Pet
     {
         [Case(HasAccessor=false)]
         public static partial Pet Dog();
@@ -721,7 +721,7 @@ but at least it keeps the code that does handle the old cases from breaking.
 
 ```CSharp
     [TagUnion]
-    public struct Pet
+    public partial struct Pet
     {
         [Case(TagValue=1)]
         public static partial Pet Cat(string name, int toys);
@@ -756,11 +756,11 @@ This is enough to trigger the source generator, but you will only get a type gen
 
 ```CSharp
     // @TypeUnion
-    public struct Pet
+    public partial struct Pet
     {
-        public static partial MyUnion Create(Cat cat);
-        public static partial MyUnion Create(Dog dog);
-        public static partial MyUnion Create(Bird bird);
+        public static partial Pet Create(Cat cat);
+        public static partial Pet Create(Dog dog);
+        public static partial Pet Create(Bird bird);
     }
 ```
 
