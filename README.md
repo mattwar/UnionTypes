@@ -59,7 +59,7 @@ but has the drawback of boxing value types, which could matter if your applicati
 similar to how some might use a null to represent the absence of a value. 
 The benefit of the Option type is that you won't accidentally deference the null, causing an exception.
 Languages with an Option (or Maybe) type typically have monadic operations that ferry the absence of a value back through your code,
-automatically skipping that parts that would depend on the value without requiring your to constantly check.
+automatically skipping that parts that would depend on the value without requiring you to constantly check.
 This is similar to how the null conditional operator works in C#, but at a grander scale.
 You won't be able to use it that way in C#, at least not today, but you can simulate a bit of it via some of the provided methods.
 
@@ -77,18 +77,10 @@ If is a good choice when you would have otherwise chosen to use `object`,
 but want to avoid boxing in common scenarios.
 
 If none of none of these types seem suitable for your needs,
-or you'd rather have your own type with its own name that repeatedly type out all the case types
-every time you refer to a `OneOf` type, you can create a custom union type.
+or you'd rather have your own type with its own name than repeatedly type out all the case types
+every time you refer to the union type, you can create a custom union type.
 To do this, you can either write the type from scratch following the same patterns
 or you can use the source generator to create them for you.
-
-
----
-Table of Contents
-
-- [Download the Toolkit and Generator](#Download-the-Toolkit-and-Generator)
-- [Using the Included Union Types](#Using-the-Included-Union-Types)
-- [Generating Custom Union Types](#Custom-Union-Types)
 
 ---
 
@@ -100,6 +92,7 @@ The toolkit is available as a nuget package on nuget.org.
 A separate source generator for generating custom union types is also available as a nuget package.  
 [Download Generator Here](#TDB)
 
+---
 
 ## Using the Included Union Types
 
