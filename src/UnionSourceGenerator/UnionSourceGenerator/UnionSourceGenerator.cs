@@ -4,14 +4,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Xml.Linq;
+using System.Threading;
 using CATypeKind = Microsoft.CodeAnalysis.TypeKind;
 
 namespace UnionTypes.Generators
 {
-    [Generator]
-    public class UnionSourceGenerator : ISourceGenerator
+    [Generator(LanguageNames.CSharp)]
+    public class UnionSourceGenerator: IIncrementalGenerator
     {
         public static readonly string TagUnionAttributeName = "TagUnionAttribute";
         public static readonly string TypeUnionAttributeName = "TypeUnionAttribute";
@@ -20,67 +19,151 @@ namespace UnionTypes.Generators
         public static readonly string TypeUnionAnnotation = "@TypeUnion";
         public static readonly string ToolkitNamespace = UnionGenerator.ToolkitNamespace;
 
-        public void Initialize(GeneratorInitializationContext context)
+        public static readonly string GetInfoStepName = "GetInfo";
+        public static readonly string GenerateStepName = "Generate";
+
+        public void Initialize(IncrementalGeneratorInitializationContext context)
         {
+            var provider =
+                context.SyntaxProvider.CreateSyntaxProvider(IsGenerationCandiate, GetGenerationInfo)
+                .WithTrackingName(GetInfoStepName)
+                .Select(Generate)
+                .WithTrackingName(GenerateStepName)
+                .Where(info => info != null);
+
+            context.RegisterSourceOutput(provider, GenerateOutput);
         }
 
-        public void Execute(GeneratorExecutionContext context)
+        public bool IsGenerationCandiate(SyntaxNode node, CancellationToken ct)
         {
-            // search entire compilation for all types that look like partial declared unions.
-            var unionTypes = GetUnionTypes(context.Compilation.GlobalNamespace);
+            return node is StructDeclarationSyntax decl
+                && HasUnionAttribute(decl);
+        }
 
-            // try to generate source code for each union type
-            foreach (var unionType in unionTypes)
+        private bool HasUnionAttribute(StructDeclarationSyntax decl)
+        {
+            var hasAttr = decl.AttributeLists.Any(al => al.Attributes.Any(IsUnionAttribute))
+                || ContainsInTrivia(decl, TagUnionAnnotation)
+                || ContainsInTrivia(decl, TypeUnionAnnotation);
+            return hasAttr;
+        }
+
+        private bool IsUnionAttribute(AttributeSyntax attr)
+        {
+            var attrName = attr.Name.ToString();
+            return attrName == TagUnionAttributeName
+                || attrName == TypeUnionAttributeName
+                || TagUnionAttributeName.StartsWith(attrName)
+                || TypeUnionAttributeName.StartsWith(attrName);
+        }
+
+        /// <summary>
+        /// Gets the info that drives the code generation for the union type.
+        /// </summary>
+        public GenerationInfo? GetGenerationInfo(GeneratorSyntaxContext context, CancellationToken ct)
+        {
+            var decl = (StructDeclarationSyntax)context.Node;
+            
+            var symbol = context.SemanticModel.GetDeclaredSymbol(decl, ct);
+            if (symbol != null
+                && TryGetGenerationInfo(symbol, out var union))
             {
-                if (TryGenerateUnionType(unionType, out var result))
+                return union;
+            }
+
+            return null!;
+        }
+
+        private GenerateResult? Generate(GenerationInfo? info, CancellationToken ct)
+        {
+            if (info != null)
+            {
+                if (info.Diagnostics.Count > 0)
                 {
-                    if (result.Diagnostics.Count > 0)
-                    {
-                        foreach (var dx in result.Diagnostics)
-                        {
-                            context.ReportDiagnostic(dx);
-                        }
-                    }
-                    else
-                    {
-                        context.AddSource($"{unionType.Name}_UnionImplementation.cs", result.Text);
-                    }
+                    return new GenerateResult("", "", info.Diagnostics);
+                }
+                else
+                {
+                    var generator = new UnionGenerator(info.Namespace, info.Usings);
+                    var text = generator.GenerateFile(info.Union);
+                    var name = (string.IsNullOrEmpty(info.Namespace) ? info.Union.Name : $"{info.Namespace}_{info.Union.Name}").Replace('.', '_');
+                    var fileName = $"{name}_UnionImplementation.cs";
+                    return new GenerateResult(text, fileName, info.Diagnostics);
                 }
             }
+
+            return null;
+        }
+
+        private void GenerateOutput(SourceProductionContext context, GenerateResult? resultx)
+        {
+            if (resultx is GenerateResult result)
+            {
+                if (result.Diagnostics.Count > 0)
+                {
+                    foreach (var dx in result.Diagnostics)
+                    {
+                        context.ReportDiagnostic(dx);
+                    }
+                }
+                else
+                {
+                    context.AddSource(result.FileName, result.Text);
+                }
+            }
+        }
+
+        public class GenerationInfo : IEquatable<GenerationInfo>
+        {
+            public string Namespace { get; }
+            public IReadOnlyList<string> Usings { get; }
+            public Union Union { get; }
+            public IReadOnlyList<Diagnostic> Diagnostics { get; }
+
+            public GenerationInfo(
+                string @namespace, 
+                IReadOnlyList<string> usings, 
+                Union union,
+                IReadOnlyList<Diagnostic> diagnostics
+                )
+            {
+                this.Namespace = @namespace;
+                this.Usings = usings;
+                this.Union = union;
+                this.Diagnostics = diagnostics;
+            }
+
+            public bool Equals(GenerationInfo generationInfo)
+            {
+                var isEqual = Namespace == generationInfo.Namespace
+                    && Usings.SequenceEqual(generationInfo.Usings)
+                    && Union.Equals(generationInfo.Union)
+                    && Diagnostics.SequenceEqual(generationInfo.Diagnostics);
+                return isEqual;
+            }
+
+            public override bool Equals(object obj) =>
+                obj is GenerationInfo info && Equals(info);
+
+            public override int GetHashCode() =>
+                this.Union.GetHashCode();
         }
 
         private class GenerateResult
         {
             public string Text { get; }
+            public string FileName { get; }
             public IReadOnlyList<Diagnostic> Diagnostics { get; }
 
-            public GenerateResult(string text, IReadOnlyList<Diagnostic> diagnostics)
+            public GenerateResult(
+                string text, 
+                string fileName,
+                IReadOnlyList<Diagnostic> diagnostics)
             {
                 Text = text;
+                FileName = fileName;
                 Diagnostics = diagnostics;
             }
-        }
-
-        private IReadOnlyList<INamedTypeSymbol> GetUnionTypes(INamespaceSymbol @namespace)
-        {
-            var unionTypes = new List<INamedTypeSymbol>();
-            GetTypesFromNamespace(@namespace);
-            return unionTypes;
-
-            void GetTypesFromNamespace(INamespaceSymbol ns)
-            {
-                unionTypes.AddRange(ns.GetTypeMembers().OfType<INamedTypeSymbol>().Where(IsUnionType));
-                foreach (var subns in ns.GetNamespaceMembers())
-                {
-                    GetTypesFromNamespace(subns);
-                }
-            }
-        }
-
-        private static bool IsUnionType(INamedTypeSymbol symbol)
-        {
-            return IsTypeUnion(symbol, out _)
-                || IsTagUnion(symbol, out _);
         }
 
         private static bool IsTypeUnion(INamedTypeSymbol symbol, out AttributeData? attribute)
@@ -124,7 +207,10 @@ namespace UnionTypes.Generators
             }
         }
 
-        private bool TryGenerateUnionType(INamedTypeSymbol unionType, out GenerateResult result)
+        /// <summary>
+        /// Gets the info that drives the code generation for the union type.
+        /// </summary>
+        private bool TryGetGenerationInfo(INamedTypeSymbol unionType, out GenerationInfo info)
         {
             var diagnostics = new List<Diagnostic>();
 
@@ -139,7 +225,6 @@ namespace UnionTypes.Generators
             var usesToolkit = usings.Any(u => u.Contains(UnionGenerator.ToolkitNamespace));
 
             var accessibility = GetAccessibility(unionType.DeclaredAccessibility);
-            string text;
 
             if (IsTypeUnion(unionType, out var typeUnionAttribute))
             {
@@ -168,13 +253,7 @@ namespace UnionTypes.Generators
                         options
                         );
 
-                    var generator = new UnionGenerator(
-                        namespaceName,
-                        usings
-                        );
-
-                    text = generator.GenerateFile(union);
-                    result = new GenerateResult(text, diagnostics);
+                    info = new GenerationInfo(namespaceName, usings, union, diagnostics);
                     return true;
                 }
             }
@@ -200,18 +279,12 @@ namespace UnionTypes.Generators
                         options
                         );
 
-                    var generator = new UnionGenerator(
-                        namespaceName,
-                        usings
-                        );
-
-                    text = generator.GenerateFile(union);
-                    result = new GenerateResult(text, diagnostics);
+                    info = new GenerationInfo(namespaceName, usings, union, diagnostics);
                     return true;
                 }
             }
 
-            result = default!;
+            info = default!;
             return false;
         }
 
@@ -371,7 +444,6 @@ namespace UnionTypes.Generators
 
             return options;
         }
-
 
         private class CaseData
         {

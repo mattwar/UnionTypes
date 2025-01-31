@@ -11,7 +11,7 @@ namespace UnionTypes.Generators
 
     #region public union descriptors
 
-    public class Union
+    public class Union : IEquatable<Union>
     {
         /// <summary>
         /// The kind of union; Type or Tag.
@@ -26,7 +26,7 @@ namespace UnionTypes.Generators
         /// <summary>
         /// The name of the union type (with type parameters)
         /// </summary>
-        public string Type { get; }
+        public string TypeName { get; }
 
         /// <summary>
         /// Accessibility of the union: public, internal, private
@@ -53,11 +53,27 @@ namespace UnionTypes.Generators
         {
             this.Kind = kind;
             this.Name = name;
-            this.Type = typeName;
+            this.TypeName = typeName;
             this.Accessibility = accessibility;
             this.Cases = cases;
             this.Options = options;
         }
+
+        public bool Equals(Union other)
+        {
+            return this.Kind == other.Kind
+                && this.Name == other.Name
+                && this.TypeName == other.TypeName
+                && this.Accessibility == other.Accessibility
+                && this.Options.Equals(other.Options)
+                && this.Cases.SequenceEqual(other.Cases);
+        }
+
+        public override bool Equals(object obj) =>
+            obj is Union other && Equals(other);
+
+        public override int GetHashCode() =>
+            this.Name.GetHashCode();
     }
 
     public enum UnionKind
@@ -76,7 +92,7 @@ namespace UnionTypes.Generators
     /// <summary>
     /// A set of options that control source generation for the union type.
     /// </summary>
-    public class UnionOptions
+    public class UnionOptions : IEquatable<UnionOptions>
     {
         /// <summary>
         /// Allow data fields of the same type are shared across all cases.
@@ -261,6 +277,41 @@ namespace UnionTypes.Generators
             return this;
         }
 
+        public bool Equals(UnionOptions other)
+        {
+            return this.ShareSameTypeFields == other.ShareSameTypeFields
+                && this.ShareSameTypeFields == other.ShareReferenceFields
+                && this.OverlapStructs == other.OverlapStructs
+                && this.OverlapForeignStructs == other.OverlapForeignStructs
+                && this.DecomposeStructs == other.DecomposeStructs
+                && this.DecomposeForeignStructs == other.DecomposeForeignStructs
+                && this.GenerateEquality == other.GenerateEquality
+                && this.GenerateMatch == other.GenerateMatch
+                && this.GenerateToString == other.GenerateToString
+                && this.UseToolkit == other.UseToolkit
+                && this.TagTypeName == other.TagTypeName
+                && this.TagPropertyName == other.TagPropertyName;
+        }
+
+        public override bool Equals(object obj) => 
+            obj is UnionOptions other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            return (this.ShareSameTypeFields ? 1 : 0)
+                + (this.ShareReferenceFields ? 1 : 0)
+                + (this.OverlapStructs ? 1 : 0)
+                + (this.OverlapForeignStructs ? 1 : 0)
+                + (this.DecomposeStructs ? 1: 0)
+                + (this.DecomposeForeignStructs ? 1 : 0)
+                + (this.GenerateEquality ? 1 : 0)
+                + (this.GenerateToString ? 1 : 0)
+                + (this.GenerateMatch ? 1 : 0)
+                + (this.UseToolkit ? 1 : 0)
+                + (this.TagTypeName?.GetHashCode() ?? 0)
+                + (this.TagPropertyName?.GetHashCode() ?? 0);
+        }
+
         public static UnionOptions Default =
             new UnionOptions(
                 shareFields: true, 
@@ -278,7 +329,7 @@ namespace UnionTypes.Generators
                 );
     }
 
-    public class UnionCase
+    public class UnionCase : IEquatable<UnionCase>
     {
         /// <summary>
         /// The name of the case.
@@ -352,12 +403,32 @@ namespace UnionTypes.Generators
             this.AccessorName = accessorName;
             this.HasAccessor = hasAccessor;
         }
+
+        public bool Equals(UnionCase other)
+        {
+            return this.Name == other.Name
+                && (this.Type == other.Type || this.Type != null && other.Type != null && this.Type.Equals(other.Type))
+                && this.TagValue == other.TagValue
+                && this.FactoryName == other.FactoryName
+                && this.FactoryIsPartial == other.FactoryIsPartial
+                && this.FactoryIsProperty == other.FactoryIsProperty
+                && this.FactoryAccessibility == other.FactoryAccessibility
+                && this.AccessorName == other.AccessorName
+                && this.HasAccessor == other.HasAccessor
+                && this.FactoryParameters.SequenceEqual(other.FactoryParameters);
+        }
+
+        public override bool Equals(object obj) =>
+            obj is UnionCase other && Equals(other);
+
+        public override int GetHashCode() =>
+            this.Name.GetHashCode();
     }
 
     /// <summary>
     /// The declaration of an individual union case value.
     /// </summary>
-    public class UnionCaseValue
+    public class UnionCaseValue : IEquatable<UnionCaseValue>
     {
         /// <summary>
         /// The name of the case value.
@@ -383,9 +454,23 @@ namespace UnionTypes.Generators
             this.Type = type;
             this.Members = members ?? Array.Empty<UnionCaseValue>();
         }
+
+        public bool Equals(UnionCaseValue other)
+        {
+            return this.Name == other.Name
+                && this.Type.Equals(other.Type)
+                && this.Members.Count == other.Members.Count
+                && this.Members.SequenceEqual(other.Members);
+        }
+
+        public override bool Equals(object obj) =>
+            obj is UnionCaseValue other && Equals(other);
+
+        public override int GetHashCode() =>
+            this.Name.GetHashCode();
     }
 
-    public class UnionValueType
+    public class UnionValueType : IEquatable<UnionValueType>
     {
         /// <summary>
         /// The full name of the name.
@@ -412,6 +497,13 @@ namespace UnionTypes.Generators
             this.Name = typeName;
             this.Kind = kind;
             this.SingletonAccessor = singletonAccessor;
+        }
+
+        public bool Equals(UnionValueType other)
+        {
+            return this.Name == other.Name
+                && this.Kind == other.Kind
+                && this.SingletonAccessor == other.SingletonAccessor;
         }
 
         public static readonly UnionValueType String = new UnionValueType("string", TypeKind.Class);
@@ -575,7 +667,7 @@ namespace UnionTypes.Generators
 
             public UnionKind Kind => this.Union.Kind;
             public string Name => this.Union.Name;
-            public string TypeName => this.Union.Type;
+            public string TypeName => this.Union.TypeName;
             public string Accessibility => this.Union.Accessibility ?? "public";
             public UnionOptions Options => this.Union.Options;
 

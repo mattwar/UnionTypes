@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.CSharp;
 using UnionTypes.Toolkit;
+using UnionTypes.Generators;
 
 namespace UnionTests
 {
@@ -1622,15 +1624,14 @@ namespace UnionTests
         private void TestUnion(string sourceText, Func<string, bool>? generatedTextAssertion = null)
         {
             var compilation = CreateCompilation(sourceText);
-            var diagnostics = compilation.GetDiagnostics();
             var trees = compilation.SyntaxTrees.ToArray();
 
-            var newCompilation = RunGenerators(compilation, out var genDiagnostics, new UnionTypes.Generators.UnionSourceGenerator());
+            var generator = new UnionTypes.Generators.UnionSourceGenerator();
+            var driver = CSharpGeneratorDriver.Create(generator);
+            var result = driver.RunGeneratorsAndUpdateCompilation(compilation, out var newCompilation, out var diagnostics).GetRunResult();
 
-            var newTrees = newCompilation.SyntaxTrees.ToArray();
-            Assert.IsTrue(newTrees.Length > trees.Length, "no new files were generated");
-            var newTree = newTrees[trees.Length]; // assumes new tree is added to list
-            var newText = newTree.GetText().ToString();
+            Assert.IsTrue(result.GeneratedTrees.Length > 0, "no new files were generated");
+            var newText = result.GeneratedTrees[0].ToString();
 
             var newDiagnostics = newCompilation.GetDiagnostics().Where(
                 d => d.Severity == DiagnosticSeverity.Error
@@ -1641,6 +1642,151 @@ namespace UnionTests
             {
                 Assert.IsTrue(generatedTextAssertion(newText), "generated text assertion failed");
             }
+        }
+
+        [TestMethod]
+        public void TestIncremental_Unchanged()
+        {
+            // add a new class to the source file, should not cause a re-generation
+            TestIncremental(
+                """
+                using UnionTypes.Toolkit;
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
+                }
+                """,
+                t => t,
+                expectRegenerated: false
+                );
+        }
+
+        [TestMethod]
+        public void TestIncremental_UnrelatedChange()
+        {
+            // add a new class to the source file, should not cause a re-generation
+            TestIncremental(
+                """
+                using UnionTypes.Toolkit;
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
+                }
+                """,
+                t => t.Append("public class OtherClass { }"),
+                expectRegenerated: false
+                );
+        }
+
+        [TestMethod]
+        public void TestIncremental_WhitespaceChange()
+        {
+            // add a new class to the source file, should not cause a re-generation
+            TestIncremental(
+                """
+                using UnionTypes.Toolkit;
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
+                }
+                """,
+                t => t.ReplaceOne("struct MyUnion", "struct   MyUnion"),
+                expectRegenerated: false
+                );
+        }
+
+        [TestMethod]
+        public void TestIncremental_AddCase()
+        {
+            // add a new class to the source file, should not cause a re-generation
+            TestIncremental(
+                """
+                using UnionTypes.Toolkit;
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
+                }
+                """,
+                t => t.InsertAfter("y);", "\n    public static partial MyUnion Create(double z);"),
+                expectRegenerated: true
+                );
+        }
+
+        [TestMethod]
+        public void TestIncremental_ChangeOptions()
+        {
+            // add a new class to the source file, should not cause a re-generation
+            TestIncremental(
+                """
+                using UnionTypes.Toolkit;
+                [TypeUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion Create(int x);
+                    public static partial MyUnion Create(string y);
+                }
+                """,
+                t => t.ReplaceOne("[TypeUnion]", "[TypeUnion(GenerateToString=false)"),
+                expectRegenerated: true
+                );
+        }
+
+        private void TestIncremental(
+            string sourceText, Func<SourceText, SourceText> fnChange, bool expectRegenerated)
+        {
+            var generator = new UnionSourceGenerator().AsSourceGenerator();
+
+            var options = new GeneratorDriverOptions(
+                disabledOutputs: IncrementalGeneratorOutputKind.None,
+                trackIncrementalGeneratorSteps: true
+                );
+
+            var driver = CSharpGeneratorDriver.Create([generator], driverOptions: options);
+
+            var compilation = CreateCompilation(sourceText);
+            var trees = compilation.SyntaxTrees.ToArray();
+            var driverWithCache = driver.RunGenerators(compilation);
+            var runResult = driverWithCache.GetRunResult();
+            Assert.AreEqual(1, runResult.GeneratedTrees.Length);
+            var runGenerated = !UsedCachedOutput(runResult, UnionSourceGenerator.GenerateStepName);
+            Assert.IsTrue(runGenerated);
+
+            // clone w/o changing anything and run again; should not regenerate.
+            var clonedCompilation = compilation.Clone();
+            var clonedResult = driverWithCache.RunGenerators(clonedCompilation).GetRunResult();
+            Assert.AreEqual(1, clonedResult.GeneratedTrees.Length);
+            var cloneNotGenerated = UsedCachedOutput(clonedResult, UnionSourceGenerator.GenerateStepName);
+            Assert.IsTrue(cloneNotGenerated);
+
+            // make change to an unrelated source file that should not cause a change in generated file
+            var oldTree = trees[0];
+            var oldText = oldTree.GetText();
+            var changedText = fnChange(oldText);
+            var changedTree = trees[0].WithChangedText(changedText);
+            var changedCompilation = clonedCompilation.ReplaceSyntaxTree(oldTree, changedTree);
+
+            // re-run generators after change
+            var changedResult = driverWithCache.RunGenerators(changedCompilation).GetRunResult();
+            Assert.AreEqual(1, clonedResult.GeneratedTrees.Length);
+            var changeRegenerated = !UsedCachedOutput(changedResult, UnionSourceGenerator.GenerateStepName);
+            Assert.AreEqual(expectRegenerated, changeRegenerated);
+        }
+
+        private static bool UsedCachedOutput(GeneratorDriverRunResult result, string stepName)
+        {
+            var cached = result.Results[0].TrackedOutputSteps
+                .SelectMany(x => x.Value)
+                .SelectMany(x => x.Outputs)
+                .Any(x => x.Reason == IncrementalStepRunReason.Cached);
+            return cached;
         }
 
         public static HashSet<string> GetDataFields(string generatedText)
@@ -1698,33 +1844,12 @@ namespace UnionTests
             }
         }
 
-        private static Compilation RunGenerators(Compilation compilation, out ImmutableArray<Diagnostic> diagnostics, params ISourceGenerator[] generators)
-        {
-            CreateDriver(compilation, generators).RunGeneratorsAndUpdateCompilation(compilation, out var updatedCompilation, out diagnostics);
-            return updatedCompilation;
-        }
-
-        private static GeneratorDriver CreateDriver(Compilation compilation, params ISourceGenerator[] generators) =>
-            CSharpGeneratorDriver.Create(
-                generators: ImmutableArray.Create(generators),
-                additionalTexts: ImmutableArray<AdditionalText>.Empty,
-                parseOptions: (CSharpParseOptions)compilation.SyntaxTrees.First().Options,
-                optionsProvider: null
-            );
-
-        private static Compilation CreateCompilation(string source)
+        private static Compilation CreateCompilation(params string[] sources)
         {
             return CSharpCompilation.Create(
                 assemblyName: "compilation",
-                syntaxTrees: new[] {
-                    CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.CSharp11))
-                    },
-                references: new[] {
-                    Core,
-                    Netstandard,
-                    SystemRuntime,
-                    UnionTypes
-                    },
+                syntaxTrees: sources.Select(s => CSharpSyntaxTree.ParseText(s, new CSharpParseOptions(LanguageVersion.CSharp11))).ToArray(),
+                references: new[] { Core, Netstandard, SystemRuntime, UnionTypes },
                 options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
         }
