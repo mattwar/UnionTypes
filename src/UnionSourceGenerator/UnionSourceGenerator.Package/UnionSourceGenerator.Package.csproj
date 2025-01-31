@@ -22,16 +22,12 @@
     <AssemblyName>UnionTypes.Toolkit.Generator.Package</AssemblyName>
     <PackageProjectUrl>https://github.com/mattwar/UnionTypes.Toolkit</PackageProjectUrl>
     <RepositoryUrl>https://github.com/mattwar/UnionTypes.Toolkit</RepositoryUrl>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReadmeFile>ReadMe.Nuget.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\..\..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
@@ -43,6 +39,13 @@
 
   <ItemGroup>
     <None Update="tools\*.ps1" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="ReadMe.Nuget.md">
+      <PackagePath>\</PackagePath>
+      <Pack>True</Pack>
+    </None>
   </ItemGroup>
 
   <Target Name="_AddAnalyzersToOutput">
