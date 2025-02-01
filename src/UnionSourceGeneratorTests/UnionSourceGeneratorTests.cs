@@ -834,6 +834,191 @@ namespace UnionTests
                 });
         }
 
+        [TestMethod]
+        public void TestTagUnion_Overlap_RecordStruct()
+        {
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(A a);
+                    public static partial MyUnion B(int x);
+                }
+
+                public record struct A(int x, int y);
+                """,
+                newText =>
+                {
+                    return newText.Contains("internal A A_a");
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Overlap_Tuple()
+        {
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A((int x, int y) a);
+                    public static partial MyUnion B(int x);
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("(int x, int y) A_a");
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Decompose_OverlappableRecordStruct()
+        {
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion(OverlapStructs=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(A a);
+                    public static partial MyUnion B(int x);
+                }
+
+                public record struct A(int x, int y);
+                """,
+                newText =>
+                {
+                    return newText.Contains("_data_shared1")
+                        && newText.Contains("_data_a_y")
+                        && GetDataFields(newText).Count == 2;
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Decompose_NonOverlappableRecordStruct()
+        {
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(A a);
+                    public static partial MyUnion B(int x);
+                }
+
+                public record struct A(int x, string y);
+                """,
+                newText =>
+                {
+                    return newText.Contains("_data_shared1")
+                        && newText.Contains("_data_a_y")
+                        && GetDataFields(newText).Count == 2;
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Decompose_OverlappableTuple()
+        {
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion(OverlapStructs=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A((int x, int y) a);
+                    public static partial MyUnion B(int x);
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("_data_shared1")
+                        && newText.Contains("System.Int32 _data_a_Item2")
+                        && GetDataFields(newText).Count == 2;
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Decompose_NonOverlappableTuple()
+        {
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion(OverlapStructs=false)]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A((int x, string y) a);
+                    public static partial MyUnion B(int x);
+                }
+                """,
+                newText =>
+                {
+                    return newText.Contains("_data_shared1")
+                        && newText.Contains("System.String _data_a_Item2")
+                        && GetDataFields(newText).Count == 2;
+                });
+        }
+
+
+        [TestMethod]
+        public void TestTagUnion_NonOverlappableNonDecomposableRecordStruct()
+        {
+            // record structs with additional fields are not decomposable
+            // and record structs with non-overlappable parameters are not overlappable
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(A a);
+                    public static partial MyUnion B(int x);
+                }
+
+                public record struct A(int x, string y) { public int P { get; set; } }
+                """,
+                newText =>
+                {
+
+                    return newText.Contains("A _data_a_a")
+                        && newText.Contains("System.Int32 _data_b_x")
+                        && GetDataFields(newText).Count == 2;
+                });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Overlap_NonDecomposableRecordStruct()
+        {
+            // record structs with additional fields are not decomposable
+            // but may still overlap
+            TestUnion(
+                """
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public partial struct MyUnion
+                {
+                    public static partial MyUnion A(A a);
+                    public static partial MyUnion B(int x);
+                }
+
+                public record struct A(int x, int y) { public int P { get; set; } }
+                """,
+                newText =>
+                {
+                    return newText.Contains("internal A A_a;");
+                });
+        }
 
         [TestMethod]
         public void TestTagUnion_Option()

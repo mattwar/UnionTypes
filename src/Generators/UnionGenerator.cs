@@ -534,11 +534,6 @@ namespace UnionTypes.Generators
         Unknown,
 
         /// <summary>
-        /// A tuple containing one or more values that can be decomposed
-        /// </summary>
-        ValueTuple,
-
-        /// <summary>
         /// A record struct defined within the current compilation unit.
         /// </summary>
         DecomposableLocalRecordStruct,
@@ -560,10 +555,42 @@ namespace UnionTypes.Generators
         OverlappableLocalStruct,
 
         /// <summary>
+        /// a record struct containing only overlappable field members,
+        /// declared within the current compilation unit.
+        /// </summary>
+        OverlappableLocalRecordStruct,
+
+        /// <summary>
+        /// A local record struct that is both overlappable and decomposable
+        /// </summary>
+        OverlappableDecomposableLocalRecordStruct,
+
+        /// <summary>
         /// A struct containing only overlappable field members, 
         /// not declared within the current compilation unit.
         /// </summary>
         OverlappableForeignStruct,
+
+        /// <summary>
+        /// a record struct containing only overlappable field members,
+        /// not declared within the current compilation unit.
+        /// </summary>
+        OverlappableForeignRecordStruct,
+
+        /// <summary>
+        /// A foreign record struct that is both overlappable and decomposable.
+        /// </summary>
+        OverlappableDecomposableForeignRecordStruct,
+
+        /// <summary>
+        /// A value tuple with all overlappable members
+        /// </summary>
+        OverlappableTuple,
+
+        /// <summary>
+        /// A tuple that cannot be overlapped, but it can be decomposed.
+        /// </summary>
+        NonOverlappableTuple,
 
         /// <summary>
         /// Just a single overlappable primitive value type
@@ -1219,7 +1246,7 @@ namespace UnionTypes.Generators
 
         private DataKind GetDataKind(UnionOptions options, TypeKind kind, bool allowOverlappingData = true)
         {
-            var dataKind = GetBaseKind();
+            var dataKind = GetBaseKind(kind);
             
             if (dataKind == DataKind.Overlappable && (!options.OverlapStructs || !allowOverlappingData))
                 dataKind = DataKind.SameTypeSharable;
@@ -1232,7 +1259,7 @@ namespace UnionTypes.Generators
 
             return dataKind;
 
-            DataKind GetBaseKind()
+            DataKind GetBaseKind(TypeKind kind)
             {
                 switch (kind)
                 {
@@ -1242,8 +1269,8 @@ namespace UnionTypes.Generators
                     case TypeKind.Unknown:
                         return DataKind.SameTypeSharable;
 
+                    case TypeKind.NonOverlappableTuple:
                     case TypeKind.DecomposableLocalRecordStruct:
-                    case TypeKind.ValueTuple:
                         return DataKind.Decomposable;
 
                     case TypeKind.DecomposableForeignRecordStruct:
@@ -1267,6 +1294,49 @@ namespace UnionTypes.Generators
                         return DataKind.Overlappable;
 
                     case TypeKind.OverlappableForeignStruct:
+                        if (options.OverlapForeignStructs)
+                        {
+                            return DataKind.Overlappable;
+                        }
+                        else
+                        {
+                            return DataKind.SameTypeSharable;
+                        }
+
+                    case TypeKind.OverlappableTuple:
+                        if (options.OverlapStructs && allowOverlappingData)
+                        {
+                            return DataKind.Overlappable;
+                        }
+                        else
+                        {
+                            return DataKind.Decomposable;
+                        }
+
+                    case TypeKind.OverlappableDecomposableLocalRecordStruct:
+                        if (options.OverlapStructs && allowOverlappingData)
+                        {
+                            return DataKind.Overlappable;
+                        }
+                        else
+                        {
+                            return DataKind.Decomposable;
+                        }
+
+                    case TypeKind.OverlappableDecomposableForeignRecordStruct:
+                        if (options.OverlapForeignStructs && allowOverlappingData)
+                        {
+                            return DataKind.Overlappable;
+                        }
+                        else
+                        {
+                            return GetBaseKind(TypeKind.DecomposableForeignRecordStruct);
+                        }
+
+                    case TypeKind.OverlappableLocalRecordStruct:
+                        return DataKind.Overlappable;
+
+                    case TypeKind.OverlappableForeignRecordStruct:
                         if (options.OverlapForeignStructs)
                         {
                             return DataKind.Overlappable;
@@ -2151,9 +2221,14 @@ namespace UnionTypes.Generators
                 {
                     case TypeKind.DecomposableForeignRecordStruct:
                     case TypeKind.DecomposableLocalRecordStruct:
+                    case TypeKind.OverlappableLocalRecordStruct:
+                    case TypeKind.OverlappableForeignRecordStruct:
+                    case TypeKind.OverlappableDecomposableLocalRecordStruct:
+                    case TypeKind.OverlappableDecomposableForeignRecordStruct:
                         return GetRecordConstructionExpression(union, value);
 
-                    case TypeKind.ValueTuple:
+                    case TypeKind.NonOverlappableTuple:
+                    case TypeKind.OverlappableTuple:
                         return GetTupleConstructionExpression(union, value.Members);
                     default:
                         throw new NotImplementedException();

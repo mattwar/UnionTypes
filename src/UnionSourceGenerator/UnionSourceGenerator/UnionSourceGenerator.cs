@@ -798,8 +798,7 @@ namespace UnionTypes.Generators
                     // the factory is already specified, so it must use the member name.
                     var factoryName = method.Name;
 
-                    var factoryParameters =
-                        method.Parameters.Select(p => new UnionCaseValue(p.Name, GetValueType(p.Type))).ToArray();
+                    var factoryParameters = GetCaseParameters(method.Parameters);
 
                     var factoryAccessibility = GetAccessibility(method.DeclaredAccessibility);
 
@@ -875,9 +874,9 @@ namespace UnionTypes.Generators
             return parameters.Select(p => GetCaseValue(p)).ToArray();
         }
 
-        private UnionCaseValue GetCaseValue(IParameterSymbol parameter)
+        private UnionCaseValue GetCaseValue(IParameterSymbol parameter, string? name = null)
         {
-            return GetCaseValue(parameter.Name, parameter.Type);
+            return GetCaseValue(name ?? parameter.Name, parameter.Type);
         }
 
         private UnionCaseValue GetCaseValue(string name, ITypeSymbol type, string? singletonAccessor = null)
@@ -885,7 +884,7 @@ namespace UnionTypes.Generators
             var kind = GetTypeKind(type);
             var typeName = GetTypeFullName(type);
             var vtype = new UnionValueType(typeName, kind, singletonAccessor);
-            var nestedParameters = GetNestedParameters(type);
+            var nestedParameters = GetNestedMembers(type);
             return new UnionCaseValue(name, vtype, nestedParameters);
         }
 
@@ -895,6 +894,46 @@ namespace UnionTypes.Generators
             var typeName = GetTypeFullName(type);
             TryGetSingletonAccessor(type, out var accessor);
             return new UnionValueType(typeName, kind, accessor);
+        }
+
+        private IReadOnlyList<UnionCaseValue> GetNestedMembers(ITypeSymbol caseSymbol)
+        {
+            if (caseSymbol.IsValueType
+                && caseSymbol is INamedTypeSymbol nt)
+            {
+                if (caseSymbol.IsRecord)
+                {
+                    // break down record into members based on primary constructor..
+                    // For records, the names of the parameters are the same as the names of the properties.
+                    var primaryConstructor = nt.Constructors.FirstOrDefault(c => c.Parameters.Length > 0);
+                    if (primaryConstructor != null)
+                    {
+                        return primaryConstructor.Parameters.Select(p => GetCaseValue(p)).ToArray();
+                    }
+                }
+                else if (caseSymbol.IsTupleType)
+                {
+                    var constructor = nt.Constructors.FirstOrDefault(c => c.Parameters.Length > 0);
+                    if (constructor != null)
+                    {
+                        return constructor.Parameters.Select(p => GetCaseValue(p, GetTuplePropertyName(p))).ToArray();
+                    }
+                }
+            }
+
+            return Array.Empty<UnionCaseValue>();
+        }
+
+        private static string GetTuplePropertyName(IParameterSymbol parameter)
+        {
+            if (parameter.Name.StartsWith("item"))
+            {
+                return "Item" + parameter.Name.Substring(4);
+            }
+            else
+            {
+                return parameter.Name;
+            }
         }
 
         private bool TryGetSingletonAccessor(ITypeSymbol type, out string accessor)
@@ -952,38 +991,6 @@ namespace UnionTypes.Generators
             return accessor != null;
         }
 
-        private IReadOnlyList<UnionCaseValue> GetNestedParameters(ITypeSymbol caseSymbol)
-        {
-            if (caseSymbol.IsValueType && caseSymbol.IsRecord && caseSymbol is INamedTypeSymbol nt)
-            {
-                // look for nested case parameters from records and tuple arguments
-                var primaryConstructor = nt.Constructors.FirstOrDefault(c => c.Parameters.Length > 0);
-                if (primaryConstructor != null)
-                {
-                    return primaryConstructor.Parameters.Select(p => GetCaseValue(p)).ToArray();
-                }
-            }
-
-            return Array.Empty<UnionCaseValue>();
-        }
-
-        private static TypeKind GetCaseTypeKind(ITypeSymbol type)
-        {
-            if (type is INamedTypeSymbol nt && nt.IsRecord && nt.IsValueType)
-            {
-                if (type.Locations.Any(loc => loc.IsInSource))
-                {
-                    return TypeKind.DecomposableLocalRecordStruct;
-                }
-                else
-                {
-                    return TypeKind.DecomposableForeignRecordStruct;
-                }
-            }
-
-            return GetTypeKind(type);
-        }
-
         private static TypeKind GetTypeKind(ITypeSymbol type)
         {
             switch (type.TypeKind)
@@ -997,17 +1004,58 @@ namespace UnionTypes.Generators
                     }
                     else if (type.IsTupleType)
                     {
-                        return TypeKind.ValueTuple;
-                    }
-                    else if (type.IsRecord)
-                    {
-                        if (type.IsDeclaredInSource())
+                        // trust value tuples to not have hidden metadata
+                        if (IsOverlappableStruct(type))
                         {
-                            return TypeKind.DecomposableLocalRecordStruct;
+                            return TypeKind.OverlappableTuple;
                         }
                         else
                         {
-                            return TypeKind.DecomposableForeignRecordStruct;
+                            return TypeKind.NonOverlappableTuple;
+                        }
+                    }
+                    else if (type.IsRecord)
+                    {
+                        var isDecomposable = IsDecomposableRecordStruct(type);
+                        var isOverlappable = IsOverlappableStruct(type);
+                        
+                        if (type.IsDeclaredInSource())
+                        {
+                            if (isOverlappable && isDecomposable)
+                            {
+                                return TypeKind.OverlappableDecomposableLocalRecordStruct;
+                            }
+                            else if (isOverlappable)
+                            {
+                                return TypeKind.OverlappableLocalRecordStruct;
+                            }
+                            else if (isDecomposable)
+                            {
+                                return TypeKind.DecomposableLocalRecordStruct;
+                            }
+                            else
+                            {
+                                return TypeKind.NonOverlappableStruct;
+                            }
+                        }
+                        else
+                        {
+                            if (isOverlappable && isDecomposable)
+                            {
+                                return TypeKind.OverlappableDecomposableForeignRecordStruct;
+                            }
+                            else if (isOverlappable)
+                            {
+                                return TypeKind.OverlappableForeignRecordStruct;
+                            }
+                            else if (isDecomposable)
+                            {
+                                return TypeKind.DecomposableForeignRecordStruct;
+                            }
+                            else
+                            {
+                                return TypeKind.NonOverlappableStruct;
+                            }
                         }
                     }
                     else if (IsOverlappableStruct(type))
@@ -1063,6 +1111,30 @@ namespace UnionTypes.Generators
                 && type.GetMembers().OfType<IFieldSymbol>().All(f => IsOverlappableType(f.Type));
         }
 
+        private static bool IsDecomposableRecordStruct(ITypeSymbol type)
+        {
+            if (type.IsValueType && type.IsRecord && type is INamedTypeSymbol nt)
+            {
+                // check to see if there are the same number of fields as parameters in the deconstructor.
+                // If there are more, then the user has added extra 'ghost' data that we may not be able to 
+                // access via deconstruction or to be able to reconstruct later.
+                // note: not sure how to easily determine which is primary constructors, since use may add additional constructors,
+                // so are using the deconstructor, since user will not define one.
+                var fieldCount = nt.GetMembers().OfType<IFieldSymbol>().Count(f => !f.IsStatic);
+                var deconstructor = nt.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "Deconstruct");
+                if (deconstructor != null)
+                {
+                    return deconstructor.Parameters.Length == fieldCount;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
         private static bool IsPrimitiveStruct(ITypeSymbol type)
         {
             if (!(type is INamedTypeSymbol nt))
@@ -1114,6 +1186,12 @@ namespace UnionTypes.Generators
 
         private static string GetTypeFullName(ITypeSymbol type)
         {
+            if (type is INamedTypeSymbol nt
+                && nt.IsTupleType)
+            {
+                return nt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            }
+
             var shortName = GetTypeShortName(type);
 
             if (type is ITypeParameterSymbol
