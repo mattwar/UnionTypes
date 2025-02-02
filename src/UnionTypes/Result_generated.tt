@@ -11,7 +11,7 @@
         UnionKind.TypeUnion,
         "Result",
         "Result<TValue, TError>",
-        "public",
+        "public partial",
         new[]
         {
             new UnionCase(

@@ -11,7 +11,7 @@
         UnionKind.TypeUnion,
         "Option",
         "Option<TValue>",
-        "public",
+        "public partial",
         new[]
         {
             new UnionCase(

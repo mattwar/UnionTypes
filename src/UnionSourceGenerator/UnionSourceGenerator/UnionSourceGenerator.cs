@@ -1,4 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
@@ -224,7 +225,7 @@ namespace UnionTypes.Generators
             var usings = usingDirectives.Select(uz => uz.ToString()).ToArray();
             var usesToolkit = usings.Any(u => u.Contains(UnionGenerator.ToolkitNamespace));
 
-            var accessibility = GetAccessibility(unionType.DeclaredAccessibility);
+            var modifiers = GetModifiers(unionType);
 
             if (IsTypeUnion(unionType, out var typeUnionAttribute))
             {
@@ -248,7 +249,7 @@ namespace UnionTypes.Generators
                         UnionKind.TypeUnion,
                         name,
                         typeName,
-                        accessibility,
+                        modifiers,
                         cases,
                         options
                         );
@@ -273,8 +274,8 @@ namespace UnionTypes.Generators
                     var union = new Union(
                         UnionKind.TagUnion,
                         unionType.Name,
-                        GetTypeFullName(unionType),
-                        accessibility,
+                        GetTypeShortName(unionType),
+                        modifiers,
                         cases,
                         options
                         );
@@ -574,7 +575,7 @@ namespace UnionTypes.Generators
                         factoryParameters: factoryParameters,
                         factoryIsPartial: false,
                         factoryIsProperty: isProperty,
-                        factoryAccessibility: caseInfo.FactoryIsInternal == true ? "internal" : "public",
+                        factoryModifiers: caseInfo.FactoryIsInternal == true ? "internal static" : "public static",
                         accessorName: caseInfo.AccessorName,
                         hasAccessor: caseInfo.HasAccessor ?? true
                         );
@@ -609,7 +610,7 @@ namespace UnionTypes.Generators
                     var caseType = GetValueType(nestedType);
                     var isProperty = caseInfo.FactoryIsProperty == true && caseType.SingletonAccessor != null;
                     var parameters = isProperty ? Array.Empty<UnionCaseValue>() : new[] { GetCaseValue("value", nestedType) };
-                    var factoryAccessibility = GetAccessibility(nestedType.DeclaredAccessibility);
+                    var factoryModifiers = $"{GetAccessibility(nestedType.DeclaredAccessibility)} static";
 
                     var typeCase = new UnionCase(
                         name: caseName,
@@ -619,7 +620,7 @@ namespace UnionTypes.Generators
                         factoryParameters: parameters,
                         factoryIsPartial: false,
                         factoryIsProperty: isProperty,
-                        factoryAccessibility: factoryAccessibility,
+                        factoryModifiers: factoryModifiers,
                         accessorName: caseInfo.AccessorName,
                         hasAccessor: caseInfo.HasAccessor ?? true
                         );
@@ -668,7 +669,7 @@ namespace UnionTypes.Generators
 
                 var factoryName = method.Name;
                 var factoryParameters = GetCaseParameters(method.Parameters);
-                var factoryAccessibility = GetAccessibility(method.DeclaredAccessibility);
+                var factoryModifiers = GetModifiers(method);
 
                 var typeCase = new UnionCase(
                     name: caseName,
@@ -678,7 +679,7 @@ namespace UnionTypes.Generators
                     factoryParameters: factoryParameters,
                     factoryIsPartial: true,
                     factoryIsProperty: false,
-                    factoryAccessibility: factoryAccessibility,
+                    factoryModifiers: factoryModifiers,
                     accessorName: caseInfo.AccessorName,
                     hasAccessor: caseInfo.HasAccessor ?? true
                     );
@@ -714,7 +715,7 @@ namespace UnionTypes.Generators
 
                 var factoryName = prop.Name;
                 var factoryParameters = GetCaseParameters(prop.Parameters);
-                var factoryAccessibility = GetAccessibility(prop.DeclaredAccessibility);
+                var factoryModifiers = GetModifiers(prop);
 
                 var typeCase = new UnionCase(
                     name: caseName,
@@ -724,7 +725,7 @@ namespace UnionTypes.Generators
                     factoryParameters: factoryParameters,
                     factoryIsPartial: true,
                     factoryIsProperty: true,
-                    factoryAccessibility: factoryAccessibility,
+                    factoryModifiers: factoryModifiers,
                     accessorName: caseInfo.AccessorName,
                     hasAccessor: caseInfo.HasAccessor ?? true
                     );
@@ -754,7 +755,7 @@ namespace UnionTypes.Generators
                     factoryParameters: null,
                     factoryIsPartial: false,
                     factoryIsProperty: caseInfo.FactoryIsProperty ?? true, // default to property if not specified
-                    factoryAccessibility: caseInfo.FactoryIsInternal == true ? "internal" : "public",
+                    factoryModifiers: caseInfo.FactoryIsInternal == true ? "internal static" : "public static",
                     accessorName: caseInfo.AccessorName,
                     hasAccessor: caseInfo.HasAccessor ?? true
                     );
@@ -800,7 +801,7 @@ namespace UnionTypes.Generators
 
                     var factoryParameters = GetCaseParameters(method.Parameters);
 
-                    var factoryAccessibility = GetAccessibility(method.DeclaredAccessibility);
+                    var factoryModifiers = GetModifiers(method);
 
                     var tagCase = new UnionCase(
                         name: caseName,
@@ -810,7 +811,7 @@ namespace UnionTypes.Generators
                         factoryParameters: factoryParameters,
                         factoryIsPartial: true,
                         factoryIsProperty: false,
-                        factoryAccessibility: factoryAccessibility,
+                        factoryModifiers: factoryModifiers,
                         accessorName: caseInfo.AccessorName,
                         hasAccessor: caseInfo.HasAccessor ?? true
                         );
@@ -846,7 +847,7 @@ namespace UnionTypes.Generators
 
                     // the factory is already specified, so it must use the member name.
                     var factoryName = property.Name;
-                    var factoryAccessibility = GetAccessibility(property.DeclaredAccessibility);
+                    var factoryModifiers = GetModifiers(property);
 
                     var tagCase =
                         new UnionCase(
@@ -857,7 +858,7 @@ namespace UnionTypes.Generators
                             factoryParameters: new UnionCaseValue[] { },
                             factoryIsPartial: true,
                             factoryIsProperty: true,
-                            factoryAccessibility: factoryAccessibility,
+                            factoryModifiers: factoryModifiers,
                             accessorName: caseInfo.AccessorName,
                             hasAccessor: caseInfo.HasAccessor ?? true
                             );
@@ -1161,6 +1162,42 @@ namespace UnionTypes.Generators
                 default:
                     return false;
             }
+        }
+
+        private static string GetModifiers(ISymbol symbol)
+        {
+            // try to get full set of modifiers as in source
+            var location = symbol.Locations.FirstOrDefault(loc => loc.IsInSource);
+            if (location != null && location.SourceTree != null)
+            {
+                var declNode = location.SourceTree.GetRoot().FindNode(location.SourceSpan);
+                switch (declNode)
+                {
+                    case StructDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                    case ClassDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                    case RecordDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                    case InterfaceDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                    case MethodDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                    case PropertyDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                    case FieldDeclarationSyntax decl:
+                        return GetModifiers(decl.Modifiers);
+                }
+            }
+
+            return GetAccessibility(symbol.DeclaredAccessibility);
+
+        }
+
+        private static string GetModifiers(SyntaxTokenList modifiers)
+        {
+            // don't use actual source, so we are not dependent on trivia.
+            return string.Join(" ", modifiers.Select(m => m.Text));
         }
 
         private static string GetAccessibility(Accessibility acc)

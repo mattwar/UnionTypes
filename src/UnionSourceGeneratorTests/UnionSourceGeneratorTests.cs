@@ -1881,7 +1881,7 @@ namespace UnionTests
                     public static partial MyUnion Create(string y);
                 }
                 """,
-                t => t.ReplaceOne("struct MyUnion", "struct   MyUnion"),
+                t => t.ReplaceOne("[TypeUnion]", "[TypeUnion]  "),
                 expectRegenerated: false
                 );
         }

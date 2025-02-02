@@ -90,7 +90,7 @@ namespace UnionTests
                     UnionKind.TypeUnion,
                     name: "DogOrCat",
                     typeName: "DogOrCat",
-                    accessibility: "public",
+                    modifiers: "public",
                     [
                         new UnionCase(
                             name: "Dog",
