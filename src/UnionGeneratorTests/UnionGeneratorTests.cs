@@ -66,7 +66,7 @@ namespace UnionTests
                             tagValue: 0,
                             factoryName:"None",
                             factoryParameters: null,
-                            hasAccessor: false)
+                            accessorKind: CaseAccessorKind.None)
                     },
                     UnionOptions.Default
                         .WithUseToolkit(true)

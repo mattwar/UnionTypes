@@ -465,7 +465,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTypeUnion_CasesOnType_Singleton_FactoryIsProperty()
+        public void TestTypeUnion_CasesOnType_Singleton_FactoryKind_Property()
         {
             TestUnion(
                 """
@@ -475,7 +475,7 @@ namespace UnionTests
                 public record struct B(string y, float z);
 
                 [TypeUnion]
-                [Case(Type=typeof(A), FactoryIsProperty=true)]
+                [Case(Type=typeof(A), FactoryKind=FactoryKind.Property)]
                 [Case(Type=typeof(B))]
                 public partial struct MyUnion
                 {
@@ -535,6 +535,87 @@ namespace UnionTests
                     return newText.Contains("A = 1")
                         && newText.Contains("B = 2");
                 });
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Span()
+        {
+            TestUnion(
+                """
+                using System;
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public ref partial struct MyUnion
+                {
+                    public static partial MyUnion A(Span<byte> bytes);
+                    public static partial MyUnion B(Span<char> characters);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                    }
+                }
+                """,
+                newText => newText.Contains("Span<char> BValue")
+                    && newText.Contains("Match(")
+                );
+        }
+
+        [TestMethod]
+        public void TestTagUnion_Span_Shared()
+        {
+            TestUnion(
+                """
+                using System;
+                using UnionTypes.Toolkit;
+
+                [TagUnion]
+                public ref partial struct MyUnion
+                {
+                    public static partial MyUnion A(Span<byte> bytes);
+                    public static partial MyUnion B(Span<byte> bytes, string flavor);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                    }
+                }
+                """,
+                newText => newText.Contains("BTuple BValues")
+                    && newText.Contains("Match(")
+                );
+        }
+
+        [TestMethod]
+        public void TestTypeUnion_Span()
+        {
+            TestUnion(
+                """
+                using System;
+                using UnionTypes.Toolkit;
+
+                [TypeUnion]
+                public readonly ref partial struct MyUnion
+                {
+                    public static partial MyUnion Create(Span<byte> bytes);
+                    public static partial MyUnion Create(Span<char> chars);
+                }
+
+                public class Test
+                {
+                    public void TestMethod()
+                    {
+                    }
+                }
+                """,
+                newText => newText.Contains("Span<byte> BytesValue")
+                    && newText.Contains("Match(")
+                );
         }
 
         [TestMethod]
@@ -606,15 +687,15 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTagUnion_CasesOnType_FactoryIsProperty()
+        public void TestTagUnion_CasesOnType_FactoryKind_Method()
         {
             TestUnion(
                 """
                 using UnionTypes.Toolkit;
 
                 [TagUnion]
-                [Case(Name="A", FactoryName="A", FactoryIsProperty=false)]
-                [Case(Name="B", FactoryName="B", FactoryIsProperty=false)]
+                [Case(Name="A", FactoryName="A", FactoryKind=FactoryKind.Method)]
+                [Case(Name="B", FactoryName="B", FactoryKind=FactoryKind.Method)]
                 public partial struct MyUnion
                 {
                 }
@@ -852,7 +933,7 @@ namespace UnionTests
                 """,
                 newText =>
                 {
-                    return newText.Contains("internal A A_a");
+                    return newText.Contains("A A_a");
                 });
         }
 
@@ -941,7 +1022,7 @@ namespace UnionTests
                 newText =>
                 {
                     return newText.Contains("_data_shared1")
-                        && newText.Contains("System.Int32 _data_a_Item2")
+                        && newText.Contains("int _data_a_Item2")
                         && GetDataFields(newText).Count == 2;
                 });
         }
@@ -963,7 +1044,7 @@ namespace UnionTests
                 newText =>
                 {
                     return newText.Contains("_data_shared1")
-                        && newText.Contains("System.String _data_a_Item2")
+                        && newText.Contains("string _data_a_Item2")
                         && GetDataFields(newText).Count == 2;
                 });
         }
@@ -991,7 +1072,7 @@ namespace UnionTests
                 {
 
                     return newText.Contains("A _data_a_a")
-                        && newText.Contains("System.Int32 _data_b_x")
+                        && newText.Contains("int _data_b_x")
                         && GetDataFields(newText).Count == 2;
                 });
         }
@@ -1016,7 +1097,7 @@ namespace UnionTests
                 """,
                 newText =>
                 {
-                    return newText.Contains("internal A A_a;");
+                    return newText.Contains("A A_a;");
                 });
         }
 
@@ -1096,7 +1177,7 @@ namespace UnionTests
                 public class None { private None() {} public static readonly None Singleton = new None(); }
 
                 [TypeUnion]
-                [Case(Type=typeof(None), TagValue=0, FactoryName="None", FactoryIsProperty=true)]
+                [Case(Type=typeof(None), TagValue=0, FactoryName="None", FactoryKind=FactoryKind.Property)]
                 public partial struct Option<T>
                 {
                     public static partial Option<T> Some(T value);
@@ -1262,7 +1343,7 @@ namespace UnionTests
         }
 
         [TestMethod]
-        public void TestTypeUnion_Internal_FactoryIsInternal()
+        public void TestTypeUnion_InternalValues()
         {
             TestUnion(
                 """
@@ -1272,8 +1353,8 @@ namespace UnionTests
                 internal record struct B(string y);
                                 
                 [TypeUnion]
-                [Case(Type=typeof(A), FactoryIsInternal=true)]
-                [Case(Type=typeof(B), FactoryIsInternal=true)]
+                [Case(Type=typeof(A))]
+                [Case(Type=typeof(B))]
                 public partial struct MyUnion
                 {
                 }
@@ -1350,23 +1431,6 @@ namespace UnionTests
                 {
                     internal static partial MyUnion A(int x);
                     internal static partial MyUnion B(string y);
-                }
-                """,
-                newText => newText.Contains("internal"));
-        }
-
-        [TestMethod]
-        public void TestTagUnion_Internal_FactoryIsInternal()
-        {
-            TestUnion(
-                """
-                using UnionTypes.Toolkit;
-
-                [TagUnion]
-                [Case(Name="A", FactoryIsInternal=true)]
-                [Case(Name="B", FactoryIsInternal=true)]
-                public partial struct MyUnion
-                {
                 }
                 """,
                 newText => newText.Contains("internal"));
@@ -1766,9 +1830,9 @@ namespace UnionTests
                     public static partial MyUnion Create(double x);
                 }
                 """,
-                newText => newText.Contains("Int32 = 1")
+                newText => 
+                    newText.Contains("Int32 = 1")
                     && newText.Contains("Double = 2")
-                    && newText.Contains("TryGet")
                 );
         }
 
@@ -1811,7 +1875,7 @@ namespace UnionTests
             var compilation = CreateCompilation(sourceText);
             var trees = compilation.SyntaxTrees.ToArray();
 
-            var generator = new UnionTypes.Generators.UnionSourceGenerator();
+            var generator = new UnionSourceGenerator();
             var driver = CSharpGeneratorDriver.Create(generator);
             var result = driver.RunGeneratorsAndUpdateCompilation(compilation, out var newCompilation, out var diagnostics).GetRunResult();
 

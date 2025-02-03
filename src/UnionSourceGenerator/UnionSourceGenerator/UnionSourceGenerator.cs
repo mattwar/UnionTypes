@@ -37,8 +37,11 @@ namespace UnionTypes.Generators
 
         public bool IsGenerationCandiate(SyntaxNode node, CancellationToken ct)
         {
-            return node is StructDeclarationSyntax decl
-                && HasUnionAttribute(decl);
+            if (node is StructDeclarationSyntax decl)
+            {
+                return HasUnionAttribute(decl);
+            }
+            return false;
         }
 
         private bool HasUnionAttribute(StructDeclarationSyntax decl)
@@ -213,6 +216,7 @@ namespace UnionTypes.Generators
         /// </summary>
         private bool TryGetGenerationInfo(INamedTypeSymbol unionType, out GenerationInfo info)
         {
+            var cases = new List<UnionCase>();
             var diagnostics = new List<Diagnostic>();
 
             string namespaceName = null!;
@@ -233,12 +237,10 @@ namespace UnionTypes.Generators
                 options = options.WithUseToolkit(usesToolkit);
 
                 // get all cases declared for union type
-                var cases =
-                    GetTypeCasesFromCaseAttributesOnUnion(unionType, options, diagnostics)
-                    .Concat(GetTypeCasesFromNestedRecords(unionType, diagnostics))
-                    .Concat(GetTypeCasesFromPartialFactoryMethods(unionType, options, diagnostics))
-                    .Concat(GetTypeCasesFromPartialFactoryProperties(unionType, options, diagnostics))
-                    .ToList();
+                GetTypeCasesFromCaseAttributesOnUnion(unionType, options, cases, diagnostics);
+                GetTypeCasesFromNestedTypes(unionType, cases, diagnostics);
+                GetTypeCasesFromPartialFactoryMethods(unionType, options, cases, diagnostics);
+                GetTypeCasesFromPartialFactoryProperties(unionType, options, cases, diagnostics);
 
                 if (cases.Count > 0)
                 {
@@ -263,11 +265,9 @@ namespace UnionTypes.Generators
                 var options = GetOptionsFromUnionAttribute(tagUnionAttribute);
 
                 // get all cases declared for union type
-                var cases =
-                    GetTagCasesFromPartialFactoryMethods(unionType, options, diagnostics)
-                    .Concat(GetTagCasesFromPartialFactoryProperties(unionType, options, diagnostics))
-                    .Concat(GetTagCasesFromCaseAttributesOnUnion(unionType, options, diagnostics))
-                    .ToList();
+                GetTagCasesFromPartialFactoryMethods(unionType, options, cases, diagnostics);
+                GetTagCasesFromPartialFactoryProperties(unionType, options, cases, diagnostics);
+                GetTagCasesFromCaseAttributesOnUnion(unionType, options, cases, diagnostics);
 
                 if (cases.Count > 0)
                 {
@@ -289,11 +289,10 @@ namespace UnionTypes.Generators
             return false;
         }
 
-        private string? GetInferredCaseName(IMethodSymbol method, string? namePrefix)
+        private string? GetInferredCaseName(string name, string? namePrefix)
         {
             if (namePrefix == null)
                 return null;
-            var name = method.Name;
             if (name.StartsWith(namePrefix))
             {
                 return name.Substring(namePrefix.Length);
@@ -446,108 +445,114 @@ namespace UnionTypes.Generators
             return options;
         }
 
-        private class CaseData
+        private class CaseInfo
         {
             public string? Name { get; }
             public int TagValue { get; }
             public ITypeSymbol? Type { get; }
             public string? FactoryName { get; }
-            public bool? FactoryIsProperty { get; }
-            public bool? FactoryIsInternal { get; }
+            public CaseFactoryKind? FactoryKind { get; }
             public string? AccessorName { get; }
-            public bool? HasAccessor { get; }
+            public CaseAccessorKind? AccessorKind { get; }
 
-            public CaseData(
+            public CaseInfo(
                 string? name, 
                 int tagValue, 
                 ITypeSymbol? type, 
                 string? factoryName, 
-                bool? factoryIsProperty, 
-                bool? factoryIsInternal, 
+                CaseFactoryKind? factoryKind, 
                 string? accessorName, 
-                bool? hasAccessor)
+                CaseAccessorKind? accessorKind)
             {
                 this.Name = name;
                 this.TagValue = tagValue;
                 this.Type = type;
                 this.FactoryName = factoryName;
-                this.FactoryIsProperty = factoryIsProperty;
-                this.FactoryIsInternal = factoryIsInternal;
+                this.FactoryKind = factoryKind;
                 this.AccessorName = accessorName;
-                this.HasAccessor = hasAccessor;
+                this.AccessorKind = accessorKind;
             }
 
-            public static readonly CaseData Default = 
-                new CaseData(
+            public static readonly CaseInfo Default = 
+                new CaseInfo(
                     name: null, 
                     tagValue: -1, 
                     type: null, 
                     factoryName: null, 
-                    factoryIsProperty: null, 
-                    factoryIsInternal: null, 
+                    factoryKind: null, 
                     accessorName: null, 
-                    hasAccessor: null
+                    accessorKind: null
                     );
         }
 
-        private CaseData GetCaseInfo(AttributeData? attr)
+        private CaseInfo GetCaseInfo(AttributeData? attr)
         {
             if (attr != null)
             {
-                return new CaseData(
-                    name: attr.TryGetNamedArgument("Name", out var nameArg)
-                        && nameArg.Kind == TypedConstantKind.Primitive
-                        && nameArg.Value is string vName
-                        ? vName
-                        : null,
-                    tagValue: attr.TryGetNamedArgument("TagValue", out var valueArg)
-                        && valueArg.Kind == TypedConstantKind.Primitive
-                        && valueArg.Value is int vValue
-                        ? vValue
-                        : -1,
-                    type: attr.TryGetNamedArgument("Type", out var typeArg)
-                        && typeArg.Kind == TypedConstantKind.Type
-                        && typeArg.Value is INamedTypeSymbol vType
-                        ? vType
-                        : null,
-                    factoryName: attr.TryGetNamedArgument("FactoryName", out var factoryNameArg)
-                        && factoryNameArg.Kind == TypedConstantKind.Primitive
-                        && factoryNameArg.Value is string vFactoryName
-                        ? vFactoryName
-                        : null,
-                    factoryIsProperty: attr.TryGetNamedArgument("FactoryIsProperty", out var factoryIsPropertyArg)
-                        && factoryIsPropertyArg.Kind == TypedConstantKind.Primitive
-                        && factoryIsPropertyArg.Value is bool vFactoryIsProperty
-                        ? vFactoryIsProperty
-                        : null,
-                    factoryIsInternal: attr.TryGetNamedArgument("FactoryIsInternal", out var factoryIsInternalArg)
-                        && factoryIsInternalArg.Kind == TypedConstantKind.Primitive
-                        && factoryIsInternalArg.Value is bool vFactoryIsInternal
-                        ? vFactoryIsInternal
-                        : null,
-                    accessorName: attr.TryGetNamedArgument("AccessorName", out var accessorNameArg)
-                        && accessorNameArg.Kind == TypedConstantKind.Primitive
-                        && accessorNameArg.Value is string vAccessorName
-                        ? vAccessorName
-                        : null,
-                    hasAccessor: attr.TryGetNamedArgument("HasAccessor", out var hasAccessorArg)
-                        && hasAccessorArg.Kind == TypedConstantKind.Primitive
-                        && hasAccessorArg.Value is bool vHasAccessor
-                        ? vHasAccessor
-                        : true
+                var name = attr.TryGetNamedArgument("Name", out var nameArg)
+                    && nameArg.Kind == TypedConstantKind.Primitive
+                    && nameArg.Value is string vName
+                    ? vName
+                    : null;
+
+                var tagValue = attr.TryGetNamedArgument("TagValue", out var valueArg)
+                    && valueArg.Kind == TypedConstantKind.Primitive
+                    && valueArg.Value is int vValue
+                    ? vValue
+                    : -1;
+
+                var type = attr.TryGetNamedArgument("Type", out var typeArg)
+                    && typeArg.Kind == TypedConstantKind.Type
+                    && typeArg.Value is INamedTypeSymbol vType
+                    ? vType
+                    : null;
+
+                var factoryName = attr.TryGetNamedArgument("FactoryName", out var factoryNameArg)
+                    && factoryNameArg.Kind == TypedConstantKind.Primitive
+                    && factoryNameArg.Value is string vFactoryName
+                    ? vFactoryName
+                    : null;
+
+                CaseFactoryKind? factoryKind = attr.TryGetNamedArgument("FactoryKind", out var factoryKindArg)
+                    && factoryKindArg.Kind == TypedConstantKind.Primitive
+                    && factoryKindArg.Value is string vFactoryKind && Enum.TryParse(vFactoryKind, ignoreCase: true, out CaseFactoryKind vFactoryKindValue)
+                    ? vFactoryKindValue
+                    : null;
+
+                var accessorName = attr.TryGetNamedArgument("AccessorName", out var accessorNameArg)
+                    && accessorNameArg.Kind == TypedConstantKind.Primitive
+                    && accessorNameArg.Value is string vAccessorName
+                    ? vAccessorName
+                    : null;
+
+                CaseAccessorKind? accessorKind = attr.TryGetNamedArgument("AccessorKind", out var accessorKindArg)
+                    && accessorKindArg.Kind == TypedConstantKind.Primitive
+                    && accessorKindArg.Value is string vAccessorKind && Enum.TryParse(vAccessorKind, ignoreCase: true, out CaseAccessorKind vAccessorKindValue)
+                    ? vAccessorKindValue
+                    : null;
+
+                return new CaseInfo(
+                    name: name,
+                    tagValue: tagValue,
+                    type: type,
+                    factoryName: factoryName,
+                    factoryKind: factoryKind,
+                    accessorName: accessorName,
+                    accessorKind: accessorKind
                 );
             }
             else
             {
-                return CaseData.Default;
+                return CaseInfo.Default;
             }
         }
 
-        private IReadOnlyList<UnionCase> GetTypeCasesFromCaseAttributesOnUnion(
-            INamedTypeSymbol unionType, UnionOptions options, List<Diagnostic> diagnostics)
+        private void GetTypeCasesFromCaseAttributesOnUnion(
+            INamedTypeSymbol unionType, 
+            UnionOptions options, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
         {
-            var cases = new List<UnionCase>();
-
             foreach (var attr in unionType.GetAttributes(CaseAttributeName))
             {
                 var caseInfo = GetCaseInfo(attr);
@@ -561,11 +566,22 @@ namespace UnionTypes.Generators
                     }
 
                     var caseType = GetValueType(caseInfo.Type);
-                    var isProperty = caseInfo.FactoryIsProperty == true && caseType.SingletonAccessor != null;
 
-                    var factoryParameters = isProperty
-                        ? Array.Empty<UnionCaseValue>() 
-                        : new[] { GetCaseValue("value", caseInfo.Type) };
+                    var factoryKind =
+                        caseInfo.FactoryKind == CaseFactoryKind.Property && caseType.SingletonAccessor != null ? CaseFactoryKind.Property
+                        : caseInfo.FactoryKind == CaseFactoryKind.None && caseType.SingletonAccessor != null && caseInfo.TagValue == 0 ? CaseFactoryKind.None
+                        : CaseFactoryKind.Method;
+
+                    var factoryParameters = factoryKind == CaseFactoryKind.Method
+                        ? new[] { GetCaseValue("value", caseInfo.Type) }
+                        : Array.Empty<UnionCaseValue>();
+
+                    var accessorKind =
+                        caseInfo.AccessorKind == CaseAccessorKind.None && caseType.SingletonAccessor != null ? CaseAccessorKind.None
+                        : caseInfo.AccessorKind != null ? caseInfo.AccessorKind.Value
+                        : CaseAccessorKind.Property;
+
+                    var accessibility = GetMemberAccessibilityForType(caseInfo.Type);
 
                     var typeCase = new UnionCase(
                         name: caseName,
@@ -573,32 +589,29 @@ namespace UnionTypes.Generators
                         tagValue: caseInfo.TagValue,
                         factoryName: caseInfo.FactoryName,
                         factoryParameters: factoryParameters,
-                        factoryIsPartial: false,
-                        factoryIsProperty: isProperty,
-                        factoryModifiers: caseInfo.FactoryIsInternal == true ? "internal static" : "public static",
+                        factoryKind: factoryKind,
                         accessorName: caseInfo.AccessorName,
-                        hasAccessor: caseInfo.HasAccessor ?? true
+                        accessorKind: accessorKind,
+                        accessibility: accessibility
                         );
 
                     cases.Add(typeCase);
                 }
             }
-
-            return cases;
         }
 
-        private IReadOnlyList<UnionCase> GetTypeCasesFromNestedRecords(
-            INamedTypeSymbol unionType, List<Diagnostic> diagnostics)
+        private void GetTypeCasesFromNestedTypes(
+            INamedTypeSymbol unionType, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
         {
             var nestedTypes = unionType
                 .GetTypeMembers()
                 .OfType<INamedTypeSymbol>()
-                .Where(nt => nt.IsRecord
-                    && (nt.DeclaredAccessibility == Accessibility.Public
-                        || nt.DeclaredAccessibility == Accessibility.Internal))
+                .Where(nt => nt.DeclaredAccessibility == Accessibility.Public
+                        || nt.DeclaredAccessibility == Accessibility.Internal)
                 .ToList();
 
-            var cases = new List<UnionCase>();
             foreach (var nestedType in nestedTypes)
             {
                 if (nestedType.TryGetAttribute(CaseAttributeName, out var attr))
@@ -608,35 +621,46 @@ namespace UnionTypes.Generators
                     var caseName = caseInfo.Name ?? nestedType.Name;
 
                     var caseType = GetValueType(nestedType);
-                    var isProperty = caseInfo.FactoryIsProperty == true && caseType.SingletonAccessor != null;
-                    var parameters = isProperty ? Array.Empty<UnionCaseValue>() : new[] { GetCaseValue("value", nestedType) };
-                    var factoryModifiers = $"{GetAccessibility(nestedType.DeclaredAccessibility)} static";
+
+                    var factoryKind =
+                        caseInfo.FactoryKind == CaseFactoryKind.Property && caseType.SingletonAccessor != null ? CaseFactoryKind.Property
+                        : caseInfo.FactoryKind == CaseFactoryKind.None && caseType.SingletonAccessor != null && caseInfo.TagValue == 0 ? CaseFactoryKind.None
+                        : CaseFactoryKind.Method;
+
+                    var factoryParameters = factoryKind == CaseFactoryKind.Method
+                        ? new[] { GetCaseValue("value", nestedType) }
+                        : Array.Empty<UnionCaseValue>();
+
+                    var accessorKind =
+                        caseInfo.AccessorKind == CaseAccessorKind.None && caseType.SingletonAccessor != null ? CaseAccessorKind.None
+                        : caseInfo.AccessorKind != null ? caseInfo.AccessorKind.Value
+                        : CaseAccessorKind.Property;
+
+                    var accessibility = GetAccessibility(nestedType.DeclaredAccessibility);
 
                     var typeCase = new UnionCase(
                         name: caseName,
                         type: caseType,
                         tagValue: caseInfo.TagValue,
                         caseInfo.FactoryName,
-                        factoryParameters: parameters,
-                        factoryIsPartial: false,
-                        factoryIsProperty: isProperty,
-                        factoryModifiers: factoryModifiers,
+                        factoryParameters: factoryParameters,
+                        factoryKind: factoryKind,
                         accessorName: caseInfo.AccessorName,
-                        hasAccessor: caseInfo.HasAccessor ?? true
+                        accessorKind: accessorKind,
+                        accessibility: accessibility
                         );
 
                     cases.Add(typeCase);
                 }
             }
-
-            return cases;
         }
 
-        private IReadOnlyList<UnionCase> GetTypeCasesFromPartialFactoryMethods(
-            INamedTypeSymbol unionType, UnionOptions options, List<Diagnostic> diagnostics)
+        private void GetTypeCasesFromPartialFactoryMethods(
+            INamedTypeSymbol unionType, 
+            UnionOptions options, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
         {
-            var cases = new List<UnionCase>();
-
             // any static partial method returning the union type is a factory
             var factoryMethods = unionType.GetMembers()
                 .OfType<IMethodSymbol>()
@@ -648,8 +672,35 @@ namespace UnionTypes.Generators
                          && m.Parameters.Length == 1)
                 .ToList();
 
-            var uniqueNames = new HashSet<string>(factoryMethods.Select(m => m.Name));
-            var namePrefix = GetCommonPrefix(uniqueNames.ToList());
+            var inferredCaseNames = new Dictionary<IMethodSymbol, string>(SymbolEqualityComparer.Default);
+            var factoryNames = factoryMethods.Select(m => m.Name).ToList();
+            var typeNames = factoryMethods.Select(GetCaseType).OfType<INamedTypeSymbol>().Select(nt => nt.Name).ToList();
+            var parameterNames = factoryMethods.Where(m => m.Parameters.Length == 1).Select(m => m.Parameters[0].Name).ToList();
+
+            if (factoryNames.Distinct().Count() == factoryMethods.Count)
+            {
+                // use just the unique part of the factory name
+                var namePrefix = GetCommonPrefix(factoryNames);
+                foreach (var method in factoryMethods)
+                {
+                    var name = GetInferredCaseName(method.Name, namePrefix) ?? method.Name;
+                    inferredCaseNames.Add(method, MakePascalCase(name));
+                }
+            }
+            else if (parameterNames.Distinct().Count() == factoryMethods.Count)
+            {
+                for (int i = 0; i < factoryMethods.Count; i++)
+                {
+                    inferredCaseNames.Add(factoryMethods[i], MakePascalCase(parameterNames[i]));
+                }
+            }
+            else if (typeNames.Distinct().Count() == factoryMethods.Count)
+            {
+                for (int i = 0; i < factoryMethods.Count; i++)
+                {
+                    inferredCaseNames.Add(factoryMethods[i], MakePascalCase(typeNames[i]));
+                }
+            }
 
             foreach (var method in factoryMethods)
             {
@@ -658,43 +709,87 @@ namespace UnionTypes.Generators
 
                 var type = caseInfo.Type;
 
-                // parameter type is always the correct type.
+                // parameter type is always the correct type, regardless of attribute
                 if (method.Parameters.Length == 1)
                     type = method.Parameters[0].Type;
 
-                var caseType = type != null ? GetValueType(type) : null;
+                if (type != null)
+                {
+                    var caseType = GetValueType(type);
 
-                var inferredCaseName = GetInferredCaseName(method, namePrefix);
-                var caseName = caseInfo.Name ?? inferredCaseName ?? (type is INamedTypeSymbol namedType ? namedType.Name : method.Name);
+                    var caseName = caseInfo.Name
+                        ?? (inferredCaseNames.TryGetValue(method, out var name) 
+                            ? name 
+                            : "Type" + (cases.Count + 1));
 
-                var factoryName = method.Name;
-                var factoryParameters = GetCaseParameters(method.Parameters);
-                var factoryModifiers = GetModifiers(method);
+                    var factoryName = method.Name;
+                    var factoryParameters = GetCaseParameters(method.Parameters);
+                    var factoryModifiers = GetModifiers(method);
+                    var accessibility = GetAccessibility(method.DeclaredAccessibility);
 
-                var typeCase = new UnionCase(
-                    name: caseName,
-                    type: caseType,
-                    tagValue: caseInfo.TagValue,
-                    factoryName: factoryName,
-                    factoryParameters: factoryParameters,
-                    factoryIsPartial: true,
-                    factoryIsProperty: false,
-                    factoryModifiers: factoryModifiers,
-                    accessorName: caseInfo.AccessorName,
-                    hasAccessor: caseInfo.HasAccessor ?? true
-                    );
+                    var accessorKind =
+                        caseInfo.AccessorKind == CaseAccessorKind.None && caseType.SingletonAccessor != null ? CaseAccessorKind.None
+                        : caseInfo.AccessorKind != null ? caseInfo.AccessorKind.Value
+                        : CaseAccessorKind.Property;
 
-                cases.Add(typeCase);
+                    var typeCase = new UnionCase(
+                        name: caseName,
+                        type: caseType,
+                        tagValue: caseInfo.TagValue,
+                        factoryName: factoryName,
+                        factoryParameters: factoryParameters,
+                        factoryKind: CaseFactoryKind.Method,
+                        factoryModifiers: factoryModifiers,
+                        accessorName: caseInfo.AccessorName,
+                        accessorKind: accessorKind,
+                        accessibility: accessibility
+                        );
+
+                    cases.Add(typeCase);
+                }
+
             }
-
-            return cases;
         }
 
-        private IReadOnlyList<UnionCase> GetTypeCasesFromPartialFactoryProperties(
-            INamedTypeSymbol unionType, UnionOptions options, List<Diagnostic> diagnostics)
+        private static string MakePascalCase(string name)
         {
-            var cases = new List<UnionCase>();
+            if (name.Length > 1 && !char.IsUpper(name[0]))
+            {
+                return char.ToUpper(name[0]) + name.Substring(1);
+            }
+            else if (name.Length == 1 && !char.IsUpper(name[0]))
+            {
+                return name.ToUpper();
+            }
+            else
+            {
+                return name;
+            }
+        }
 
+        private ITypeSymbol? GetCaseType(ISymbol factory)
+        {
+            factory.TryGetAttribute(CaseAttributeName, out var attribute);
+            var caseInfo = GetCaseInfo(attribute);
+
+            if (caseInfo.Type != null)
+                return caseInfo.Type;
+
+            if (factory is IMethodSymbol method
+                && method.Parameters.Length == 1)
+            {
+                return method.Parameters[0].Type;
+            }
+
+            return null;
+        }
+
+        private void GetTypeCasesFromPartialFactoryProperties(
+            INamedTypeSymbol unionType, 
+            UnionOptions options, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
+        {
             // any static partial method returning the union type is a factory
             var factoryProperties = unionType.GetMembers()
                 .OfType<IPropertySymbol>()
@@ -710,42 +805,64 @@ namespace UnionTypes.Generators
                 prop.TryGetAttribute(CaseAttributeName, out var attr);
                 var caseInfo = GetCaseInfo(attr);
 
-                var caseType = caseInfo.Type != null ? GetValueType(caseInfo.Type) : null;
-                var caseName = caseInfo.Name ?? (caseInfo.Type is INamedTypeSymbol namedType ? namedType.Name : prop.Name);
+                var type = caseInfo.Type;
+                if (type != null)
+                {
+                    var caseType = GetValueType(type);
+                    var caseName = caseInfo.Name 
+                        ?? (caseInfo.Type is INamedTypeSymbol namedType && namedType.TypeParameters.Length == 0 
+                            ? namedType.Name 
+                            : prop.Name);
 
-                var factoryName = prop.Name;
-                var factoryParameters = GetCaseParameters(prop.Parameters);
-                var factoryModifiers = GetModifiers(prop);
+                    var factoryName = prop.Name;
+                    var factoryParameters = GetCaseParameters(prop.Parameters);
+                    var factoryModifiers = GetModifiers(prop);
+                    var accessibility = GetAccessibility(prop.DeclaredAccessibility);
 
-                var typeCase = new UnionCase(
-                    name: caseName,
-                    type: caseType,
-                    tagValue: caseInfo.TagValue,
-                    factoryName: factoryName,
-                    factoryParameters: factoryParameters,
-                    factoryIsPartial: true,
-                    factoryIsProperty: true,
-                    factoryModifiers: factoryModifiers,
-                    accessorName: caseInfo.AccessorName,
-                    hasAccessor: caseInfo.HasAccessor ?? true
-                    );
+                    var accessorKind =
+                        caseInfo.AccessorKind == CaseAccessorKind.None && caseType.SingletonAccessor != null ? CaseAccessorKind.None
+                        : caseInfo.AccessorKind != null ? caseInfo.AccessorKind.Value
+                        : CaseAccessorKind.Property;
 
-                cases.Add(typeCase);
+                    var typeCase = new UnionCase(
+                        name: caseName,
+                        type: caseType,
+                        tagValue: caseInfo.TagValue,
+                        factoryName: factoryName,
+                        factoryParameters: factoryParameters,
+                        factoryKind: CaseFactoryKind.Property,
+                        factoryModifiers: factoryModifiers,
+                        accessorName: caseInfo.AccessorName,
+                        accessorKind: accessorKind,
+                        accessibility: accessibility
+                        );
+
+                    cases.Add(typeCase);
+                }
             }
-
-            return cases;
         }
 
-        private IReadOnlyList<UnionCase> GetTagCasesFromCaseAttributesOnUnion(
-            INamedTypeSymbol unionSymbol, UnionOptions options, List<Diagnostic> diagnostics)
+        private void GetTagCasesFromCaseAttributesOnUnion(
+            INamedTypeSymbol unionSymbol, 
+            UnionOptions options, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
         {
-            var cases = new List<UnionCase>();
-
             foreach (var attr in unionSymbol.GetAttributes(CaseAttributeName))
             {
-                var caseInfo = GetCaseInfo(attr);
-                
+                var caseInfo = GetCaseInfo(attr);               
                 var caseName = caseInfo.Name ?? "Case" + (cases.Count + 1);
+
+                var factoryKind =
+                    caseInfo.FactoryKind == CaseFactoryKind.Method ? CaseFactoryKind.Method
+                    : caseInfo.FactoryKind == CaseFactoryKind.None && caseInfo.TagValue == 0 ? CaseFactoryKind.None
+                    : CaseFactoryKind.Property;
+
+                var accessorKind =
+                    caseInfo.AccessorKind == CaseAccessorKind.None ? CaseAccessorKind.None
+                    : caseInfo.AccessorKind == CaseAccessorKind.Property ? CaseAccessorKind.Property
+                    : caseInfo.AccessorKind == CaseAccessorKind.Method ? CaseAccessorKind.Method
+                    : CaseAccessorKind.Property;
 
                 var tagCase = new UnionCase(
                     caseName,
@@ -753,23 +870,22 @@ namespace UnionTypes.Generators
                     tagValue: caseInfo.TagValue,
                     factoryName: caseInfo.FactoryName,
                     factoryParameters: null,
-                    factoryIsPartial: false,
-                    factoryIsProperty: caseInfo.FactoryIsProperty ?? true, // default to property if not specified
-                    factoryModifiers: caseInfo.FactoryIsInternal == true ? "internal static" : "public static",
+                    factoryKind: factoryKind,
                     accessorName: caseInfo.AccessorName,
-                    hasAccessor: caseInfo.HasAccessor ?? true
+                    accessorKind: accessorKind,
+                    accessibility: "public"
                     );
 
                 cases.Add(tagCase);
             }
-
-            return cases;
         }
 
-        private IReadOnlyList<UnionCase> GetTagCasesFromPartialFactoryMethods(
-            INamedTypeSymbol unionType, UnionOptions options, List<Diagnostic> diagnostics)
+        private void GetTagCasesFromPartialFactoryMethods(
+            INamedTypeSymbol unionType, 
+            UnionOptions options, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
         {
-            var cases = new List<UnionCase>();
             var caseNames = new HashSet<string>();
 
             // any static partial method returning the union type is a factory
@@ -791,17 +907,21 @@ namespace UnionTypes.Generators
                     // only consider methods with TagCase attribute
                     method.TryGetAttribute(CaseAttributeName, out var attr);
 
-                    var inferredCaseName = GetInferredCaseName(method, namePrefix);
+                    var inferredCaseName = GetInferredCaseName(method.Name, namePrefix);
                     var caseInfo = GetCaseInfo(attr);
 
                     var caseName = caseInfo.Name ?? inferredCaseName ?? method.Name;
 
                     // the factory is already specified, so it must use the member name.
                     var factoryName = method.Name;
-
                     var factoryParameters = GetCaseParameters(method.Parameters);
-
                     var factoryModifiers = GetModifiers(method);
+                    var accessibility = GetAccessibility(method.DeclaredAccessibility);
+
+                    var accessorKind =
+                        caseInfo.AccessorKind == CaseAccessorKind.None && factoryParameters.Count == 0 ? CaseAccessorKind.None
+                        : caseInfo.AccessorKind == CaseAccessorKind.Method ? CaseAccessorKind.Method
+                        : CaseAccessorKind.Property;
 
                     var tagCase = new UnionCase(
                         name: caseName,
@@ -809,24 +929,29 @@ namespace UnionTypes.Generators
                         tagValue: caseInfo.TagValue,
                         factoryName: factoryName,
                         factoryParameters: factoryParameters,
-                        factoryIsPartial: true,
-                        factoryIsProperty: false,
+                        factoryKind: CaseFactoryKind.Method,
                         factoryModifiers: factoryModifiers,
                         accessorName: caseInfo.AccessorName,
-                        hasAccessor: caseInfo.HasAccessor ?? true
+                        accessorKind: accessorKind,
+                        accessibility: accessibility
                         );
 
                     cases.Add(tagCase);
                 }
             }
-
-            return cases;
         }
 
-        private IReadOnlyList<UnionCase> GetTagCasesFromPartialFactoryProperties(
-            INamedTypeSymbol unionType, UnionOptions options, List<Diagnostic> diagnostics)
+        private static bool CanAccessAsTuple(IReadOnlyList<UnionCaseValue> caseValues)
         {
-            var cases = new List<UnionCase>();
+            return caseValues.All(v => v.Type.Kind != TypeKind.RefStruct);
+        }
+
+        private void GetTagCasesFromPartialFactoryProperties(
+            INamedTypeSymbol unionType, 
+            UnionOptions options, 
+            List<UnionCase> cases,
+            List<Diagnostic> diagnostics)
+        {
             var caseNames = new HashSet<string>();
 
             // any static partial method returning the union type is a factory
@@ -848,6 +973,12 @@ namespace UnionTypes.Generators
                     // the factory is already specified, so it must use the member name.
                     var factoryName = property.Name;
                     var factoryModifiers = GetModifiers(property);
+                    var accessibility = GetAccessibility(property.DeclaredAccessibility);
+
+                    var accessorKind =
+                        caseInfo.AccessorKind == CaseAccessorKind.None ? CaseAccessorKind.None
+                        : caseInfo.AccessorKind == CaseAccessorKind.Method ? CaseAccessorKind.Method
+                        : CaseAccessorKind.Property;
 
                     var tagCase =
                         new UnionCase(
@@ -856,18 +987,16 @@ namespace UnionTypes.Generators
                             tagValue: caseInfo.TagValue,
                             factoryName: factoryName,
                             factoryParameters: new UnionCaseValue[] { },
-                            factoryIsPartial: true,
-                            factoryIsProperty: true,
+                            factoryKind: CaseFactoryKind.Property,
                             factoryModifiers: factoryModifiers,
                             accessorName: caseInfo.AccessorName,
-                            hasAccessor: caseInfo.HasAccessor ?? true
+                            accessorKind: accessorKind,
+                            accessibility: accessibility
                             );
 
                     cases.Add(tagCase);
                 }
             }
-
-            return cases;
         }
 
         private IReadOnlyList<UnionCaseValue> GetCaseParameters(IReadOnlyList<IParameterSymbol> parameters)
@@ -1059,6 +1188,10 @@ namespace UnionTypes.Generators
                             }
                         }
                     }
+                    else if (type.IsRefLikeType)
+                    {
+                        return TypeKind.RefStruct;
+                    }
                     else if (IsOverlappableStruct(type))
                     {
                         if (type.IsDeclaredInSource())
@@ -1200,6 +1333,31 @@ namespace UnionTypes.Generators
             return string.Join(" ", modifiers.Select(m => m.Text));
         }
 
+        /// <summary>
+        /// Returns the accessibilty that should be used for members that refer to this type in their signature.
+        /// </summary>
+        private static string GetMemberAccessibilityForType(ITypeSymbol symbol)
+        {
+            if (symbol.DeclaredAccessibility == Accessibility.Public)
+            {
+                if (symbol.ContainingType != null)
+                {
+                    return GetMemberAccessibilityForType(symbol.ContainingType);
+                }
+                else
+                {
+                    return "public";
+                }
+            }
+
+            // if type is not public then the generated member must not be declared public or suffer the wrath of C#.
+            // internal is okay, since otherwise the type is somehow accessible to the location the union type is being generated to.
+            return "internal";
+        }
+
+        /// <summary>
+        /// Gets the accessibility as C# text.
+        /// </summary>
         private static string GetAccessibility(Accessibility acc)
         {
             switch (acc)
@@ -1223,31 +1381,8 @@ namespace UnionTypes.Generators
 
         private static string GetTypeFullName(ITypeSymbol type)
         {
-            if (type is INamedTypeSymbol nt
-                && nt.IsTupleType)
-            {
-                return nt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            }
-
-            var shortName = GetTypeShortName(type);
-
-            if (type is ITypeParameterSymbol
-                || type.IsTupleType)
-                return shortName;
-
-            if (type.ContainingType != null)
-            {
-                return GetTypeFullName(type.ContainingType) + "." + shortName;
-            }
-            else if (type.ContainingNamespace != null
-                    && !type.ContainingNamespace.IsGlobalNamespace)
-            {
-                return GetNamespaceName(type.ContainingNamespace) + "." + shortName;
-            }
-            else
-            {
-                return shortName;
-            }
+            var name = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            return name;
         }
 
         private static string GetTypeShortName(ITypeSymbol type)

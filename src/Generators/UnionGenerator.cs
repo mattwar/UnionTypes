@@ -357,28 +357,29 @@ namespace UnionTypes.Generators
         public IReadOnlyList<UnionCaseValue> FactoryParameters { get; }
 
         /// <summary>
-        /// True if the factory was declared as partial.
+        /// The kind of factory for this case: method or property.
         /// </summary>
-        public bool FactoryIsPartial { get; }
-
-        /// <summary>
-        /// True if the factory is to be represented as a property when it has no parameters.
-        /// </summary>
-        public bool FactoryIsProperty { get; }
+        public CaseFactoryKind FactoryKind { get; }
 
         /// <summary>
         /// The modifiers of the user declared factory.
         /// </summary>
         public string? FactoryModifiers { get; }
+
         /// <summary>
         /// The name of the accessor property for this case.
         /// </summary>
         public string? AccessorName { get; }
 
         /// <summary>
-        /// True if the case has an accessor property.
+        /// The kind of accessor for this case: none, property, method, outmethod.
         /// </summary>
-        public bool HasAccessor { get; }
+        public CaseAccessorKind AccessorKind { get; }    
+
+        /// <summary>
+        /// The accessibilty of generated members.
+        /// </summary>
+        public string? Accessibility { get; }
  
         public UnionCase(
             string name,
@@ -386,22 +387,22 @@ namespace UnionTypes.Generators
             int tagValue = -1,
             string? factoryName = null,
             IReadOnlyList<UnionCaseValue>? factoryParameters = null,
-            bool factoryIsPartial = false,
-            bool factoryIsProperty = false,
+            CaseFactoryKind factoryKind = CaseFactoryKind.Method,
             string? factoryModifiers = null,
             string? accessorName = null,
-            bool hasAccessor = true)
+            CaseAccessorKind accessorKind = CaseAccessorKind.Property,
+            string? accessibility = null)
         {
             this.Name = name;
             this.Type = type;
             this.TagValue = tagValue;
             this.FactoryName = factoryName;
             this.FactoryParameters = factoryParameters ?? Array.Empty<UnionCaseValue>();
-            this.FactoryIsPartial = factoryIsPartial;
-            this.FactoryIsProperty = factoryIsProperty;
+            this.FactoryKind = factoryKind;
             this.FactoryModifiers = factoryModifiers;
             this.AccessorName = accessorName;
-            this.HasAccessor = hasAccessor;
+            this.AccessorKind = accessorKind;
+            this.Accessibility = accessibility;
         }
 
         public bool Equals(UnionCase other)
@@ -410,11 +411,11 @@ namespace UnionTypes.Generators
                 && (this.Type == other.Type || this.Type != null && other.Type != null && this.Type.Equals(other.Type))
                 && this.TagValue == other.TagValue
                 && this.FactoryName == other.FactoryName
-                && this.FactoryIsPartial == other.FactoryIsPartial
-                && this.FactoryIsProperty == other.FactoryIsProperty
+                && this.FactoryKind == other.FactoryKind
                 && this.FactoryModifiers == other.FactoryModifiers
                 && this.AccessorName == other.AccessorName
-                && this.HasAccessor == other.HasAccessor
+                && this.AccessorKind == other.AccessorKind
+                && this.Accessibility == other.Accessibility
                 && this.FactoryParameters.SequenceEqual(other.FactoryParameters);
         }
 
@@ -423,6 +424,20 @@ namespace UnionTypes.Generators
 
         public override int GetHashCode() =>
             this.Name.GetHashCode();
+    }
+
+    public enum CaseFactoryKind
+    {
+        Method,
+        None,
+        Property
+    }
+
+    public enum CaseAccessorKind
+    {
+        Method,
+        None,
+        Property
     }
 
     /// <summary>
@@ -598,6 +613,11 @@ namespace UnionTypes.Generators
         PrimitiveStruct,
 
         /// <summary>
+        /// A ref-like struct
+        /// </summary>
+        RefStruct,
+
+        /// <summary>
         /// class containing zero or more values
         /// </summary>
         Class,
@@ -692,22 +712,25 @@ namespace UnionTypes.Generators
             /// </summary>
             public DataField? OverlappedDataField { get; }
 
+            public UnionOptions Options { get; }
+
             public UnionKind Kind => this.Union.Kind;
             public string Name => this.Union.Name;
             public string TypeName => this.Union.TypeName;
             public string Modifiers => this.Union.Modifiers;
-            public UnionOptions Options => this.Union.Options;
 
             public UnionLayout(
                 Union union,
                 IReadOnlyList<UnionCaseLayout> cases,
                 IReadOnlyList<DataField> nonOverlapedFields,
-                DataField? overlappedDataField)
+                DataField? overlappedDataField,
+                UnionOptions? options = null)
             {
                 this.Union = union;
                 this.Cases = cases;
                 this.NonOverlappedFields = nonOverlapedFields;
                 this.OverlappedDataField = overlappedDataField;
+                this.Options = options ?? union.Options;
             }
         }
 
@@ -725,11 +748,6 @@ namespace UnionTypes.Generators
             /// The layout for the parameters to the factory method for the case.
             /// </summary>
             public IReadOnlyList<CaseValueLayout> FactoryParameters { get; }
-
-            /// <summary>
-            /// True if the case has an accessor property.
-            /// </summary>
-            public bool HasAccessor => this.FactoryParameters.Count > 0 || this.Case.HasAccessor;
 
             /// <summary>
             /// The type of the case, if the union is a type union.
@@ -754,7 +772,10 @@ namespace UnionTypes.Generators
             public IReadOnlyList<DataField> OverlappedCaseDataFields { get; }
 
             public string Name => this.Case.Name;
-            public string FactoryModifiers => this.Case.FactoryModifiers ?? "public static";
+            public CaseFactoryKind FactoryKind => this.Case.FactoryKind;
+            public string FactoryModifiers => this.Case.FactoryModifiers ?? $"{this.Accessibility} static";
+            public CaseAccessorKind AccessorKind => this.Case.AccessorKind;
+            public string Accessibility => this.Case.Accessibility ?? "public";
 
             public UnionCaseLayout(
                 UnionCase unionCase,
@@ -953,6 +974,16 @@ namespace UnionTypes.Generators
 
             var usedTagValues = new SortedSet<int>(union.Cases.Where(c => c.TagValue >= 0).Select(c => c.TagValue));
 
+            var options = union.Options;
+            if (union.Modifiers.Contains("ref"))
+            {
+                options = options
+                    .WithGenerateEquality(false)
+                    //.WithGenerateMatch(false)
+                    .WithGenerateToString(false)
+                    .WithUseToolkit(false);
+            }
+
             foreach (var unionCase in union.Cases)
             {
                 var allocatedFields = new HashSet<DataField>();
@@ -1016,7 +1047,8 @@ namespace UnionTypes.Generators
                 union,
                 cases,
                 unionFields,
-                overlappedUnionField
+                overlappedUnionField,
+                options
                 );
         }
 
@@ -1211,7 +1243,8 @@ namespace UnionTypes.Generators
                 var field = unionFields[i];
                 if (!allocatedUnionFields.Contains(field))
                 {
-                    if (dataKind == DataKind.SameTypeSharable && field.TypeName == type.Name)
+                    if (dataKind == DataKind.SameTypeSharable 
+                        && field.TypeName == type.Name)
                     {
                         field.ConstructorArg = "shared" + (i + 1);
                         field.Name = "_data_" + field.ConstructorArg;
@@ -1346,6 +1379,9 @@ namespace UnionTypes.Generators
                             return DataKind.SameTypeSharable;
                         }
 
+                    case TypeKind.RefStruct:
+                        return DataKind.SameTypeSharable;
+
                     default:
                         return DataKind.SameTypeSharable;
                 }
@@ -1445,7 +1481,7 @@ namespace UnionTypes.Generators
             {
                 var interfaces = new List<string>();
 
-                if (union.Options.UseToolkit)
+                if (union.Options.UseToolkit && CanUseGenericTypeParameters(union))
                     interfaces.Add($"IClosedTypeUnion<{union.TypeName}>");
 
                 if (union.Options.GenerateEquality)
@@ -1466,7 +1502,8 @@ namespace UnionTypes.Generators
                         () => WriteFactoryMethods(union),
                         () => WriteImplicitCastOperators(union),
                         () => WriteTryCreate(union),
-                        () => WriteAccessorProperties(union),
+                        () => WriteAccessors(union),
+                        () => WriteCaseTuples(union),
                         () => WriteTryGet(union),
                         () => WriteITypeUnionMembers(union),
                         () => WriteEqualityMethods(union),
@@ -1493,7 +1530,8 @@ namespace UnionTypes.Generators
                         () => WriteOverlappedDataTypes(union),
                         () => WriteConstructor(union),
                         () => WriteFactoryMethods(union),
-                        () => WriteAccessorProperties(union),
+                        () => WriteAccessors(union),
+                        () => WriteCaseTuples(union),
                         () => WriteEqualityMethods(union),
                         () => WriteToString(union),
                         () => WriteMatchMethods(union)
@@ -1615,15 +1653,16 @@ namespace UnionTypes.Generators
                 var factoryName = GetFactoryName(union, unionCase);
                 var unionConstruction = GetUnionCaseConstructorExpression(union, unionCase);
 
-                if (unionCase.FactoryParameters.Count == 0 
-                    && unionCase.Case.FactoryIsProperty)
+                switch (unionCase.FactoryKind)
                 {
-                    WriteLine($"{unionCase.FactoryModifiers} {union.TypeName} {factoryName} => {unionConstruction};");
-                }
-                else
-                {
-                    var parameters = string.Join(", ", unionCase.FactoryParameters.Select(p => $"{p.Type.Name} {p.Name}"));
-                    WriteLine($"{unionCase.FactoryModifiers} {union.TypeName} {factoryName}({parameters}) => {unionConstruction};");
+                    case CaseFactoryKind.Property:
+                        WriteLine($"{unionCase.FactoryModifiers} {union.TypeName} {factoryName} => {unionConstruction};");
+                        break;
+
+                    case CaseFactoryKind.Method:
+                        var parameters = string.Join(", ", unionCase.FactoryParameters.Select(p => $"{p.Type.Name} {p.Name}"));
+                        WriteLine($"{unionCase.FactoryModifiers} {union.TypeName} {factoryName}({parameters}) => {unionConstruction};");
+                        break;
                 }
             }
         }
@@ -1635,7 +1674,7 @@ namespace UnionTypes.Generators
                 // implicit cast value to union
                 foreach (var unionCase in union.Cases)
                 {
-                    if (unionCase.FactoryModifiers.Contains("public")
+                    if (unionCase.Accessibility == "public"
                         && unionCase.Type != null
                         && unionCase.Type.Kind != TypeKind.Interface
                         && unionCase.Type.Kind != TypeKind.Object)
@@ -1646,57 +1685,113 @@ namespace UnionTypes.Generators
             }
         }
 
-        private static string GetAccessibility(string modifiers)
+        private void WriteAccessors(UnionLayout union)
         {
-            return modifiers.Contains("public") ? "public" : "internal";
+            foreach (var unionCase in union.Cases)
+            {
+                var access = unionCase.Accessibility;
+
+                switch (unionCase.AccessorKind)
+                {
+                    case CaseAccessorKind.Property:
+                        if (unionCase.FactoryParameters.Count == 0)
+                        {
+                            if (unionCase.Type != null && unionCase.Type.IsSingleton)
+                            {
+                                WriteLine($"{access} {unionCase.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                            }
+                            else
+                            {
+                                WriteLine($"{access} bool {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)};");
+                            }
+                        }
+                        else if (unionCase.FactoryParameters.Count == 1)
+                        {
+                            var param = unionCase.FactoryParameters[0];
+                            WriteLine($"{access} {param.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                        }
+                        else if (unionCase.FactoryParameters.Count > 1)
+                        {
+                            var tupleType = GetCaseTupleTypeExpression(unionCase);
+                            var tupleConstruction = GetCaseTupleConstructionExpression(union, unionCase);
+                            WriteLine($"{access} {tupleType} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
+                        }
+                        break;
+
+                    case CaseAccessorKind.Method:
+                        if (unionCase.FactoryParameters.Count == 0)
+                        {
+                            if (unionCase.Type != null && unionCase.Type.IsSingleton)
+                            {
+                                WriteLine($"{access} {unionCase.Type.Name} {GetAccessorName(union, unionCase)}() => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                            }
+                            else
+                            {
+                                WriteLine($"{access} bool {GetAccessorName(union, unionCase)}() => {GetTagComparison(union, unionCase)};");
+                            }
+                        }
+                        else if (unionCase.FactoryParameters.Count == 1)
+                        {
+                            var param = unionCase.FactoryParameters[0];
+                            WriteLine($"{access} {param.Type.Name} {GetAccessorName(union, unionCase)}() => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
+                        }
+                        else if (unionCase.FactoryParameters.Count > 1)
+                        {
+                            var tupleType = GetCaseTupleTypeExpression(unionCase);
+                            var tupleConstruction = GetCaseTupleConstructionExpression(union, unionCase);
+                            WriteLine($"{access} {tupleType} {GetAccessorName(union, unionCase)}() => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
+                        }
+                        break;
+                }
+            }
         }
 
-        private void WriteAccessorProperties(UnionLayout union)
+        private void WriteCaseTuples(UnionLayout union)
         {
             WriteLineSeparatedBlocks(() =>
             {
                 foreach (var unionCase in union.Cases)
                 {
-                    WriteBlock(() =>
+                    if (unionCase.FactoryParameters.Count > 1 && !CanUseTuple(unionCase.FactoryParameters))
                     {
-                        var access = GetAccessibility(unionCase.FactoryModifiers);
+                        WriteBlock(() =>
+                        {
+                            WriteLine($"{unionCase.Accessibility} ref struct {unionCase.Name}Tuple");
+                            WriteBraceNested(() =>
+                            {
+                                foreach (var fp in unionCase.FactoryParameters)
+                                {
+                                    WriteLine($"{unionCase.Accessibility} {fp.Type.Name} {fp.Name};");
+                                }
 
-                        if (unionCase.FactoryParameters.Count > 0)
-                        {
-                            WriteLine($"/// <summary>Accessible when <see cref=\"{GetTagPropertyName(union)}\"/> is <see cref=\"{GetTagTypeName(union)}.{GetCaseTagName(unionCase)}\"/>.</summary>");
-                            if (unionCase.FactoryParameters.Count == 1)
-                            {
-                                var param = unionCase.FactoryParameters[0];
-                                WriteLine($"{access} {param.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
-                            }
-                            else if (unionCase.FactoryParameters.Count > 1)
-                            {
-                                var tupleType = GetTupleTypeExpression(unionCase.FactoryParameters);
-                                var tupleConstruction = GetTupleConstructionExpression(union, unionCase.FactoryParameters);
-                                WriteLine($"{access} {tupleType} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {tupleConstruction} : default!;");
-                            }
-                        }
-                        else if (unionCase.HasAccessor)
-                        {
-                            if (unionCase.Type != null && unionCase.Type.IsSingleton)
-                            {
-                                // access singleton property/field
-                                WriteLine($"{access} {unionCase.Type.Name} {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)} ? {GetCaseValueConstructionExpression(union, unionCase)} : default!;");
-                            }
-                            else
-                            {
-                                // there is no data to get, just return bool 
-                                WriteLine($"{access} bool {GetAccessorName(union, unionCase)} => {GetTagComparison(union, unionCase)};");
-                            }
-                        }
-                    });
+                                WriteLine();
+                                var parameters = string.Join(", ", unionCase.FactoryParameters.Select(p => GetParameter(p)));
+                                WriteLine($"{unionCase.Accessibility} {unionCase.Name}Tuple({parameters})");
+                                WriteBraceNested(() =>
+                                {
+                                    foreach (var fp in unionCase.FactoryParameters)
+                                    {
+                                        WriteLine($"this.{fp.Name} = {fp.Name};");
+                                    }
+                                });
+                            });
+                        });
+                    }
                 }
             });
+        }
+
+        private static string GetParameter(CaseValueLayout caseValue)
+        {
+            return $"{caseValue.Type.Name} {caseValue.Name}";
         }
 
         private void WriteTryCreate(UnionLayout union)
         {
             if (union.Kind != UnionKind.TypeUnion)
+                return;
+
+            if (!CanUseGenericTypeParameters(union))
                 return;
 
             WriteLine($"public static bool TryCreate<TCreate>(TCreate value, out {union.TypeName} union)");
@@ -1729,6 +1824,9 @@ namespace UnionTypes.Generators
         private void WriteTryGet(UnionLayout union)
         {
             if (union.Kind != UnionKind.TypeUnion)
+                return;
+
+            if (!CanUseGenericTypeParameters(union))
                 return;
 
             WriteLine($"public bool TryGet<TGet>([NotNullWhen(true)] out TGet value)");
@@ -1772,6 +1870,9 @@ namespace UnionTypes.Generators
                 return;
 
             if (!union.Options.UseToolkit)
+                return;
+
+            if (!CanUseGenericTypeParameters(union))
                 return;
 
             WriteLineSeparatedBlocks(() =>
@@ -1992,12 +2093,16 @@ namespace UnionTypes.Generators
             });
         }
 
+        private static bool IsSingleValueAccessor(UnionCaseLayout unionCase) =>
+            unionCase.AccessorKind == CaseAccessorKind.Property
+            || unionCase.AccessorKind == CaseAccessorKind.Method;
+
         private void WriteMatchMethods(UnionLayout union)
         {
             if (!union.Options.GenerateMatch)
                 return;
 
-            var accessibility = union.Cases.All(c => GetAccessibility(c.FactoryModifiers) == "public")
+            var accessibility = union.Cases.All(c => c.Accessibility == "public")
                 ? "public"
                 : "internal";
 
@@ -2005,14 +2110,24 @@ namespace UnionTypes.Generators
 
             WriteLineSeparatedBlocks(() =>
             {
+                // any required custom delegates
                 WriteBlock(() =>
                 {
-                    var parameters = union.Cases.Select(c => {
-                        var cvType = GetCaseValueTypeExpression(union, c);
-                        return (c.HasAccessor && cvType != null)
-                            ? $"Action<{cvType}> when{c.Name}"
-                            : $"Action when{c.Name}";
-                        }).ToList();
+                    foreach (var uc in union.Cases)
+                    {
+                        if (NeedsCustomDelegates(union, uc))
+                        {
+                            WriteLine(GetCustomActionTypeDeclaration(union, uc, accessibility));
+                            WriteLine(GetCustomSelectorDeclaration(union, uc, accessibility));
+                        }
+                    }
+                });
+
+                WriteBlock(() =>
+                {
+                    var parameters = union.Cases
+                        .Select(c => $"{GetActionTypeName(union, c)} when{c.Name}")
+                        .ToList();
 
                     if (!hasDefault)
                         parameters.Add("Action? undefined = null");
@@ -2027,13 +2142,19 @@ namespace UnionTypes.Generators
                         {
                             foreach (var unionCase in union.Cases)
                             {
-                                if (unionCase.HasAccessor && GetCaseValueTypeExpression(union, unionCase) != null)
+                                switch (unionCase.AccessorKind)
                                 {
-                                    WriteLine($"case {GetTagValueExpression(union, unionCase)} : when{unionCase.Name}({GetCaseValueAccessExpression(union, unionCase)}); break;");
-                                }
-                                else
-                                {
-                                    WriteLine($"case {GetTagValueExpression(union, unionCase)} : when{unionCase.Name}(); break;");
+                                    case CaseAccessorKind.Property:
+                                    case CaseAccessorKind.Method:
+                                        if (GetCaseValueTypeExpression(union, unionCase) != null)
+                                        {
+                                            WriteLine($"case {GetTagValueExpression(union, unionCase)} : when{unionCase.Name}({GetCaseValueAccessExpression(union, unionCase)}); break;");
+                                        }
+                                        else
+                                        {
+                                            WriteLine($"case {GetTagValueExpression(union, unionCase)} : when{unionCase.Name}(); break;");
+                                        }
+                                        break;
                                 }
                             }
 
@@ -2051,12 +2172,9 @@ namespace UnionTypes.Generators
 
                 WriteBlock(() =>
                 {
-                    var parameters = union.Cases.Select(c => {
-                        var cvType = GetCaseValueTypeExpression(union, c);
-                        return (cvType != null && c.HasAccessor)
-                            ? $"Func<{cvType}, TResult> when{c.Name}"
-                            : $"Func<TResult> when{c.Name}";
-                    }).ToList();
+                    var parameters = union.Cases
+                        .Select(c => $"{GetSelectorTypeName(union, c, "TResult")} when{c.Name}")
+                        .ToList();
 
                     if (!hasDefault)
                         parameters.Add("Func<TResult>? undefined = null");
@@ -2071,13 +2189,19 @@ namespace UnionTypes.Generators
                         {
                             foreach (var unionCase in union.Cases)
                             {
-                                if (unionCase.HasAccessor && GetCaseValueTypeExpression(union, unionCase) != null)
+                                switch (unionCase.AccessorKind)
                                 {
-                                    WriteLine($"case {GetTagValueExpression(union, unionCase)}: return when{unionCase.Name}({GetCaseValueAccessExpression(union, unionCase)});");
-                                }
-                                else
-                                {
-                                    WriteLine($"case {GetTagValueExpression(union, unionCase)}: return when{unionCase.Name}();");
+                                    case CaseAccessorKind.Property:
+                                    case CaseAccessorKind.Method:
+                                        if (GetCaseValueTypeExpression(union, unionCase) != null)
+                                        {
+                                            WriteLine($"case {GetTagValueExpression(union, unionCase)}: return when{unionCase.Name}({GetCaseValueAccessExpression(union, unionCase)});");
+                                        }
+                                        else
+                                        {
+                                            WriteLine($"case {GetTagValueExpression(union, unionCase)}: return when{unionCase.Name}();");
+                                        }
+                                        break;
                                 }
                             }
 
@@ -2095,7 +2219,58 @@ namespace UnionTypes.Generators
             });
         }
 
-#endregion
+        private static bool NeedsCustomDelegates(UnionLayout union, UnionCaseLayout unionCase)
+        {
+            if (unionCase.Type != null)
+                return !CanBeGenericArgument(unionCase.Type);
+            return unionCase.FactoryParameters.Any(p => !CanBeGenericArgument(p.Type));
+        }
+
+        private static string GetActionTypeName(UnionLayout union, UnionCaseLayout unionCase)
+        {
+            if (NeedsCustomDelegates(union, unionCase))
+            {
+                return $"ActionOf{unionCase.Name}";
+            }
+            var type = GetCaseValueTypeExpression(union, unionCase);
+            if (type != null)
+            {
+                return $"Action<{type}>";
+            }
+            else
+            {
+                return "Action";
+            }
+        }
+
+        private static string GetCustomActionTypeDeclaration(UnionLayout union, UnionCaseLayout unionCase, string accessibility)
+        {
+            return $"{accessibility} delegate void ActionOf{unionCase.Name}({GetCaseValueTypeExpression(union, unionCase)} value);";
+        }
+
+        private static string GetSelectorTypeName(UnionLayout union, UnionCaseLayout unionCase, string resultType)
+        {
+            if (NeedsCustomDelegates(union, unionCase))
+            {
+                return $"FuncOf{unionCase.Name}<{resultType}>";
+            }
+            var type = GetCaseValueTypeExpression(union, unionCase);
+            if (type != null)
+            {
+                return $"Func<{type}, {resultType}>";
+            }
+            else
+            {
+                return $"Func<{resultType}>";
+            }
+        }
+
+        private static string GetCustomSelectorDeclaration(UnionLayout union, UnionCaseLayout unionCase, string accessibility)
+        {
+            return $"{accessibility} delegate TResult FuncOf{unionCase.Name}<TResult>({GetCaseValueTypeExpression(union, unionCase)} value);";
+        }
+
+        #endregion
 
         #region helpers
 
@@ -2201,13 +2376,23 @@ namespace UnionTypes.Generators
             }
             else if (unionCase.FactoryParameters.Count > 1)
             {
-                // treat as tuple of parameter values
-                return GetTupleConstructionExpression(union, unionCase.FactoryParameters);
+                // expected to be able to convert to tuple
+                if (unionCase.AccessorKind == CaseAccessorKind.Property
+                    || unionCase.AccessorKind == CaseAccessorKind.Method)
+                {
+                    // treat as tuple of parameter values
+                    return GetCaseTupleConstructionExpression(union, unionCase);
+                }
+                else
+                {
+                    // cannot construct this value..
+                    return "";
+                }
             }
             else if (unionCase.FactoryParameters.Count == 0
                 && unionCase.Type != null && unionCase.Type.SingletonAccessor != null)
             {
-                return $"global::{unionCase.Type.Name}.{unionCase.Type.SingletonAccessor}";
+                return $"{unionCase.Type.Name}.{unionCase.Type.SingletonAccessor}";
             }
             else
             {
@@ -2267,14 +2452,57 @@ namespace UnionTypes.Generators
             return $"new {value.Type.Name}(" + string.Join(", ", members) + ")";
         }
 
-        private static string GetTupleTypeExpression(IReadOnlyList<CaseValueLayout> factoryParameters)
+        /// <summary>
+        /// True if the type union can use generic type parameters to refer to case values.
+        /// </summary>
+        private static bool CanUseGenericTypeParameters(UnionLayout union)
         {
-            return "(" + string.Join(", ", factoryParameters.Select(cv => $"{cv.Type.Name} {cv.Name}")) + ")";
+            return union.Kind == UnionKind.TypeUnion 
+                && union.Cases.All(c => c.Type != null && CanBeGenericArgument(c.Type));
         }
 
-        private static string GetTupleConstructionExpression(UnionLayout union, IReadOnlyList<CaseValueLayout> factoryParameters)
+        /// <summary>
+        /// True if the type can be used as a generic type argument.
+        /// </summary>
+        private static bool CanBeGenericArgument(UnionValueType type)
         {
-            var values = factoryParameters.Select(p => GetCaseValueConstructionExpression(union, p));
+            return type.Kind != TypeKind.RefStruct;
+        }
+
+        private static bool CanUseTuple(IReadOnlyList<CaseValueLayout> values)
+        {
+            // must have at least two values, and those values can be represented with generic type arguments.
+            return values.Count > 1 && values.All(v => CanBeGenericArgument(v.Type));
+        }
+
+        private static string GetCaseTupleTypeExpression(UnionCaseLayout unionCase)
+        {
+            if (CanUseTuple(unionCase.FactoryParameters))
+            {
+                return "(" + string.Join(", ", unionCase.FactoryParameters.Select(cv => $"{cv.Type.Name} {cv.Name}")) + ")";
+            }
+            else
+            {
+                return $"{unionCase.Name}Tuple";
+            }
+        }
+
+        private static string GetCaseTupleConstructionExpression(UnionLayout union, UnionCaseLayout unionCase)
+        {
+            if (CanUseTuple(unionCase.FactoryParameters))
+            {
+                return GetTupleConstructionExpression(union, unionCase.FactoryParameters);
+            }
+            else
+            {
+                var values = unionCase.FactoryParameters.Select(p => GetCaseValueConstructionExpression(union, p));
+                return $"new {unionCase.Name}Tuple({string.Join(", ", values)})";
+            }
+        }
+
+        private static string GetTupleConstructionExpression(UnionLayout union, IReadOnlyList<CaseValueLayout> caseValues)
+        {
+            var values = caseValues.Select(p => GetCaseValueConstructionExpression(union, p));
             return "(" + string.Join(", ", values) + ")";
         }
 
@@ -2283,13 +2511,14 @@ namespace UnionTypes.Generators
         /// </summary>
         private static string GetCaseValueAccessExpression(UnionLayout union, UnionCaseLayout unionCase, string prefix = "this")
         {
-            if (unionCase.HasAccessor)
+            switch (unionCase.AccessorKind)
             {
-                return $"{prefix}.{GetAccessorName(union, unionCase)}";
-            }
-            else
-            {
-                return GetCaseValueConstructionExpression(union, unionCase);
+                case CaseAccessorKind.Property:
+                    return $"{prefix}.{GetAccessorName(union, unionCase)}";
+                case CaseAccessorKind.Method:
+                    return $"{prefix}.{GetAccessorName(union, unionCase)}()";
+                default:
+                    return GetCaseValueConstructionExpression(union, unionCase);
             }
         }
 
@@ -2304,7 +2533,7 @@ namespace UnionTypes.Generators
             }
             else if (unionCase.FactoryParameters.Count > 1)
             {
-                return GetTupleTypeExpression(unionCase.FactoryParameters);
+                return GetCaseTupleTypeExpression(unionCase);
             }
             else if (unionCase.FactoryParameters.Count == 0
                 && unionCase.Type != null && unionCase.Type.IsSingleton)
@@ -2320,22 +2549,22 @@ namespace UnionTypes.Generators
 
         private static string GetFactoryCallExpression(UnionLayout union, UnionCaseLayout unionCase, string args)
         {
-            if (unionCase.FactoryParameters.Count == 0
-                && unionCase.Type != null 
-                && unionCase.Type.IsSingleton)
+            switch (unionCase.FactoryKind)
             {
-                if (unionCase.Case.FactoryIsProperty)
-                {
+                case CaseFactoryKind.Property:
                     return $"{union.TypeName}.{GetFactoryName(union, unionCase)}";
-                }
-                else
-                {
-                    return $"{union.TypeName}.{GetFactoryName(union, unionCase)}()";
-                }
-            }
-            else
-            {
-                return $"{union.TypeName}.{GetFactoryName(union, unionCase)}({args})";
+
+                case CaseFactoryKind.Method:
+                    if (unionCase.FactoryParameters.Count > 0)
+                    {
+                        return $"{union.TypeName}.{GetFactoryName(union, unionCase)}({args})";
+                    }
+                    else
+                    {
+                        return $"{union.TypeName}.{GetFactoryName(union, unionCase)}()";
+                    }
+                default:
+                    return "default";
             }
         }
 
@@ -2378,7 +2607,7 @@ namespace UnionTypes.Generators
                 return unionCase.Name;
 
             if (union.Kind == UnionKind.TypeUnion 
-                && unionCase.Case.FactoryIsProperty 
+                && unionCase.Case.FactoryKind == CaseFactoryKind.Property 
                 && unionCase.Type != null
                 && unionCase.Type.IsSingleton)
                 return unionCase.Name;
@@ -2391,23 +2620,31 @@ namespace UnionTypes.Generators
             if (unionCase.Case.AccessorName != null)
                 return unionCase.Case.AccessorName;
 
-            switch (unionCase.FactoryParameters.Count)
+            switch (unionCase.AccessorKind)
             {
-                case 0:
-                    if (unionCase.Type != null && unionCase.Type.IsSingleton)
+                case CaseAccessorKind.Property:
+                case CaseAccessorKind.Method:
+                    if (unionCase.FactoryParameters.Count == 0)
                     {
-                        return unionCase.Name + "Value";
+                        if (unionCase.Type != null && unionCase.Type.IsSingleton)
+                        {
+                            return unionCase.Name + "Value";
+                        }
+                        else
+                        {
+                            return "Is" + unionCase.Name;
+                        }
                     }
-                    else
+                    else if (unionCase.FactoryParameters.Count > 1)
                     {
-                        return "Is" + unionCase.Name;
+                        return unionCase.Name + "Values";
                     }
-                case 1:
-                    return unionCase.Name + "Value";
-                default:
-                    return unionCase.Name + "Values";
+                    break;
             }
+
+            return unionCase.Name + "Value";
         }
+
 
         private static IEnumerable<CaseValueLayout> FindAll(IEnumerable<CaseValueLayout> values, Func<CaseValueLayout, bool> predicate)
         {

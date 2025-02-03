@@ -101,25 +101,19 @@ namespace UnionTypes.Toolkit
         public string? FactoryName { get; set; } = null;
 
         /// <summary>
-        /// True if the factory used to construct a union of this case is a property instead of a method.
+        /// The kind of factory to generate when the case attribute is not placed on the factory.
         /// </summary>
-        public bool FactoryIsProperty { get; set; }
+        public string? FactoryKind { get; set; } = null;
 
         /// <summary>
-        /// True if the factory should be generated as internal, not public.
-        /// </summary>
-        public bool FactoryIsInternal { get; set; }
-
-        /// <summary>
-        /// The name of the member to access the value of this case.
-        /// If not specified it is [AccessorPrefix][CaseName].
+        /// The name of the member to access the value(s) of this case.
         /// </summary>
         public string? AccessorName { get; set; } = null;
 
         /// <summary>
-        /// False if the accessor of a case without data should not exist.
+        /// The kind of accessor to generate for the case.
         /// </summary>
-        public bool HasAccessor { get; set; } = true;
+        public string? AccessorKind { get; set; } = null;
 
         /// <summary>
         /// The type of the type union case when it cannot be infered.
@@ -129,5 +123,46 @@ namespace UnionTypes.Toolkit
         public CaseAttribute()
         {
         }
+    }
+
+    public static class FactoryKind
+    {
+        /// <summary>
+        /// The factory generated is a method taking zero or more arguments corresponding the the case values.
+        /// </summary>
+        public const string Method = nameof(Method);
+
+        /// <summary>
+        /// No factory is generated for this case.
+        /// This is only available for cases that have no data and correspond to the default state.
+        /// </summary>
+        public const string None = nameof(None);
+
+        /// <summary>
+        /// The factory generated is a property.
+        /// This is only available for cases with no data or a single value of a singleton type.
+        /// </summary>
+        public const string Property = nameof(Property);
+    }
+
+    public static class AccessorKind
+    {
+        /// <summary>
+        /// The accessor generated is a method returning a single value.
+        /// Cases with multiple values return a tuple.
+        /// </summary>
+        public const string Method = nameof(Method);
+
+        /// <summary>
+        /// No accessor is generated for this case. 
+        /// This is possible for cases without data.
+        /// </summary>
+        public const string None = nameof(None);
+
+        /// <summary>
+        /// The accessor generated is a property.
+        /// Cases with multiple values return a tuple.
+        /// </summary>
+        public const string Property = nameof(Property);
     }
 }
