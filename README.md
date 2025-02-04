@@ -69,11 +69,11 @@ Typically, languages that have this type also have monadic operations that ferry
 without requiring you to explicitly unpack them to use the success value, similar to how you experience exceptions working in C#.
 C# does not have a feature like this, but you can simulate a bit of it with some of the methods provided.
 
-- The `Variant` type is type union that is not actually constrained.
+- The `Variant` type is a type union that is not actually constrained.
 It can hold a value of any type, but will not box most primitives and small structs.
 It does this by partially being a type union with a fixed number of known cases, 
 and catch-all case that tries to be smart at runtime but may still end up boxing.
-If is a good choice when you would have otherwise chosen to use `object`, 
+It is a good choice when you would have otherwise chosen to use `object`, 
 but want to avoid boxing in common scenarios.
 
 If none of none of these types seem suitable for your needs,
@@ -115,7 +115,7 @@ The `OneOf` type is a series of overloaded generic types.
 Each `OneOf` type is a closed type union, only allowing values of types specified in the type arguments.
 Use them to declare type unions of any class, struct, interface or array types.
 
-- Not supported: refs, ref structs and pointers. That means no `Span<T>.`
+- Not supported: refs, ref structs and pointers. That means no `Span<T>.` If you require types like `Span<T>` use a custom union. The generator supports generating ref struct unions.
 
 - When instances of value types (structs in C#) are placed in the union, they are stored by boxing the value, which may cause GC pressure.
 
@@ -416,8 +416,8 @@ You can determine if the current value is `null`, by checking the `IsNull` prope
 
 Custom union types can be generated for you using a C# source generator, given a partial type declartion.
 
-The source generator generates unions with an efficient storage layout.
-It does this by analyzing the types involved and generating a layout that avoids boxing, and maximizes reuse of the storage space.
+The source generator creates union types with efficient storage layouts.
+It does this by analyzing the data types involved and generating a layout that avoids boxing and minimizes the space needed to store the data from all the cases.
 It cannot be as optimal as the layout of C++ unions, since the runtime does not allow overlapping the same memory with 
 reference and value types, but it does what it can to overlap and reuse fields.
 
@@ -450,8 +450,8 @@ but it requires you to determine that it even makes sense to do so.
 - Use a type union when you want to constrain a variable to a set of types that are not already a class hierarchy,
 and those types are useful in your application beyond just being cases of the union.
 
-- Use a tag union when you when the cases and variables don't make sense in your application outside of the union. 
-  Or you prefer the simplicity of the union without the extra API.
+- Use a tag union when you when the cases and variables don't make sense in your application outside of the union,
+  or you prefer the simplicity of the union without the additional generated methods and interface implementations.
 
 
 ### Declaring a Type Union
@@ -508,6 +508,14 @@ and skip referring to the kind and value properties, but potentially cause deleg
         cat => Console.WriteLine($"Cat's name is {cat.Name}"),
         dog => Console.WriteLine($"Dog's name is {dog.Name}"),
         bird => Console.WriteLine($"Bird's name is {bird.Name}")
+    );
+```
+
+```CSharp
+    var saying = pet.Select(
+        cat => "meow",
+        dog => "woof",
+        bird => "chirp"
     );
 ```
 
@@ -575,7 +583,7 @@ You can customize the generated union by setting properties in the `TypeUnion` o
 | GenerateEquality | bool | Enables generation of `IEquatable<T>` implementation. | true |
 | GenerateMatch | bool | Enables generation of `Select` and `Match` methods. | true |
 | GenerateToString | bool | Enables generation of `ToString` override. | true |
-| Overlap Structs | bool | Enables overlapping of values that can share the same memory across cases. This incluse primitive structs and structs containing only other overlappable fields. | true |
+| OverlapStructs | bool | Enables overlapping of values that can share the same memory across cases. This incluse primitive structs and structs containing only other overlappable fields. | true |
 | OverlapForeignStructs | bool | Enables overlapping of structs defined outside the compilation unit. This is disabled by default because the metadata for foreign structs may be incomplete. Enable this only if you trust the types involved to truly be overlappable. | false |
 | ShareSameTypeFields | bool | Enables reuse of fields with the same type across cases. | true |
 | ShareReferenceFields | bool | Enables reuse of reference type fields regardless of type across cases. | true |
@@ -592,10 +600,9 @@ You can customize the generated union by setting properties in the `TypeUnion` o
     }
 ```
 
-#### Customize Each Case
+#### You can also customize each case:
 
-In order to customize settings for individual you can specify a `Case` attribute on the factory method.
-If the factory is not declare you can also place the `Case` attributes on the union itself.
+In order to customize settings for individual case you can specify a `Case` attribute on the factory method.
 
 | Property | Type | Description | Default |
 |:---------|:-----|:------------|:--------|
@@ -611,16 +618,85 @@ If the factory is not declare you can also place the `Case` attributes on the un
     [TypeUnion]
     public partial struct Pet
     {
-        [Case(Name="Cat", TagValue=1, AccessorName="CatThings")]
+        [Case(Name="C", TagValue=1, AccessorName="CatThings")]
         public static partial Pet Create(AbcCat cat);
 
-        [Case(Name="Dog", TagValue=2, AccessorName="DogThings")]
+        [Case(Name="D", TagValue=2, AccessorName="DogThings")]
         public static partial Pet Create(XyzDog dog);
 
-        [Case(Name="Bird", TagValue=3, AccessorName="BirdThings")]
+        [Case(Name="B", TagValue=3, AccessorName="BirdThings")]
         public static partial Pet Create(AcmeBird bird);
     }
 ```
+
+#### Case Names
+
+The case name is used in the tag enum class and as part of the inferred accessor name.
+
+The generator will try its best to identify the most appropriate name for each case from the factory declaration.
+To infer the case name from the factory, the generator follows these steps:
+
+For tag unions:
+- If all the factory names are different, the name for each case is the factory name. If all factory names have a common prefix, the prefix is removed.
+- Otherwise, the case name is "Case" + n.
+
+For type unions:
+- If all the factory names are different, the name for each case is the factory name. If all factory names have a common prefix, the prefix is removed.
+- If all parameter names are different, then each case name is inferred from the parameter name.
+- If all the case type names are different, then the case name is the name of the case type.
+- Otherwise, then the case name is "Type" + n.
+
+In the following example, the generator infers the case names Cat, Dog, Bird from the factory names.
+The common prefix of 'Create' is removed.
+```CSharp
+    [TagUnion]
+    public partial struct Pet
+    {
+        public static partial Pet CreateCat(string name);
+        public static partial Pet CreateDog(string name);
+        public static partial Pet CreateBird(string name);
+    }
+```
+
+In this example, the generator infers the case names from the type names
+because the factory names and the parameter names are not all different from each other,
+but the type names are.
+```CSharp
+    [TypeUnion]
+    public partial struct Pet
+    {
+        public static partial Pet Create(Cat value);
+        public static partial Pet Create(Dog value);
+        public static partial Pet Create(Bird value);
+    }
+```
+
+In this example, the generator infers the case names as Cats, Dogs, Birds from the parameter names because they are all different,
+but not all of the types have good unique names.
+```CSharp
+    [TypeUnion]
+    public partial struct Pets
+    {
+        public static partial Pets Create(IEnumerable<Cat> cats);
+        public static partial Pets Create(IEnumerable<Dog> dogs);
+        public static partial Pets Create(IEnumerable<Bird> birds);
+    }
+```
+
+In the final example, the generator gives up and infers the names Type1, Type2, Type3, because neither the factory names, parameter names or type names are all different.
+```CSharp
+    [TypeUnion]
+    public partial struct Pets
+    {
+        public static partial Pets Create(IEnumerable<Cat> value);
+        public static partial Pets Create(IEnumerable<Dog> value);
+        public static partial Pets Create(IEnumerable<Bird> value);
+    }
+```
+
+
+
+
 ### Declaring a Case Factory as a Property
 
 If a tag case has no case values you can omit declaring the factory property and instead place a `Case` attribute for it on the union declaration.
