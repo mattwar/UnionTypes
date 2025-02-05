@@ -439,19 +439,25 @@ Given the same cases and the same fundemental data, the two types will end up st
 The difference lies in the methods and operators and interfaces provided.
 
 Since a type union is constrained to a set of unique types, it can provide more features than a tag union.
-For a type union, the type is its own case. You can have two different type unions with different sets of types, include the same type,
-and it can easily make sense to have code that can automatically move the values between them on your behalf.
+The types included in the union are its cases, meaning multiple type unions can have some of the exact same cases
+and it is possible to have common generic interfaces to interact with the contents of any type union.
 
-This is not possible with a tag union, since multiple cases may contain values of the same type.
-Having the value alone is not enough information to determine the case of a tag union.
-You can certainly extract the value (or values) and use them in a different union, 
-but it requires you to determine that it even makes sense to do so.
+This is not possible with a tag union. Since multiple cases, even with ones that only contain a single value, may contain values of the same type,
+knowing the value's type is not enough information to determine which case the value represents.
+Likewise, even having cases with the same tag names and the same kinds of values on two different unions is not enough
+to know that the two union's cases are meant to represent the same thing. It may just be coincidence.
 
-- Use a type union when you want to constrain a variable to a set of types that are not already a class hierarchy,
+Specifically, a type union has these additional features:
+- Implicit coercion operators you can use to assign a value directly to the union without explicitly calling a factory method.
+- An implementation of the `ITypeUnion` interface enabling abstraction over your union and coercion between unions with similar cases.
+
+So, in short, if you want to know how to choose between them:
+
+- Use a type union when you want to constrain a variable to a set of types that are not already a class hierarchy containing just those types,
 and those types are useful in your application beyond just being cases of the union.
 
-- Use a tag union when you when the cases and variables don't make sense in your application outside of the union,
-  or you prefer the simplicity of the union without the additional generated methods and interface implementations.
+- Use a tag union when the cases don't make sense in your application outside of the union,
+  or you prefer the simplicity of the union without the additional operators, methods and interfaces.
 
 
 ### Declaring a Type Union
