@@ -48,7 +48,8 @@ The types provided in the library are all presented as type unions to give you t
 They each implement the `ITypeUnion` interface that enables conditionally constructing them, accessing their values, and converting them 
 to other type unions. Tag unions share no commonality that would make this possible.
 
-The types are provided because they are the ones that the community typically ask for when discussing discriminated unions.
+These types are provided because they are the ones the community typically asked for when discussing discriminated unions 
+with the C# Language Design Team (LDM), and so got modelled for discussion.
 
 - The `OneOf` type is a family of generic struct types that can hold a single value constrained to the set of types declared in its type arguments.
 You may already have access to a type like this from another source or by a different name.
@@ -61,26 +62,26 @@ The benefit of the Option type is that you won't accidentally deference the null
 Languages with an Option (or Maybe) type typically have monadic operations that ferry the absence of a value back through your code,
 automatically skipping that parts that would depend on the value without requiring you to constantly check.
 This is similar to how the null conditional operator works in C#, but at a grander scale.
-You won't be able to use it that way in C#, at least not today, but you can simulate a bit of it via some of the provided methods.
+You won't be able to use it that way in C# but you can simulate a bit of it via some of the provided methods.
 
 - The `Result` type is a type that is often built into languages to represent the result of an operation that may fail.
 It represents a value that you return from a function that is either in the success state with its expected value or a failure state with an error.
 Typically, languages that have this type also have monadic operations that ferry the failure through your code
 without requiring you to explicitly unpack them to use the success value, similar to how you experience exceptions working in C#.
-C# does not have a feature like this, but you can simulate a bit of it with some of the methods provided.
+Its not possible to use it that way in C# but you can simulate a bit of it via some of the provided methods.
 
 - The `Variant` type is a type union that is not actually constrained.
 It can hold a value of any type, but will not box most primitives and small structs.
 It does this by partially being a type union with a fixed number of known cases, 
-and catch-all case that tries to be smart at runtime but may still end up boxing.
+and a catch-all case that also tries avoid boxing at runtime for types that can fit in the provided space.
 It is a good choice when you would have otherwise chosen to use `object`, 
 but want to avoid boxing in common scenarios.
 
-If none of none of these types seem suitable for your needs,
-or you'd rather have your own type with its own name than repeatedly type out all the case types
-every time you refer to the union type, you can create a custom union type.
+If none of these types seem suitable for your needs,
+or you'd rather have your own type with its own name than repeatedly type out all the case types as generic arguements
+every time you refer to it, you can create a custom union type.
 To do this, you can either write the type from scratch following the same patterns
-or you can use the source generator to create them for you.
+and implementing the same interfaces or you can use the source generator to create them for you.
 
 ---
 
@@ -842,8 +843,8 @@ The ability to customize these may be added in the future.
 
 ### Unions with Spans
 
-Custom unions may refer to values of type `Span<T>` or `ReadOnlySpan<T>` or any any ref struct type,
-as long as the declared type is itself a ref struct type.
+Custom unions may refer to values of type `Span<T>` or `ReadOnlySpan<T>` or any ref struct type,
+as long as the declared union is itself a ref struct type.
 
 ```CSharp
     [TypeUnion]
