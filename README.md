@@ -49,7 +49,7 @@ They each implement the `ITypeUnion` interface that enables conditionally constr
 to other type unions. Tag unions share no commonality that would make this possible.
 
 These types are provided because they are the ones the community typically asked for when discussing discriminated unions 
-with the C# Language Design Team (LDM), and so got modelled for discussion.
+with the C# Language Design Team, and so got modelled for discussion.
 
 - The `OneOf` type is a family of generic struct types that can hold a single value constrained to the set of types declared in its type arguments.
 You may already have access to a type like this from another source or by a different name.
